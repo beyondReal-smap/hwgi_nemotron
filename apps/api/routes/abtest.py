@@ -100,7 +100,10 @@ async def _analyze_one_variant(
 
     t0 = perf_counter()
     top_opinions: list[PersonaOpinion] = await generate_persona_opinions(
-        opinion_subset, sp, provider=llm_provider  # type: ignore[arg-type]
+        opinion_subset,
+        sp,
+        provider=llm_provider,  # type: ignore[arg-type]
+        input_mode=input_mode,
     )
     timings[f"opinions_{timing_suffix}"] = int((perf_counter() - t0) * 1000)
 

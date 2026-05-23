@@ -34,6 +34,41 @@ PERSONA_OPINION_PROMPT = (PROMPTS_DIR / "persona_opinion.md").read_text(encoding
 
 
 # ============================================================
+# 입력 모드별 톤 가이드 — 페르소나가 어떤 종류의 안내를 받았는지 명시
+# ============================================================
+
+_MODE_GUIDE_TERMS = ""  # 기본: 상품 안내 톤 그대로 (가이드 없음)
+
+_MODE_GUIDE_MARKETING = """## ⚠️ 입력 형태 안내 — 마케팅 카피
+
+받은 안내는 **광고 카피·헤드라인 한두 줄**입니다. 보장 한도·보험료·특약 같은 상품 스펙은 카피에 없습니다.
+
+따라서 본인의 의견은 **"이 카피가 나에게 어떻게 들리는가"**에 집중하세요:
+- 카피의 메시지가 본인 생활·정서에 **공감되는가**, 아니면 **추상적·뜬구름 같은가**
+- 본인 같은 사람을 **타겟으로 한 카피로 느껴지는가**, 아니면 다른 사람용인가
+- 카피를 본 후 **이 상품을 알아볼 의향이 생기는가**
+
+카피에 없는 보장 항목·보험료·만기 같은 정보를 **만들어내지 마세요**. 그건 본인이 아직 모르는 정보입니다."""
+
+_MODE_GUIDE_CONCEPT = """## ⚠️ 입력 형태 안내 — 신상품 컨셉 요약
+
+받은 안내는 **신상품 컨셉·핵심 보장 요약**입니다. 상세 약관·특약 한도·면책은 아직 공개되지 않았습니다.
+
+따라서 본인의 의견은 **"이 컨셉이 매력적인가"**에 집중하세요:
+- 요약된 보장이 본인 상황에 **충분한가, 부족한가**
+- 컨셉이 본인이 찾던 종류의 상품인가, 우선순위가 다른가
+- 더 알고 싶은 점(상세 약관·보험료 등)이 있다면 무엇인가
+
+요약에 없는 상세 스펙을 **만들지 마세요**."""
+
+MODE_GUIDES = {
+    "terms": _MODE_GUIDE_TERMS,
+    "marketing": _MODE_GUIDE_MARKETING,
+    "concept": _MODE_GUIDE_CONCEPT,
+}
+
+
+# ============================================================
 # tool_use 스키마 — PersonaOpinion 메타 필드와 1:1
 # ============================================================
 
@@ -116,9 +151,15 @@ def _match_context(score: float) -> tuple[str, str]:
     )
 
 
-def _render_prompt(p: PersonaHit, summary: str, key_benefits: list[str]) -> str:
+def _render_prompt(
+    p: PersonaHit,
+    summary: str,
+    key_benefits: list[str],
+    input_mode: str = "terms",
+) -> str:
     benefits_str = ", ".join(key_benefits) if key_benefits else "(별도 명시 없음)"
     band, hint = _match_context(p.score)
+    mode_guide = MODE_GUIDES.get(input_mode, "")
     return (
         PERSONA_OPINION_PROMPT
         .replace("{{persona_text}}", p.persona or "(프로필 텍스트 없음)")
@@ -128,6 +169,7 @@ def _render_prompt(p: PersonaHit, summary: str, key_benefits: list[str]) -> str:
         .replace("{{match_band}}", band)
         .replace("{{match_score}}", f"{p.score:.0f}")
         .replace("{{match_hint}}", hint)
+        .replace("{{mode_guide}}", mode_guide)
     )
 
 
@@ -175,8 +217,9 @@ async def _opinion_one(
     summary: str,
     key_benefits: list[str],
     provider: LLMProvider,
+    input_mode: str = "terms",
 ) -> PersonaOpinion:
-    prompt = _render_prompt(p, summary, key_benefits)
+    prompt = _render_prompt(p, summary, key_benefits, input_mode)
     result = await asyncio.to_thread(_call_llm_sync, prompt, provider)
     return PersonaOpinion(
         persona_uuid=p.uuid,
@@ -195,8 +238,14 @@ async def generate_persona_opinions(
     personas: list[PersonaHit],
     sp: SellingPoints,
     provider: LLMProvider = DEFAULT_PROVIDER,
+    input_mode: str = "terms",
 ) -> list[PersonaOpinion]:
     """페르소나 N명에 대해 병렬 의견 생성.
+
+    input_mode("terms" | "marketing" | "concept")가 의견 톤을 분기:
+    - terms: 가입 의향 평가 (기본)
+    - marketing: 카피 인상 평가 ("이 카피가 나에게 어떻게 들리는가")
+    - concept: 컨셉 매력도 평가
 
     실패한 페르소나는 결과 리스트에서 누락된다 (UI에서 uuid join 시 자연스럽게 비어 보임).
     return 리스트는 입력 personas 순서를 보존하되, 실패분은 제외.
@@ -204,7 +253,10 @@ async def generate_persona_opinions(
     if not personas:
         return []
 
-    tasks = [_opinion_one(p, sp.summary, sp.key_benefits, provider) for p in personas]
+    tasks = [
+        _opinion_one(p, sp.summary, sp.key_benefits, provider, input_mode)
+        for p in personas
+    ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
     opinions: list[PersonaOpinion] = []
