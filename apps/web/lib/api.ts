@@ -1141,6 +1141,153 @@ export function getSurveyReportCsvUrl(id: string): string {
   return `${BASE_URL}/api/surveys/${encodeURIComponent(id)}/report.csv`;
 }
 
+// ============================================================
+// A/B 테스트 — 두 안 비교 분석
+// ============================================================
+
+export type ABTestInputMode = "terms" | "marketing" | "concept";
+
+/** 도전안(기준이 아닌 쪽)의 성격. internal=당사 다른 상품, external=타사 상품. */
+export type ABChallengerKind = "internal" | "external";
+
+export type ABTestVariantInput = {
+  label: string;
+  text: string;
+};
+
+export type ABTestRequest = {
+  company_context: string;
+  input_mode: ABTestInputMode;
+  variant_a: ABTestVariantInput;
+  variant_b: ABTestVariantInput;
+  /** 당사 안(기준)으로 지정할 쪽. 다른 쪽은 비교 검토 대상. */
+  baseline_variant: "A" | "B";
+  /** 도전안의 성격 (internal=당사 다른 상품 / external=타사 상품). */
+  challenger_kind: ABChallengerKind;
+  llm_provider: LLMProvider;
+  top_k?: number;
+};
+
+export type ABVariantResult = {
+  label: string;
+  selling_points: SellingPoints;
+  top_personas: PersonaHit[];
+  province_stats: RegionStat[];
+  population_stats: PopulationStats;
+  top_opinions: PersonaOpinion[];
+};
+
+export type ComparisonRow = {
+  key: string;
+  label: string;
+  a_value: string;
+  b_value: string;
+  delta: string;
+  winner: "A" | "B" | "tie";
+};
+
+export type ABComparison = {
+  summary_table: ComparisonRow[];
+  category_diff: Record<string, { a: number; b: number; delta: number }>;
+};
+
+export type ABTestResponse = {
+  abtest_id: string;
+  input_mode: ABTestInputMode;
+  company_context: string;
+  baseline_variant: "A" | "B";
+  challenger_kind: ABChallengerKind;
+  variant_a: ABVariantResult;
+  variant_b: ABVariantResult;
+  comparison: ABComparison;
+  company_insights_md: string;
+  fp_strategy_md: string;
+  recommended_variant: "A" | "B" | "split";
+  elapsed_ms: Record<string, number>;
+};
+
+export type ABTestSummary = {
+  id: string;
+  created_at: string;
+  input_mode: ABTestInputMode;
+  baseline_variant: "A" | "B";
+  challenger_kind: ABChallengerKind;
+  label_a: string;
+  label_b: string;
+  baseline_label: string;
+  challenger_label: string;
+  recommended_variant: "A" | "B" | "split";
+  recommended_label: string;
+  total_ms: number;
+  llm_provider: LLMProvider;
+};
+
+export type ABTestsListResponse = {
+  total: number;
+  items: ABTestSummary[];
+};
+
+export async function listABTests(
+  limit = 50,
+  offset = 0,
+): Promise<ABTestsListResponse> {
+  const res = await fetch(
+    `${BASE_URL}/api/abtests?limit=${limit}&offset=${offset}`,
+  );
+  if (!res.ok) throw new Error(`A/B 이력 조회 실패: HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function getABTest(id: string): Promise<ABTestResponse> {
+  const res = await fetch(`${BASE_URL}/api/abtests/${encodeURIComponent(id)}`);
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = `${detail} — ${body.detail}`;
+    } catch {
+      // not json
+    }
+    throw new Error(`A/B 상세 조회 실패: ${detail}`);
+  }
+  return res.json();
+}
+
+export async function deleteABTest(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/abtests/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = `${detail} — ${body.detail}`;
+    } catch {
+      // not json
+    }
+    throw new Error(`A/B 이력 삭제 실패: ${detail}`);
+  }
+}
+
+export async function runABTest(req: ABTestRequest): Promise<ABTestResponse> {
+  const res = await fetch(`${BASE_URL}/api/abtest`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = `${detail} — ${body.detail}`;
+    } catch {
+      // JSON 아닐 수 있음
+    }
+    throw new Error(`A/B 분석 실패: ${detail}`);
+  }
+  return res.json();
+}
+
 export async function extractTextFromFile(file: File): Promise<ExtractResponse> {
   const form = new FormData();
   form.append("file", file);

@@ -24,6 +24,7 @@ export function SiteHeader() {
   const isPersonas = pathname?.startsWith("/personas");
   const isSurveys = pathname?.startsWith("/surveys"); // 통합 설문 탭 (마법사 + 이력)
   const isOverview = pathname?.startsWith("/overview");
+  const isABTest = pathname?.startsWith("/abtest");
 
   const scrolled = useScrolled(8);
 
@@ -39,7 +40,7 @@ export function SiteHeader() {
         {/* 브랜드 — 모바일에서는 마크만 표시(좁은 화면 폭 절약) */}
         <Link
           href="/"
-          className="flex items-center gap-2 sm:gap-3 group rounded-[9.6px] focus:outline-none focus-visible:ring-2 focus-visible:ring-azure shrink-0"
+          className="flex items-center gap-1 sm:gap-1.5 group rounded-[9.6px] focus:outline-none focus-visible:ring-2 focus-visible:ring-azure shrink-0"
           aria-label="PersonaFit 홈으로 이동"
         >
           <BrandMark />
@@ -69,6 +70,12 @@ export function SiteHeader() {
             active={!!isHome}
             icon={<IconAnalyze />}
             label="분석"
+          />
+          <NavLink
+            href="/abtest"
+            active={!!isABTest}
+            icon={<IconABTest />}
+            label="A/B 테스트"
           />
           <NavLink
             href="/surveys"
@@ -217,6 +224,25 @@ function IconSurvey() {
     >
       <path d="M8 4h9a2 2 0 0 1 2 2v13l-3.5-2-3.5 2-3.5-2L5 21V6a2 2 0 0 1 2-2z" />
       <path d="M9 9h6M9 13h4" />
+    </svg>
+  );
+}
+
+function IconABTest() {
+  // 두 안 비교 — 좌우 분할 막대 (A/B)
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={ICON_CLASS}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="8" height="14" rx="1.5" />
+      <rect x="13" y="5" width="8" height="14" rx="1.5" />
+      <path d="M12 3v18" strokeDasharray="2 2" />
     </svg>
   );
 }

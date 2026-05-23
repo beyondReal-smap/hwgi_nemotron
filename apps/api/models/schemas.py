@@ -295,3 +295,145 @@ class SimulateResponse(BaseModel):
     elapsed_ms: dict[str, int] = Field(
         ..., description="단계별 소요 ms: simulate, persist, total"
     )
+
+
+# ============================================================
+# A/B 테스트 — 두 안 비교 (당사 정보 기반 장단점 + FP 전략)
+# ============================================================
+
+ABTestInputMode = Literal["terms", "marketing", "concept"]
+"""A/B 입력 형태."""
+
+ABChallengerKind = Literal["internal", "external"]
+"""도전안(기준이 아닌 쪽)의 성격.
+
+- internal: 당사 다른 상품 (당사 내부 비교 — 기존 상품 vs 신상품 등)
+- external: 타사 상품 (경쟁 분석)
+"""
+
+
+class ABTestVariantInput(BaseModel):
+    """A/B 테스트 한 안의 입력."""
+
+    label: str = Field(
+        ...,
+        min_length=1,
+        max_length=40,
+        description='안의 별명 (예: "현재안", "리뉴얼안"). 결과 표·리포트에 그대로 노출.',
+    )
+    text: str = Field(
+        ...,
+        min_length=20,
+        max_length=20_000,
+        description="해당 안의 본문 (약관/카피/컨셉 요약 등 — input_mode와 무관하게 같은 분석 파이프라인 통과)",
+    )
+
+
+class ABTestRequest(BaseModel):
+    """POST /api/abtest 요청."""
+
+    company_context: str = Field(
+        ...,
+        min_length=10,
+        max_length=2_000,
+        description="당사 정보 (브랜드/포지셔닝/KPI/차별점). 장단점·FP 전략 LLM의 핵심 컨텍스트.",
+    )
+    input_mode: ABTestInputMode = Field(
+        "terms",
+        description="입력 형태 — terms(약관/설명서) / marketing(카피·광고) / concept(컨셉+보장 요약). 프롬프트 톤 힌트.",
+    )
+    variant_a: ABTestVariantInput
+    variant_b: ABTestVariantInput
+    baseline_variant: Literal["A", "B"] = Field(
+        "A",
+        description=(
+            "당사 안(기준안)으로 간주할 쪽. 다른 쪽은 비교·검토 대상. "
+            "LLM의 장단점·전략 분석에서 '당사 안 vs 도전안' 관점 차이를 만든다."
+        ),
+    )
+    challenger_kind: ABChallengerKind = Field(
+        "internal",
+        description=(
+            "도전안(기준이 아닌 쪽)의 성격. "
+            "internal=당사 다른 상품(내부 비교), external=타사 상품(경쟁 분석). "
+            "LLM이 외부 위협/벤치마크 관점을 적용할지, 내부 포트폴리오 관점을 적용할지 결정."
+        ),
+    )
+    llm_provider: Literal["anthropic", "sllm"] = Field(
+        "sllm", description="사용 LLM provider"
+    )
+    top_k: int = Field(
+        50,
+        ge=5,
+        le=100,
+        description="각 안에서 반환할 상위 페르소나 수 (A·B 동일)",
+    )
+
+
+class ABVariantResult(BaseModel):
+    """A 또는 B 한 안의 분석 결과 (단일 /api/analyze 응답의 축약형)."""
+
+    label: str = Field(..., description="입력 시 지정한 별명 (UI 표시 기준)")
+    selling_points: SellingPoints
+    top_personas: list[PersonaHit]
+    province_stats: list[RegionStat] = Field(default_factory=list)
+    population_stats: PopulationStats
+    top_opinions: list[PersonaOpinion] = Field(default_factory=list)
+
+
+class ComparisonRow(BaseModel):
+    """A vs B 비교 표 한 행."""
+
+    key: str = Field(..., description="식별자 (예: 'avg_score', 'core_size')")
+    label: str = Field(..., description="표시 라벨 (예: '평균 반응도 점수')")
+    a_value: str = Field(..., description="A 값을 포매팅한 문자열")
+    b_value: str = Field(..., description="B 값을 포매팅한 문자열")
+    delta: str = Field(..., description="차이를 포매팅한 문자열 (예: '+4.5 (B 우위)' 또는 '분기')")
+    winner: Literal["A", "B", "tie"] = Field(
+        "tie", description="이 지표 한정 승자. 수치 비교 불가(분기 등)면 'tie'."
+    )
+
+
+class ABComparison(BaseModel):
+    """A vs B 정형 비교 데이터 (LLM 미사용, 순수 계산)."""
+
+    summary_table: list[ComparisonRow]
+    category_diff: dict[str, dict[str, float]] = Field(
+        default_factory=dict,
+        description="페르소나 카테고리별 가중치 diff. {'family': {'a': 0.55, 'b': 0.20, 'delta': -0.35}, ...}",
+    )
+
+
+class ABTestResponse(BaseModel):
+    """POST /api/abtest 응답."""
+
+    abtest_id: str
+    input_mode: ABTestInputMode
+    company_context: str = Field(
+        ..., description="요청 시 입력된 당사 정보 (영속화·재표시용)"
+    )
+    baseline_variant: Literal["A", "B"] = Field(
+        "A", description="당사 안(기준안)으로 지정된 쪽"
+    )
+    challenger_kind: ABChallengerKind = Field(
+        "internal", description="도전안의 성격 (internal=당사 다른 상품, external=타사 상품)"
+    )
+    variant_a: ABVariantResult
+    variant_b: ABVariantResult
+    comparison: ABComparison
+    company_insights_md: str = Field(
+        ..., description="당사 정보 중심 A/B 장단점 마크다운 (LLM 생성)"
+    )
+    fp_strategy_md: str = Field(
+        ..., description="FP 판매전략 마크다운 — 타겟별 어프로치 스크립트 + 채널 추천 (LLM 생성)"
+    )
+    recommended_variant: Literal["A", "B", "split"] = Field(
+        ..., description="추천안. 'split'은 타겟별 분기 운영 권장."
+    )
+    elapsed_ms: dict[str, int] = Field(
+        ...,
+        description=(
+            "단계별 ms: extract_a, extract_b, embed_a, embed_b, score_a, score_b, "
+            "opinions_a, opinions_b, compare, insights, strategy, total"
+        ),
+    )

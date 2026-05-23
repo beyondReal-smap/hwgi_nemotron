@@ -61,6 +61,8 @@ PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 SELLING_POINTS_PROMPT = (PROMPTS_DIR / "selling_points.md").read_text(encoding="utf-8")
 REPORT_PROMPT = (PROMPTS_DIR / "report.md").read_text(encoding="utf-8")
 COMMENTARY_PROMPT = (PROMPTS_DIR / "commentary.md").read_text(encoding="utf-8")
+ABTEST_COMPANY_PROMPT = (PROMPTS_DIR / "abtest_company.md").read_text(encoding="utf-8")
+ABTEST_STRATEGY_PROMPT = (PROMPTS_DIR / "abtest_strategy.md").read_text(encoding="utf-8")
 
 MAX_PRODUCT_TEXT_CHARS = 8000  # 입력 truncate (토큰 보호)
 

@@ -74,6 +74,8 @@ def health() -> dict[str, bool | str]:
     return {"ok": True, "service": "personafit-api"}
 
 
+from routes.abtest import router as abtest_router  # noqa: E402
+from routes.abtests import router as abtests_router  # noqa: E402
 from routes.analyses import router as analyses_router  # noqa: E402
 from routes.analyze import router as analyze_router  # noqa: E402
 from routes.dataset import router as dataset_router  # noqa: E402
@@ -88,6 +90,8 @@ from routes.survey_run import router as survey_run_router  # noqa: E402
 from routes.surveys import router as surveys_router  # noqa: E402
 
 app.include_router(analyze_router)
+app.include_router(abtest_router)
+app.include_router(abtests_router)
 app.include_router(extract_router)
 app.include_router(analyses_router)
 app.include_router(simulate_router)
