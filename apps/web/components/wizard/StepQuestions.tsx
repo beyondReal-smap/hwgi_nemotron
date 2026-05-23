@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { suggestQuestions, type QuestionType, type SurveyQuestion } from "@/lib/api";
 import { QuestionImportModal } from "./QuestionImportModal";
 import type { WizardState } from "./types";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 /**
  * Step 3 — 질문 설계.
@@ -79,6 +80,8 @@ export function StepQuestions({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiMode, setAiMode] = useState<"append" | "replace">("append");
   const [importOpen, setImportOpen] = useState(false);
+  /** 삭제 확인 대상 질문 id. */
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const selected = useMemo(
     () => state.questions.find((q) => q.id === selectedId) ?? null,
@@ -337,9 +340,7 @@ export function StepQuestions({
                           label="삭제"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm("이 질문을 삭제하시겠습니까?")) {
-                              removeQuestion(q.id);
-                            }
+                            setConfirmDeleteId(q.id);
                           }}
                         >
                           ✕
@@ -383,6 +384,23 @@ export function StepQuestions({
       onClose={() => setImportOpen(false)}
       onConfirm={handleImportConfirm}
       hasExistingQuestions={state.questions.length > 0}
+    />
+
+    {/* 질문 삭제 확인 모달 */}
+    <ConfirmModal
+      open={confirmDeleteId !== null}
+      title="이 질문을 삭제할까요?"
+      description="삭제 후에는 되돌릴 수 없습니다."
+      confirmLabel="삭제"
+      cancelLabel="취소"
+      tone="danger"
+      onConfirm={() => {
+        if (confirmDeleteId) {
+          removeQuestion(confirmDeleteId);
+          setConfirmDeleteId(null);
+        }
+      }}
+      onCancel={() => setConfirmDeleteId(null)}
     />
     </>
   );

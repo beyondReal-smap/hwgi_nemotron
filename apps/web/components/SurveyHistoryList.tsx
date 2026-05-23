@@ -8,6 +8,8 @@ import {
   type SurveyStatus,
   type SurveySummary,
 } from "@/lib/api";
+import { ConfirmModal } from "@/components/ConfirmModal";
+import { AlertModal } from "@/components/AlertModal";
 
 /**
  * 마법사로 만든 설문 목록 — `/surveys?mode=history`에서 표시.
@@ -30,6 +32,11 @@ export function SurveyHistoryList() {
   const [filter, setFilter] = useState<SurveyStatus | "all">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** 삭제 확인 대상 — null이면 모달 닫힘. */
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; title: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  /** AlertModal — 삭제 실패 등 정보성. */
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -54,16 +61,22 @@ export function SurveyHistoryList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter]);
 
-  async function handleDelete(id: string, title: string) {
-    if (!window.confirm(`'${title}' 설문을 삭제하시겠습니까?\n응답 데이터도 함께 사라집니다.`)) {
-      return;
-    }
+  function requestDelete(id: string, title: string) {
+    setConfirmDelete({ id, title });
+  }
+
+  async function performDelete() {
+    if (!confirmDelete) return;
+    setDeleting(true);
     try {
-      await deleteSurvey(id);
-      setItems((prev) => prev.filter((s) => s.id !== id));
+      await deleteSurvey(confirmDelete.id);
+      setItems((prev) => prev.filter((s) => s.id !== confirmDelete.id));
       setTotal((t) => Math.max(0, t - 1));
+      setConfirmDelete(null);
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      setAlertMessage(e instanceof Error ? e.message : String(e));
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -135,11 +148,42 @@ export function SurveyHistoryList() {
         {items.length > 0 && (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {items.map((s) => (
-              <SurveyCard key={s.id} survey={s} onDelete={handleDelete} />
+              <SurveyCard key={s.id} survey={s} onDelete={requestDelete} />
             ))}
           </ul>
         )}
       </div>
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        open={confirmDelete !== null}
+        title="설문을 삭제할까요?"
+        description={
+          confirmDelete ? (
+            <>
+              <span className="block text-ink font-medium">&lsquo;{confirmDelete.title}&rsquo;</span>
+              <span className="block mt-1 text-graphite">응답 데이터도 함께 사라집니다. 되돌릴 수 없습니다.</span>
+            </>
+          ) : (
+            "응답 데이터도 함께 사라집니다."
+          )
+        }
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        tone="danger"
+        busy={deleting}
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDelete(null)}
+      />
+
+      {/* 에러 알림 모달 (alert 대체) */}
+      <AlertModal
+        open={alertMessage !== null}
+        title="설문 삭제에 실패했어요"
+        description={alertMessage ?? ""}
+        tone="danger"
+        onClose={() => setAlertMessage(null)}
+      />
     </section>
   );
 }

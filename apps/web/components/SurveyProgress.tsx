@@ -6,6 +6,7 @@ import {
   triggerSurveyRun,
   type SurveyStatusResponse,
 } from "@/lib/api";
+import { ConfirmModal } from "@/components/ConfirmModal";
 
 /**
  * 설문 진행 모니터링 — /surveys/:id/progress 페이지의 핵심 위젯.
@@ -26,6 +27,8 @@ export function SurveyProgress({
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
+  /** 강제 재시작 확인 모달. */
+  const [confirmForceOpen, setConfirmForceOpen] = useState(false);
 
   // 진행 바: 문항 단위(즉각 반영). 페르소나 단위(completed_ratio)는 보조 표시.
   const pct = status.answered_ratio * 100;
@@ -51,12 +54,11 @@ export function SurveyProgress({
   }
 
   /** 강제 재시작 — 백그라운드 작업이 끊겨 stuck running 상태일 때 복구. */
-  async function handleForceRestart() {
-    if (!window.confirm(
-      "진행이 멈췄을 때만 사용하세요.\n\n" +
-      "이미 완료된 응답은 보존되고 (캐시 활용), 미완료/멈춘 세션만 다시 시작합니다. 계속하시겠습니까?",
-    )) return;
+  function handleForceRestart() {
+    setConfirmForceOpen(true);
+  }
 
+  async function performForceRestart() {
     setRetrying(true);
     setRetryError(null);
     setRetryNotice(null);
@@ -66,6 +68,7 @@ export function SurveyProgress({
         `${r.reset}명 다시 시작 · 완료 ${r.completed_preserved}명 보존 (캐시 활용)`,
       );
       onRetried();
+      setConfirmForceOpen(false);
     } catch (e) {
       setRetryError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -82,6 +85,7 @@ export function SurveyProgress({
     status.total_tokens === 0;
 
   return (
+    <>
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
       <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
@@ -282,6 +286,27 @@ export function SurveyProgress({
         )}
       </div>
     </section>
+
+    {/* 강제 재시작 확인 모달 */}
+    <ConfirmModal
+      open={confirmForceOpen}
+      title="강제 재시작할까요?"
+      description={
+        <>
+          <span className="block text-graphite">진행이 멈췄을 때만 사용하세요.</span>
+          <span className="block mt-2 text-graphite">
+            이미 완료된 응답은 보존되고(캐시 활용), 미완료·멈춘 세션만 다시 시작합니다.
+          </span>
+        </>
+      }
+      confirmLabel="강제 재시작"
+      cancelLabel="취소"
+      tone="danger"
+      busy={retrying}
+      onConfirm={performForceRestart}
+      onCancel={() => setConfirmForceOpen(false)}
+    />
+    </>
   );
 }
 
