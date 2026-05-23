@@ -1,0 +1,6 @@
+packages:
+  - "apps/web"
+
+# 네이티브 모듈 빌드 허용 (Next.js 14 eslint-config-next 의존성)
+allowBuilds:
+  unrs-resolver: true

@@ -1,0 +1,1728 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PersonaFit 임원 심사용 발표 슬라이드</title>
+  <style>
+    @font-face {
+      font-family: "SUITE";
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url("../apps/web/public/fonts/SUITE/SUITE-Variable.woff2") format("woff2-variations"),
+           url("../apps/web/public/fonts/SUITE/SUITE-Variable.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "AtoZ";
+      font-style: normal;
+      font-weight: 700 900;
+      font-display: swap;
+      src: url("../apps/web/public/fonts/AtoZ/AtoZ-7Bold.woff2") format("woff2");
+    }
+
+    :root {
+      --ink: #171615;
+      --graphite: #43413d;
+      --dusty: #72706a;
+      --stone: #9e9b91;
+      --line: rgba(23, 22, 21, 0.12);
+      --vellum: #f7f4eb;
+      --paper: #fffdf7;
+      --snow: #ffffff;
+      --terra: #d86f45;
+      --terra-deep: #9e4529;
+      --terra-soft: #f4d7c8;
+      --azure: #3f78a8;
+      --azure-soft: #dce9f4;
+      --mint: #4f8872;
+      --mint-soft: #dcebe3;
+      --gold: #b8862f;
+      --gold-soft: #efe1bc;
+      --navy: #202d3a;
+      --shadow: 0 26px 70px rgba(23, 22, 21, 0.16);
+      --radius: 8px;
+      --sans: "SUITE", "AtoZ", ui-sans-serif, system-ui, sans-serif;
+      --mono: "SFMono-Regular", "Menlo", "Consolas", ui-monospace, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        linear-gradient(120deg, rgba(216, 111, 69, 0.12), transparent 34%),
+        linear-gradient(250deg, rgba(63, 120, 168, 0.14), transparent 38%),
+        var(--vellum);
+      color: var(--ink);
+      font-family: var(--sans);
+      word-break: keep-all;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button {
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    a {
+      color: inherit;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 4px;
+    }
+
+    .deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      padding: clamp(14px, 2vw, 30px);
+    }
+
+    .slide {
+      display: none;
+      position: relative;
+      width: min(100%, calc(100vh * 16 / 9));
+      max-width: 1360px;
+      aspect-ratio: 16 / 9;
+      max-height: calc(100vh - clamp(28px, 4vw, 60px));
+      margin: 0 auto;
+      padding: clamp(34px, 4vw, 58px);
+      overflow: hidden;
+      isolation: isolate;
+      border: 1px solid rgba(23, 22, 21, 0.10);
+      border-radius: 18px;
+      background:
+        linear-gradient(135deg, rgba(255, 253, 247, 0.97), rgba(247, 244, 235, 0.93)),
+        radial-gradient(circle at 92% 10%, rgba(216, 111, 69, 0.18), transparent 28%),
+        radial-gradient(circle at 0% 96%, rgba(63, 120, 168, 0.14), transparent 28%);
+      box-shadow: var(--shadow);
+    }
+
+    .slide.active {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      animation: enter 230ms ease-out both;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      background-image:
+        linear-gradient(rgba(23, 22, 21, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(23, 22, 21, 0.035) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(140deg, rgba(0, 0, 0, 0.26), transparent 62%);
+    }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 36%;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--terra), var(--azure), var(--mint));
+      opacity: 0.9;
+    }
+
+    @keyframes enter {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.994);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .header,
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-width: 0;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--ink);
+      font-size: clamp(14px, 1.12vw, 18px);
+      font-weight: 870;
+    }
+
+    .mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 34% 34%, #fff7ee 0 15%, transparent 16%),
+        conic-gradient(from 35deg, var(--terra), var(--azure), var(--mint), var(--terra));
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.76);
+      flex: 0 0 auto;
+    }
+
+    .caption {
+      color: var(--dusty);
+      font-size: clamp(11px, 0.95vw, 14px);
+      line-height: 1.45;
+    }
+
+    .content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: clamp(16px, 2vw, 26px);
+      min-height: 0;
+    }
+
+    .footer {
+      align-self: end;
+      color: var(--stone);
+      font-size: clamp(11px, 0.95vw, 14px);
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--terra-deep);
+      font-size: clamp(11px, 1vw, 14px);
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 940px;
+      font-size: clamp(54px, 7.5vw, 96px);
+      line-height: 0.98;
+      letter-spacing: 0;
+      font-weight: 900;
+    }
+
+    h2 {
+      max-width: 980px;
+      font-size: clamp(35px, 4.55vw, 61px);
+      line-height: 1.04;
+      letter-spacing: 0;
+      font-weight: 870;
+    }
+
+    h3 {
+      color: var(--ink);
+      font-size: clamp(18px, 1.55vw, 24px);
+      line-height: 1.24;
+      font-weight: 850;
+    }
+
+    .lead {
+      max-width: 840px;
+      margin-top: 18px;
+      color: var(--graphite);
+      font-size: clamp(18px, 1.92vw, 27px);
+      line-height: 1.43;
+      font-weight: 560;
+    }
+
+    .body {
+      color: var(--graphite);
+      font-size: clamp(15px, 1.35vw, 20px);
+      line-height: 1.5;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .cover {
+      background:
+        linear-gradient(135deg, rgba(23, 22, 21, 0.96), rgba(32, 45, 58, 0.91)),
+        radial-gradient(circle at 78% 28%, rgba(216, 111, 69, 0.42), transparent 34%);
+      color: var(--snow);
+    }
+
+    .cover::before {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      mask-image: linear-gradient(140deg, rgba(0, 0, 0, 0.38), transparent 70%);
+    }
+
+    .cover .brand,
+    .cover h1,
+    .cover h2,
+    .cover .footer {
+      color: var(--snow);
+    }
+
+    .cover .eyebrow {
+      color: #ffb89c;
+    }
+
+    .cover .lead {
+      color: rgba(255, 253, 247, 0.78);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(330px, 0.72fr);
+      align-items: center;
+      gap: clamp(28px, 4vw, 54px);
+    }
+
+    .hero-visual {
+      position: relative;
+      min-height: 470px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 22px;
+      background: rgba(255, 253, 247, 0.08);
+      box-shadow: 0 26px 64px rgba(0, 0, 0, 0.25);
+    }
+
+    .hero-visual img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.42;
+      filter: saturate(1.05) contrast(1.06);
+    }
+
+    .hero-panel {
+      position: absolute;
+      left: 24px;
+      right: 24px;
+      bottom: 24px;
+      display: grid;
+      gap: 12px;
+      padding: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.74);
+      border-radius: 16px;
+      background: rgba(255, 253, 247, 0.91);
+      color: var(--ink);
+      backdrop-filter: blur(16px);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 11px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--graphite);
+      font-size: clamp(12px, 1vw, 14px);
+      font-weight: 760;
+      white-space: nowrap;
+    }
+
+    .chip.terra {
+      border-color: rgba(216, 111, 69, 0.34);
+      background: var(--terra-soft);
+      color: var(--terra-deep);
+    }
+
+    .chip.azure {
+      border-color: rgba(63, 120, 168, 0.30);
+      background: var(--azure-soft);
+      color: #285f8d;
+    }
+
+    .chip.mint {
+      border-color: rgba(79, 136, 114, 0.30);
+      background: var(--mint-soft);
+      color: #306a55;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(330px, 0.86fr);
+      gap: clamp(24px, 3.2vw, 46px);
+      align-items: stretch;
+    }
+
+    .split.equal {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .cards.two {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .cards.four {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .card {
+      min-width: 0;
+      padding: clamp(17px, 1.65vw, 25px);
+      border: 1px solid var(--line);
+      border-top: 5px solid var(--accent, var(--terra));
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.76);
+      box-shadow: 0 14px 34px rgba(23, 22, 21, 0.06);
+    }
+
+    .card p {
+      margin-top: 10px;
+      color: var(--graphite);
+      font-size: clamp(14px, 1.18vw, 17px);
+      line-height: 1.48;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .stat {
+      min-height: 126px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.76);
+      box-shadow: 0 12px 32px rgba(23, 22, 21, 0.06);
+    }
+
+    .stat .label {
+      color: var(--dusty);
+      font-size: clamp(12px, 1vw, 14px);
+      line-height: 1.35;
+      font-weight: 790;
+    }
+
+    .stat .value {
+      margin-top: 8px;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: clamp(28px, 3.4vw, 48px);
+      line-height: 1;
+      font-weight: 900;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat .sub {
+      margin-top: 8px;
+      color: var(--graphite);
+      font-size: clamp(12px, 1.02vw, 15px);
+      line-height: 1.34;
+    }
+
+    .quote {
+      padding: 24px 26px;
+      border-left: 6px solid var(--terra);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--ink);
+      font-size: clamp(21px, 2.15vw, 31px);
+      line-height: 1.32;
+      font-weight: 800;
+    }
+
+    .note {
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(241, 238, 227, 0.72);
+      color: var(--graphite);
+      font-size: clamp(13px, 1.1vw, 16px);
+      line-height: 1.45;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      font-size: clamp(13px, 1.1vw, 16px);
+    }
+
+    .table th,
+    .table td {
+      padding: 13px 14px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .table th {
+      color: var(--ink);
+      background: rgba(222, 220, 209, 0.45);
+      font-weight: 850;
+    }
+
+    .table td {
+      color: var(--graphite);
+      line-height: 1.4;
+    }
+
+    .table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 170px;
+      padding: 17px 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 5px;
+      background: var(--tone, var(--terra));
+    }
+
+    .num {
+      display: inline-grid;
+      place-items: center;
+      width: 31px;
+      height: 31px;
+      margin-bottom: 11px;
+      border-radius: 50%;
+      background: var(--tone, var(--terra));
+      color: var(--snow);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .flow-step strong {
+      display: block;
+      color: var(--ink);
+      font-size: clamp(14px, 1.15vw, 17px);
+      line-height: 1.23;
+      font-weight: 870;
+    }
+
+    .flow-step span:last-child {
+      display: block;
+      margin-top: 8px;
+      color: var(--graphite);
+      font-size: clamp(12px, 1vw, 14px);
+      line-height: 1.36;
+    }
+
+    .lane-stack {
+      display: grid;
+      gap: 13px;
+    }
+
+    .lane {
+      display: grid;
+      grid-template-columns: 156px 1fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .lane-title {
+      display: grid;
+      place-items: center start;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      background: var(--navy);
+      color: var(--snow);
+      font-weight: 850;
+      line-height: 1.2;
+    }
+
+    .lane-items {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .lane-item {
+      min-height: 78px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--graphite);
+      font-size: clamp(12px, 1vw, 14px);
+      line-height: 1.35;
+    }
+
+    .lane-item strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: clamp(13px, 1.05vw, 15px);
+    }
+
+    .bars {
+      display: grid;
+      gap: 12px;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .bar-row {
+      display: grid;
+      grid-template-columns: 138px 1fr 72px;
+      align-items: center;
+      gap: 12px;
+      color: var(--graphite);
+      font-size: clamp(13px, 1.08vw, 16px);
+      font-weight: 720;
+    }
+
+    .track {
+      height: 16px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(23, 22, 21, 0.09);
+    }
+
+    .fill {
+      width: var(--w);
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--terra), var(--azure));
+    }
+
+    .formula {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .formula-card {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .formula-card .weight {
+      color: var(--terra-deep);
+      font-family: var(--mono);
+      font-size: clamp(28px, 3vw, 42px);
+      line-height: 1;
+      font-weight: 900;
+    }
+
+    .formula-card p {
+      margin-top: 11px;
+      color: var(--graphite);
+      font-size: clamp(13px, 1.12vw, 16px);
+      line-height: 1.42;
+    }
+
+    .screen {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--ink);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .dots {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--stone);
+    }
+
+    .dot:nth-child(1) {
+      background: #e36d50;
+    }
+
+    .dot:nth-child(2) {
+      background: #d2a23e;
+    }
+
+    .dot:nth-child(3) {
+      background: #6aad74;
+    }
+
+    .mock {
+      display: grid;
+      grid-template-columns: 0.55fr 1fr;
+      gap: 12px;
+      min-height: 342px;
+    }
+
+    .mock-panel {
+      border-radius: 12px;
+      background: var(--vellum);
+      padding: 14px;
+    }
+
+    .mock-line {
+      height: 11px;
+      margin-bottom: 10px;
+      border-radius: 999px;
+      background: rgba(23, 22, 21, 0.13);
+    }
+
+    .mock-line.short {
+      width: 48%;
+    }
+
+    .mock-line.mid {
+      width: 72%;
+    }
+
+    .mock-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .mock-card {
+      min-height: 88px;
+      padding: 12px;
+      border: 1px solid rgba(23, 22, 21, 0.10);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .map {
+      display: grid;
+      place-items: center;
+      min-height: 190px;
+      margin-top: 12px;
+      border: 1px solid rgba(23, 22, 21, 0.10);
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, rgba(63, 120, 168, 0.18), rgba(216, 111, 69, 0.18)),
+        repeating-linear-gradient(90deg, rgba(23, 22, 21, 0.05) 0 1px, transparent 1px 32px),
+        rgba(255, 255, 255, 0.78);
+      color: var(--graphite);
+      font-weight: 850;
+    }
+
+    .source-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .source-list li {
+      padding: 16px 18px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--graphite);
+      font-size: clamp(14px, 1.18vw, 17px);
+      line-height: 1.42;
+    }
+
+    .watermark {
+      position: absolute;
+      right: clamp(24px, 3vw, 44px);
+      top: clamp(22px, 2.8vw, 40px);
+      z-index: -1;
+      color: rgba(23, 22, 21, 0.055);
+      font-family: var(--mono);
+      font-size: clamp(86px, 10vw, 150px);
+      font-weight: 900;
+      line-height: 0.8;
+      user-select: none;
+    }
+
+    .controls {
+      position: fixed;
+      right: clamp(18px, 2vw, 30px);
+      bottom: clamp(18px, 2vw, 30px);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(23, 22, 21, 0.12);
+      border-radius: 999px;
+      background: rgba(247, 244, 235, 0.84);
+      box-shadow: 0 16px 44px rgba(23, 22, 21, 0.14);
+      backdrop-filter: blur(14px);
+    }
+
+    .nav-btn {
+      display: inline-grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(23, 22, 21, 0.10);
+      border-radius: 50%;
+      background: var(--snow);
+      color: var(--ink);
+      font-size: 22px;
+      line-height: 1;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-1px);
+      background: #f1eee3;
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.38;
+      cursor: default;
+      transform: none;
+    }
+
+    .counter {
+      min-width: 64px;
+      text-align: center;
+      color: var(--graphite);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 850;
+    }
+
+    .progress {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 25;
+      width: 100%;
+      height: 4px;
+      background: rgba(23, 22, 21, 0.08);
+    }
+
+    .progress span {
+      display: block;
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--terra), var(--azure), var(--mint));
+      transition: width 180ms ease;
+    }
+
+    @media (max-width: 960px) {
+      body {
+        overflow: auto;
+      }
+
+      .deck {
+        height: auto;
+        padding: 12px;
+      }
+
+      .slide,
+      .slide.active {
+        display: grid;
+        width: 100%;
+        max-height: none;
+        aspect-ratio: auto;
+        margin: 0 0 16px;
+        padding: 28px;
+      }
+
+      .slide:not(.active) {
+        display: none;
+      }
+
+      .hero-grid,
+      .split,
+      .split.equal,
+      .cards,
+      .cards.two,
+      .cards.four,
+      .stat-grid,
+      .flow,
+      .formula {
+        grid-template-columns: 1fr;
+      }
+
+      .lane,
+      .lane-items,
+      .mock {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-visual {
+        min-height: 360px;
+      }
+
+      .controls {
+        right: auto;
+        left: 50%;
+        transform: translateX(-50%);
+      }
+    }
+
+    @media print {
+      @page {
+        size: 16in 9in;
+        margin: 0;
+      }
+
+      html,
+      body {
+        background: white;
+        overflow: visible;
+      }
+
+      .deck {
+        width: auto;
+        height: auto;
+        padding: 0;
+      }
+
+      .slide,
+      .slide.active,
+      .slide:not(.active) {
+        display: grid !important;
+        width: 16in;
+        height: 9in;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+        page-break-after: always;
+      }
+
+      .controls,
+      .progress {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+
+  <main class="deck" aria-live="polite">
+    <section class="slide cover active" data-title="표지">
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">사내 경진대회 임원 심사 자료 · 2026.05.22</div>
+      </div>
+      <div class="content hero-grid">
+        <div>
+          <p class="eyebrow">Executive Briefing</p>
+          <h1>보험 상품을 고객 전략으로 바꾸는 합성 페르소나 분석 도구</h1>
+          <p class="lead">
+            상품설명서와 약관을 입력하면 한국형 합성 페르소나 기반으로
+            누가 반응할지, 어느 지역을 공략할지, 어떤 말로 설명할지 산출합니다.
+          </p>
+          <div class="chips" style="margin-top: 28px">
+            <span class="chip terra">1M synthetic records</span>
+            <span class="chip azure">7M persona texts</span>
+            <span class="chip mint">17 provinces · 252 districts</span>
+            <span class="chip">업무 의사결정 보조</span>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <img src="../apps/web/public/personafit-terra.png" alt="PersonaFit 서비스 시각 자료" />
+          <div class="hero-panel">
+            <h3>심사위원이 봐야 할 핵심</h3>
+            <div class="chips">
+              <span class="chip terra">개인정보 없는 합성 데이터</span>
+              <span class="chip azure">타겟·지역·화법 자동화</span>
+              <span class="chip mint">실무 프로세스 연결</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span>좌우 방향키 또는 하단 버튼으로 이동</span>
+        <span class="mono">01</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="한 장 요약">
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Executive Summary</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">한 장 요약</p>
+          <h2>기획자의 타겟 가설, FP의 영업 화법, 마케팅의 지역 선택을 한 번에 좁힙니다.</h2>
+        </div>
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="label">기반 데이터</div>
+            <div class="value">1M</div>
+            <div class="sub">합성 한국인 레코드</div>
+          </div>
+          <div class="stat">
+            <div class="label">페르소나 서술</div>
+            <div class="value">7M</div>
+            <div class="sub">직업·가족·여행·음식 등 7종 텍스트</div>
+          </div>
+          <div class="stat">
+            <div class="label">검증 결과</div>
+            <div class="value">22/22</div>
+            <div class="sub">명시 타겟 조건 체크 통과</div>
+          </div>
+          <div class="stat">
+            <div class="label">분석 산출</div>
+            <div class="value">5종</div>
+            <div class="sub">타겟·반응도·지역·의견·리포트</div>
+          </div>
+        </div>
+        <div class="quote">
+          “AI가 그럴듯한 문장을 쓰는 데모”가 아니라, 대규모 합성 고객군을 점수화해 의사결정 후보를 줄이는 업무 도구입니다.
+        </div>
+      </div>
+      <div class="footer">
+        <span>상품 설명서 → 합성 고객 반응 → 전략 리포트</span>
+        <span class="mono">02</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="업무 문제">
+      <div class="watermark">01</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Business Problem</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">왜 필요한가</p>
+          <h2>보험 상품은 복잡하고, 타겟 판단은 늦고, 영업 메시지는 현장 경험에 의존합니다.</h2>
+        </div>
+        <div class="cards">
+          <div class="card" style="--accent: var(--terra)">
+            <h3>상품기획</h3>
+            <p>약관과 설명서에서 가입 조건, 보장 포인트, 타겟 고객을 사람이 읽고 정리합니다. 회의마다 가설이 달라집니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--azure)">
+            <h3>마케팅</h3>
+            <p>어느 연령·지역·직군에 먼저 예산을 쓸지 빠르게 비교하기 어렵습니다. 캠페인 전 실험 비용이 큽니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--mint)">
+            <h3>FP 영업</h3>
+            <p>고객 유형별 첫 문장, 반론 대응, 관심 포인트가 표준화되지 않습니다. 숙련자 경험이 팀 전체로 확산되지 않습니다.</p>
+          </div>
+        </div>
+        <div class="note">
+          이 프로젝트는 실제 계약 가능성을 단정하지 않습니다. 대신 “어떤 고객군을 먼저 검토해야 하는가”를 데이터 기반으로 좁히는 역할을 합니다.
+        </div>
+      </div>
+      <div class="footer">
+        <span>의사결정 초기에 쓰는 시장 반응 가설 엔진</span>
+        <span class="mono">03</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="Nemotron 데이터셋">
+      <div class="watermark">02</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Nemotron-Personas-Korea</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">데이터셋 설명</p>
+          <h2>Nemotron-Personas-Korea는 한국 사회의 분포를 반영하도록 만든 합성 한국인 페르소나 데이터입니다.</h2>
+          <p class="lead">
+            실제 고객 명단이 아니라, 공공 통계와 도메인 지식을 바탕으로 생성한 가상 인물 집합입니다.
+            따라서 개인정보 없이도 “한국 고객처럼 다양한 반응”을 실험할 수 있습니다.
+          </p>
+        </div>
+        <div class="cards two">
+          <div class="card" style="--accent: var(--terra)">
+            <h3>규모</h3>
+            <p>100만 레코드 안에 7개 페르소나 서술이 들어 있어 총 700만 개의 페르소나 텍스트를 제공합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--azure)">
+            <h3>범위</h3>
+            <p>17개 시도와 252개 시군구, 성별·연령·교육·직업·가구 등 한국형 인구통계 축을 포함합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--mint)">
+            <h3>출처 기반</h3>
+            <p>KOSIS, 대법원, 국민건강보험공단, 한국농촌경제연구원, NAVER Cloud의 자료·전문성이 반영되었습니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--gold)">
+            <h3>라이선스</h3>
+            <p>CC BY 4.0 기반으로 공개되어 출처 표기 조건에서 상업적 활용과 내부 PoC 검토가 가능합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span>공식 데이터셋 카드 기준: 1M records · 7M personas · 26 fields</span>
+        <span class="mono">04</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="데이터 구조">
+      <div class="watermark">03</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Dataset Structure</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">무엇이 들어 있나</p>
+          <h2>한 명의 합성 인물에 인구통계, 지역, 직업, 생활 맥락이 함께 들어 있습니다.</h2>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>구성</th>
+              <th>예시</th>
+              <th>업무 활용 의미</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>인구통계·지역</td>
+              <td>나이, 성별, 혼인 상태, 교육 수준, 직업, 시도·시군구</td>
+              <td>가입 조건과 실제 타겟팅 조건을 정량 필터로 비교합니다.</td>
+            </tr>
+            <tr>
+              <td>7개 페르소나 텍스트</td>
+              <td>요약, 직업, 스포츠, 예술, 여행, 음식, 가족 페르소나</td>
+              <td>상품 혜택과 생활 관심사가 얼마나 잘 맞는지 의미 기반으로 찾습니다.</td>
+            </tr>
+            <tr>
+              <td>부가 속성</td>
+              <td>문화적 배경, 기술·전문성, 경력 목표, 취미·관심사</td>
+              <td>“왜 반응하는지”를 설명하는 근거 문장과 영업 화법을 만듭니다.</td>
+            </tr>
+            <tr>
+              <td>개인정보 성격</td>
+              <td>실제 인물이 아닌 완전 합성 데이터</td>
+              <td>사내 테스트·기획 검토 단계에서 개인정보 리스크를 낮춥니다.</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="note">
+          중요한 차이는 “통계표”가 아니라 “사람처럼 읽히는 서술형 프로필”이라는 점입니다. 그래서 숫자 분포와 고객 맥락을 동시에 다룰 수 있습니다.
+        </div>
+      </div>
+      <div class="footer">
+        <span>정량 필터 + 의미 검색 + 자연어 리포트의 기반 데이터</span>
+        <span class="mono">05</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="데이터 활용 방식">
+      <div class="watermark">04</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">How We Use the Dataset</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">프로젝트 적용 방식</p>
+          <h2>원본 데이터를 보험 상품 분석에 맞게 “검색 가능한 고객 반응 공간”으로 바꿨습니다.</h2>
+          <p class="lead">
+            각 페르소나 텍스트를 벡터로 변환해 저장하고, 상품 설명에서 추출한 소구점과 비교합니다.
+            동시에 나이·성별·직업 같은 명시 조건은 룰로 반영합니다.
+          </p>
+        </div>
+        <div class="bars" aria-label="데이터 활용 단계">
+          <div class="bar-row"><span>데이터 적재</span><div class="track"><div class="fill" style="--w: 100%"></div></div><span>1M</span></div>
+          <div class="bar-row"><span>텍스트 임베딩</span><div class="track"><div class="fill" style="--w: 92%"></div></div><span>1536d</span></div>
+          <div class="bar-row"><span>타겟 룰</span><div class="track"><div class="fill" style="--w: 78%"></div></div><span>5축</span></div>
+          <div class="bar-row"><span>지역 집계</span><div class="track"><div class="fill" style="--w: 86%"></div></div><span>252</span></div>
+          <div class="bar-row"><span>리포트 생성</span><div class="track"><div class="fill" style="--w: 66%"></div></div><span>자동</span></div>
+        </div>
+      </div>
+      <div class="footer">
+        <span>통계 데이터와 자연어 페르소나를 함께 쓰는 것이 차별점입니다.</span>
+        <span class="mono">06</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="적용 기술">
+      <div class="watermark">05</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Applied Technology</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">기술을 임원 관점으로 번역하면</p>
+          <h2>문서 이해, 대규모 유사 고객 검색, 결과 설명을 역할별 기술로 나눴습니다.</h2>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>기술</th>
+              <th>프로젝트에서 하는 일</th>
+              <th>업무 가치</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>대형언어모델</td>
+              <td>약관에서 혜택, 가입 조건, 타겟 키워드를 구조화합니다.</td>
+              <td>사람이 긴 문서를 읽고 표로 정리하는 시간을 줄입니다.</td>
+            </tr>
+            <tr>
+              <td>임베딩</td>
+              <td>상품 설명과 페르소나 서술을 숫자 벡터로 바꿔 의미가 가까운 고객을 찾습니다.</td>
+              <td>단순 키워드가 아니라 생활 맥락까지 반영한 매칭이 가능합니다.</td>
+            </tr>
+            <tr>
+              <td>룰 기반 점수</td>
+              <td>연령·성별·가구·학력·직업처럼 명시 조건을 점수에 반영합니다.</td>
+              <td>약관상 가입 조건을 놓치지 않고 결과를 설명할 수 있습니다.</td>
+            </tr>
+            <tr>
+              <td>인메모리 분석</td>
+              <td>100만 행을 메모리에 올려 빠르게 전체 점수화합니다.</td>
+              <td>회의 중에도 여러 상품 가설을 반복 비교할 수 있습니다.</td>
+            </tr>
+            <tr>
+              <td>웹 대시보드</td>
+              <td>분석, 이력, 지도, 페르소나 탐색, 설문 시뮬레이션을 화면으로 제공합니다.</td>
+              <td>개발자가 아닌 실무자가 직접 결과를 확인합니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer">
+        <span>Next.js · FastAPI · OpenAI Embedding · Claude/sLLM · parquet/numpy</span>
+        <span class="mono">07</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="분석 프로세스">
+      <div class="watermark">06</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Business Process</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">업무 흐름</p>
+          <h2>실무자는 상품 문서만 넣고, 시스템은 타겟 전략 초안을 6단계로 만듭니다.</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step" style="--tone: var(--terra)">
+            <span class="num">1</span>
+            <strong>상품 문서 입력</strong>
+            <span>약관·상품설명서·제안서를 붙여넣거나 파일로 업로드합니다.</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--azure)">
+            <span class="num">2</span>
+            <strong>타겟 조건 추출</strong>
+            <span>나이, 성별, 가구, 학력, 직업, 핵심 혜택을 표준 구조로 바꿉니다.</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--mint)">
+            <span class="num">3</span>
+            <strong>100만 명 점수화</strong>
+            <span>상품과 비슷한 생활 맥락을 가진 페르소나를 전체에서 찾습니다.</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--gold)">
+            <span class="num">4</span>
+            <strong>지역·계층 집계</strong>
+            <span>시도, 시군구, 연령, 직업, 가족 형태별 반응 분포를 계산합니다.</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--terra-deep)">
+            <span class="num">5</span>
+            <strong>의견 생성</strong>
+            <span>상위·하위 페르소나가 상품을 어떻게 받아들일지 짧은 의견을 만듭니다.</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--navy)">
+            <span class="num">6</span>
+            <strong>전략 리포트</strong>
+            <span>공략 타겟, 우려 요인, 영업 화법, 지역 우선순위를 정리합니다.</span>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span>기획 회의 전 타겟 가설 초안을 자동 생성하는 흐름입니다.</span>
+        <span class="mono">08</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="스코어링 설명">
+      <div class="watermark">07</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Scoring Logic</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">점수는 어떻게 믿을 수 있나</p>
+          <h2>반응도는 의미 유사도, 가입 조건, 관심 카테고리를 합쳐 계산합니다.</h2>
+        </div>
+        <div class="formula">
+          <div class="formula-card">
+            <div class="weight">70%</div>
+            <h3>의미 유사도</h3>
+            <p>상품의 혜택·키워드와 페르소나의 생활 서술이 얼마나 가까운지 계산합니다.</p>
+          </div>
+          <div class="formula-card">
+            <div class="weight">20%</div>
+            <h3>명시 조건</h3>
+            <p>연령, 성별, 가구, 학력, 직업이 약관 조건과 맞는지 보너스를 줍니다.</p>
+          </div>
+          <div class="formula-card">
+            <div class="weight">10%</div>
+            <h3>관심 영역</h3>
+            <p>가족, 직업, 여행, 음식 등 상품과 관련 깊은 페르소나 카테고리를 반영합니다.</p>
+          </div>
+        </div>
+        <div class="note">
+          단순 키워드 검색은 “암보험” 같은 단어만 찾지만, 이 방식은 “가족 병력 걱정”, “자녀 부양”, “은퇴 후 의료비”처럼 문맥상 가까운 고객까지 찾습니다.
+        </div>
+      </div>
+      <div class="footer">
+        <span class="mono">score = 0.7 × cosine + 0.2 × rule_bonus + 0.1 × category_bonus</span>
+        <span class="mono">09</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="구현 기능">
+      <div class="watermark">08</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Implemented Features</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">현재 구현된 화면</p>
+          <h2>분석 입력부터 결과 확인, 페르소나 탐색, 가상 설문까지 연결했습니다.</h2>
+          <div class="cards two" style="margin-top: 22px">
+            <div class="card" style="--accent: var(--terra)"><h3>상품 분석</h3><p>파일 업로드, 소구점 추출, 상·하위 페르소나, 지역 지도, 리포트</p></div>
+            <div class="card" style="--accent: var(--azure)"><h3>분석 이력</h3><p>분석 결과 저장, 재확인, 연관 설문 이력 관리</p></div>
+            <div class="card" style="--accent: var(--mint)"><h3>데이터 현황</h3><p>100만 행 분포, 직업군, 지역, 페르소나 텍스트 샘플</p></div>
+            <div class="card" style="--accent: var(--gold)"><h3>설문 시뮬레이션</h3><p>대상 세그먼트, 질문 생성, 응답 실행, 차트 리포트</p></div>
+          </div>
+        </div>
+        <div class="screen" aria-label="PersonaFit 화면 모형">
+          <div class="dots"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <div class="mock">
+            <div class="mock-panel">
+              <div class="mock-line mid"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line short"></div>
+              <div style="height: 22px"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line mid"></div>
+              <div class="mock-line short"></div>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-grid">
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+              </div>
+              <div class="map">지역 분포 · 타겟 세그먼트 · 리포트</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span>실무자가 웹에서 직접 조작 가능한 데모 형태로 구현했습니다.</span>
+        <span class="mono">10</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="업무별 활용">
+      <div class="watermark">09</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Use Cases by Role</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">회사 업무에 어떻게 쓰나</p>
+          <h2>부서별로 “결정 전에 확인해야 할 질문”을 빠르게 답하게 합니다.</h2>
+        </div>
+        <div class="lane-stack">
+          <div class="lane">
+            <div class="lane-title">상품기획</div>
+            <div class="lane-items">
+              <div class="lane-item"><strong>입력</strong>신상품 설명서</div>
+              <div class="lane-item"><strong>확인</strong>핵심 타겟</div>
+              <div class="lane-item"><strong>비교</strong>비타겟 우려</div>
+              <div class="lane-item"><strong>결정</strong>보장·문구 보완</div>
+              <div class="lane-item"><strong>산출</strong>기획 회의 자료</div>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-title">마케팅</div>
+            <div class="lane-items">
+              <div class="lane-item"><strong>입력</strong>캠페인 콘셉트</div>
+              <div class="lane-item"><strong>확인</strong>시도·시군구</div>
+              <div class="lane-item"><strong>비교</strong>직업·가구 분포</div>
+              <div class="lane-item"><strong>결정</strong>예산 우선순위</div>
+              <div class="lane-item"><strong>산출</strong>타겟 리스트</div>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-title">FP·영업</div>
+            <div class="lane-items">
+              <div class="lane-item"><strong>입력</strong>고객군 조건</div>
+              <div class="lane-item"><strong>확인</strong>관심 포인트</div>
+              <div class="lane-item"><strong>비교</strong>반론·우려</div>
+              <div class="lane-item"><strong>결정</strong>첫 문장</div>
+              <div class="lane-item"><strong>산출</strong>상담 화법</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span>경진대회 관점에서는 기술보다 업무 적용성이 핵심입니다.</span>
+        <span class="mono">11</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="검증 결과">
+      <div class="watermark">10</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Validation</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">신뢰성 점검</p>
+          <h2>정답 타겟이 명시된 약관 11종으로 모델이 조건을 잡는지 검증했습니다.</h2>
+        </div>
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="label">케이스 통과</div>
+            <div class="value">11/11</div>
+            <div class="sub">여성·시니어·유자녀·청년·전문직 등</div>
+          </div>
+          <div class="stat">
+            <div class="label">체크 통과</div>
+            <div class="value">22/22</div>
+            <div class="sub">성별·연령·가구·학력·직업·지역</div>
+          </div>
+          <div class="stat">
+            <div class="label">제주 케이스</div>
+            <div class="value">36x</div>
+            <div class="sub">인구 비중 대비 상위 결과 과대표집</div>
+          </div>
+          <div class="stat">
+            <div class="label">간호사 케이스</div>
+            <div class="value">100%</div>
+            <div class="sub">상위 결과 직업 키워드 매칭</div>
+          </div>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>검증 질문</th>
+              <th>확인한 내용</th>
+              <th>의미</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>약관 조건을 놓치지 않는가</td>
+              <td>연령, 성별, 직업, 학력 조건이 상위 페르소나에 반영되는지 확인</td>
+              <td>상품 가입 조건 해석의 기본 신뢰성 확보</td>
+            </tr>
+            <tr>
+              <td>명시 필드가 없어도 단서를 잡는가</td>
+              <td>군인, 제주, 간호사처럼 어려운 조건을 추가 검증</td>
+              <td>자연어 맥락과 직업 부분 매칭이 보완 역할 수행</td>
+            </tr>
+            <tr>
+              <td>무엇을 아직 검증하지 않았나</td>
+              <td>실제 가입률, 실제 고객과의 유사성, 캠페인 전환율은 별도 필요</td>
+              <td>운영 전 실제 데이터 기반 검증 계획 필요</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer">
+        <span>검증 파일: docs/VALIDATION.md · docs/VALIDATION_STORY.md</span>
+        <span class="mono">12</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="운영성과 비용">
+      <div class="watermark">11</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Operation & Cost</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">운영 관점</p>
+          <h2>데모는 단일 웹 주소로 접속하고, 분석 서버는 내부에서만 동작합니다.</h2>
+          <p class="lead">
+            Next.js가 사용자 화면을 제공하고, FastAPI가 100만 행 데이터와 AI 호출을 처리합니다.
+            운영 배포 전에는 보안, 권한, 실제 데이터 연동, 비용 모니터링을 추가해야 합니다.
+          </p>
+        </div>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>항목</th>
+              <th>현재 구현</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>접속</td>
+              <td>웹 5101, API 5102 내부 호출</td>
+            </tr>
+            <tr>
+              <td>데이터</td>
+              <td>parquet 100만 행 + numpy 임베딩 행렬</td>
+            </tr>
+            <tr>
+              <td>AI 모델</td>
+              <td>사내 sLLM Qwen, Claude 선택, OpenAI 임베딩</td>
+            </tr>
+            <tr>
+              <td>처리 방식</td>
+              <td>인메모리 점수화, JSON 기반 분석·설문 이력 저장</td>
+            </tr>
+            <tr>
+              <td>비용 구조</td>
+              <td>사내 sLLM 사용 시 생성 비용 절감, 외부 임베딩 호출은 별도 관리</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer">
+        <span>해커톤 데모는 빠른 검증 구조, 운영형은 데이터 계층과 권한 체계 분리가 필요합니다.</span>
+        <span class="mono">13</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="리스크와 통제">
+      <div class="watermark">12</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Risk & Governance</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">임원 관점의 통제 포인트</p>
+          <h2>실무 적용 전에는 “합성 데이터의 한계”와 “실제 성과 검증”을 분리해 관리해야 합니다.</h2>
+        </div>
+        <div class="cards four">
+          <div class="card" style="--accent: var(--terra)">
+            <h3>합성 데이터 한계</h3>
+            <p>실제 가입자 데이터가 아니므로 결과는 시장 가설입니다. 실제 통계와 교차 검증해야 합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--azure)">
+            <h3>전환율 한계</h3>
+            <p>반응 가능성이 실제 가입을 의미하지 않습니다. 캠페인 A/B 테스트가 필요합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--mint)">
+            <h3>설명 책임</h3>
+            <p>점수만 제시하면 위험합니다. 페르소나 근거, 조건, 지역 분포를 함께 보여줘야 합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--gold)">
+            <h3>운영 보안</h3>
+            <p>운영 전 인증, 권한, 로그 마스킹, 외부 API 키 관리, 사용량 통제가 필요합니다.</p>
+          </div>
+        </div>
+        <div class="note">
+          권장 운영 원칙: “자동 결정”이 아니라 “사람이 검토할 전략 후보 생성”으로 포지셔닝해야 합니다.
+        </div>
+      </div>
+      <div class="footer">
+        <span>AI 의사결정 보조 도구로 쓰되, 최종 판단은 실무 검토와 실제 데이터로 보완합니다.</span>
+        <span class="mono">14</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="확장 로드맵">
+      <div class="watermark">13</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Roadmap</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">경진대회 이후 확장</p>
+          <h2>실제 회사 업무에 쓰려면 내부 데이터, 피드백, 협업 흐름을 붙이는 것이 다음 단계입니다.</h2>
+        </div>
+        <div class="cards">
+          <div class="card" style="--accent: var(--terra)">
+            <h3>1단계 · 상품 비교</h3>
+            <p>A상품과 B상품의 타겟 겹침, 신규 공략층, 지역 차이를 비교해 포트폴리오 기획에 사용합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--azure)">
+            <h3>2단계 · 추천 근거 카드</h3>
+            <p>각 페르소나가 왜 반응하는지 키워드, 조건, 원문 근거를 카드 형태로 제공합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--mint)">
+            <h3>3단계 · 상담 피드백 루프</h3>
+            <p>FP 상담 결과와 전환 여부를 기록해 추천 정확도를 실제 업무 데이터로 개선합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--gold)">
+            <h3>4단계 · 운영형 데이터 계층</h3>
+            <p>벡터 저장소, 권한, 감사 로그, 팀 공유 기능을 붙여 PoC에서 사내 서비스로 전환합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--terra-deep)">
+            <h3>5단계 · 규정 검토</h3>
+            <p>보험 광고 심의, 금지 표현, 개인정보·AI 거버넌스 체크리스트를 자동 검토합니다.</p>
+          </div>
+          <div class="card" style="--accent: var(--navy)">
+            <h3>6단계 · 실험 성과 측정</h3>
+            <p>추천 타겟 캠페인과 기존 방식의 반응률을 비교해 실제 사업 효과를 계량화합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer">
+        <span>가장 빠른 후속 구현 추천: 상품 비교 분석 + 추천 근거 카드</span>
+        <span class="mono">15</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="출처">
+      <div class="watermark">14</div>
+      <div class="header">
+        <div class="brand"><span class="mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Sources & Closing</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">정리</p>
+          <h2>PersonaFit은 합성 페르소나를 보험 업무의 초기 의사결정 도구로 바꾼 프로젝트입니다.</h2>
+          <p class="lead">
+            임원 심사 포인트는 기술 자체보다, 상품기획·마케팅·영업 현장에서 반복되는 판단을
+            빠르게 표준화하고 검증 가능한 가설로 만든다는 점입니다.
+          </p>
+        </div>
+        <ul class="source-list">
+          <li><strong>Hugging Face 데이터셋 카드</strong><br /><a href="https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea">nvidia/Nemotron-Personas-Korea</a> · 1M records, 7M personas, 26 fields, CC BY 4.0</li>
+          <li><strong>NVIDIA Nemotron Personas 설명</strong><br /><a href="https://developer.nvidia.com/nemotron">NVIDIA Developer Nemotron</a> · 합성·프라이버시 안전 페르소나와 소버린 AI 데이터셋 설명</li>
+          <li><strong>NVIDIA Korea 블로그</strong><br /><a href="https://blogs.nvidia.co.kr/blog/nemotron-personas-korea/">한국형 AI 데이터 활용의 핵심, Nemotron-페르소나-코리아</a> · 한국어·문화 맥락과 개인정보 없는 합성 데이터 설명</li>
+          <li><strong>프로젝트 검증 문서</strong><br /><span class="mono">docs/VALIDATION.md</span>, <span class="mono">docs/VALIDATION_STORY.md</span> · Known-target 백테스트 결과</li>
+        </ul>
+      </div>
+      <div class="footer">
+        <span>출처 표기와 합성 데이터 한계를 명확히 밝히는 전제로 활용합니다.</span>
+        <span class="mono">16</span>
+      </div>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="슬라이드 이동">
+    <button class="nav-btn" id="prevBtn" type="button" aria-label="이전 슬라이드">‹</button>
+    <div class="counter" id="counter">01 / 16</div>
+    <button class="nav-btn" id="nextBtn" type="button" aria-label="다음 슬라이드">›</button>
+  </nav>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const counter = document.getElementById("counter");
+    const progressBar = document.getElementById("progressBar");
+    const pad = (n) => String(n).padStart(2, "0");
+
+    let current = (() => {
+      const raw = window.location.hash.replace("#", "");
+      const parsed = Number.parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= slides.length) {
+        return parsed - 1;
+      }
+      return 0;
+    })();
+
+    function show(index) {
+      current = Math.max(0, Math.min(index, slides.length - 1));
+      slides.forEach((slide, i) => {
+        const active = i === current;
+        slide.classList.toggle("active", active);
+        slide.setAttribute("aria-hidden", active ? "false" : "true");
+      });
+
+      prevBtn.disabled = current === 0;
+      nextBtn.disabled = current === slides.length - 1;
+      counter.textContent = `${pad(current + 1)} / ${pad(slides.length)}`;
+      progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+
+      const title = slides[current].dataset.title || "슬라이드";
+      document.title = `PersonaFit 임원 심사용 발표 슬라이드 · ${title}`;
+      history.replaceState(null, "", `#${current + 1}`);
+    }
+
+    prevBtn.addEventListener("click", () => show(current - 1));
+    nextBtn.addEventListener("click", () => show(current + 1));
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+        event.preventDefault();
+        show(current + 1);
+      } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        show(current - 1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        show(0);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        show(slides.length - 1);
+      }
+    });
+
+    window.addEventListener("hashchange", () => {
+      const parsed = Number.parseInt(window.location.hash.replace("#", ""), 10);
+      if (Number.isFinite(parsed)) show(parsed - 1);
+    });
+
+    show(current);
+  </script>
+</body>
+</html>

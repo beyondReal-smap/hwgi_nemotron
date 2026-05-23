@@ -1,0 +1,156 @@
+[
+  {
+    "case": "여성 전용 암보험",
+    "notes": "가입자격을 만 20~69세 여성으로 한정 → 상위 20명이 여성에 집중되어야 함",
+    "summary": "만 20~69세 여성 전용 유방암·자궁암 등 여성 특화 암 진단비 보장 보험",
+    "elapsed_ms": {
+      "selling_points": 6492,
+      "embed": 482,
+      "score": 1888,
+      "report": 11441,
+      "total": 20305
+    },
+    "top_personas_count": 20,
+    "checks": [
+      {
+        "name": "성별 = 여자",
+        "passed": 20,
+        "total": 20,
+        "ratio": 1.0,
+        "min_ratio": 0.9,
+        "accepted": true
+      },
+      {
+        "name": "연령 20-69세",
+        "passed": 20,
+        "total": 20,
+        "ratio": 1.0,
+        "min_ratio": 0.85,
+        "accepted": true
+      }
+    ],
+    "passed_checks": 2,
+    "total_checks": 2,
+    "case_passed": true
+  },
+  {
+    "case": "시니어 전용 간편보험",
+    "notes": "만 60세 이상만 가입. 고령자 우대 → 60+ 비중 높아야 함",
+    "summary": "만 60~85세 시니어를 위한 노인성 질환·의료비 보장 간편 건강보험",
+    "elapsed_ms": {
+      "selling_points": 6688,
+      "embed": 297,
+      "score": 85,
+      "report": 12128,
+      "total": 19199
+    },
+    "top_personas_count": 20,
+    "checks": [
+      {
+        "name": "연령 60-85세",
+        "passed": 20,
+        "total": 20,
+        "ratio": 1.0,
+        "min_ratio": 0.75,
+        "accepted": true
+      }
+    ],
+    "passed_checks": 1,
+    "total_checks": 1,
+    "case_passed": true
+  },
+  {
+    "case": "신혼·유자녀 가구 종합보험",
+    "notes": "배우자·자녀 가구 우대 → family_type 분포에 자녀/배우자 포함 ↑",
+    "summary": "신혼부부와 자녀 양육 가정을 위한 가족 종합 보장 보험",
+    "elapsed_ms": {
+      "selling_points": 7060,
+      "embed": 141,
+      "score": 108,
+      "report": 11367,
+      "total": 18678
+    },
+    "top_personas_count": 20,
+    "checks": [
+      {
+        "name": "연령 25-49세",
+        "passed": 20,
+        "total": 20,
+        "ratio": 1.0,
+        "min_ratio": 0.7,
+        "accepted": true
+      },
+      {
+        "name": "가구형태에 자녀/배우자 포함",
+        "passed": 20,
+        "total": 20,
+        "ratio": 1.0,
+        "min_ratio": 0.7,
+        "accepted": true
+      }
+    ],
+    "passed_checks": 2,
+    "total_checks": 2,
+    "case_passed": true
+  },
+  {
+    "case": "청년 사회초년생 저축보험",
+    "notes": "20대 청년 타겟 → age 19-29 비중 ↑",
+    "summary": "만 19~29세 청년 전용 5년 만기 저축형 보험, 110% 환급 보증",
+    "elapsed_ms": {
+      "selling_points": 6723,
+      "embed": 147,
+      "score": 94,
+      "report": 10773,
+      "total": 17739
+    },
+    "top_personas_count": 20,
+    "checks": [
+      {
+        "name": "연령 19-29세",
+        "passed": 20,
+        "total": 20,
+        "ratio": 1.0,
+        "min_ratio": 0.75,
+        "accepted": true
+      }
+    ],
+    "passed_checks": 1,
+    "total_checks": 1,
+    "case_passed": true
+  },
+  {
+    "case": "고학력 전문직 종신보험",
+    "notes": "전문직(의사·변호사·교수 등) + 대학원 학력 타겟",
+    "summary": "고소득 전문직을 위한 고액 사망보장 및 상속설계 종신보험",
+    "elapsed_ms": {
+      "selling_points": 7205,
+      "embed": 401,
+      "score": 176,
+      "report": 11737,
+      "total": 19520
+    },
+    "top_personas_count": 20,
+    "checks": [
+      {
+        "name": "연령 30-60세",
+        "passed": 20,
+        "total": 20,
+        "ratio": 1.0,
+        "min_ratio": 0.7,
+        "accepted": true
+      },
+      {
+        "name": "교육수준 = 대학원/4년제 (석박사 포함)",
+        "passed": 9,
+        "total": 20,
+        "ratio": 0.45,
+        "min_ratio": 0.6,
+        "accepted": false
+      }
+    ],
+    "passed_checks": 1,
+    "total_checks": 2,
+    "case_passed": false
+  }
+]

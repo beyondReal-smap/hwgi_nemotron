@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PersonaFit — 프로젝트 보고서</title>
+<style>
+  /* ===== 한화 톤 디자인 토큰 ===== */
+  :root {
+    --vellum: #faf9f5;
+    --snow:   #f5f3ec;
+    --parchment: #e8e5d8;
+    --stone:  #c8c5b5;
+    --dusty:  #9c9a92;
+    --graphite: #5a584f;
+    --ink:    #2a2823;
+    --onyx:   #14130f;
+    --terra:  #d97757;
+    --terra-soft: #f3d6c9;
+    --azure:  #4e7ca8;
+    --azure-soft: #d9e3ee;
+    --good:   #5a8b5a;
+    --warn:   #c89342;
+
+    --radius: 9.6px;
+    --radius-lg: 14px;
+    --font-sans: "SUITE", "Pretendard", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+    --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { padding: 0; margin: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--vellum);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 56px 48px 96px;
+  }
+
+  /* ===== Typography ===== */
+  h1, h2, h3, h4 { font-weight: 700; letter-spacing: -0.01em; color: var(--ink); margin: 0; }
+  h1 { font-size: 40px; line-height: 1.15; }
+  h2 { font-size: 26px; line-height: 1.25; margin-top: 56px; padding-bottom: 12px;
+       border-bottom: 1px solid var(--parchment); position: relative; padding-left: 16px; }
+  h2::before { content: ""; position: absolute; left: 0; top: 2px; bottom: 14px; width: 4px;
+               background: var(--terra); border-radius: 4px; }
+  h3 { font-size: 19px; line-height: 1.3; margin-top: 28px; color: var(--ink); }
+  h4 { font-size: 15px; line-height: 1.4; margin-top: 18px; color: var(--graphite); text-transform: uppercase;
+       letter-spacing: 0.06em; }
+  p { margin: 10px 0; color: var(--graphite); }
+  a { color: var(--terra); text-decoration: none; border-bottom: 1px dashed var(--terra-soft); }
+  a:hover { border-bottom-style: solid; }
+  code { font-family: var(--font-mono); background: var(--snow); padding: 1px 6px; border-radius: 4px;
+         font-size: 0.88em; color: var(--ink); border: 1px solid var(--parchment); }
+  pre { font-family: var(--font-mono); background: var(--onyx); color: #e8e5d8; padding: 14px 18px;
+        border-radius: var(--radius); overflow-x: auto; font-size: 13px; line-height: 1.55; }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+  strong { color: var(--ink); font-weight: 600; }
+  ul, ol { padding-left: 22px; color: var(--graphite); }
+  ul li, ol li { margin: 6px 0; }
+
+  /* ===== 표지 ===== */
+  .cover {
+    background: linear-gradient(135deg, #fefdf8 0%, #f5e5dc 100%);
+    border: 1px solid var(--parchment);
+    border-radius: var(--radius-lg);
+    padding: 56px 48px;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+  .cover::after {
+    content: ""; position: absolute; right: -120px; top: -120px; width: 360px; height: 360px;
+    background: radial-gradient(circle, rgba(217,119,87,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .cover .eyebrow { color: var(--terra); font-weight: 600; font-size: 13px; letter-spacing: 0.18em;
+                    text-transform: uppercase; margin-bottom: 12px; }
+  .cover h1 { font-size: 52px; margin-bottom: 14px; }
+  .cover .lede { font-size: 18px; color: var(--graphite); max-width: 700px; line-height: 1.55; }
+  .cover .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 28px; position: relative; z-index: 1; }
+  .cover .meta span { background: rgba(255,255,255,0.7); border: 1px solid var(--parchment);
+                      padding: 5px 12px; border-radius: 999px; font-size: 12px; color: var(--graphite); }
+  .cover .meta span strong { color: var(--ink); font-weight: 600; }
+
+  /* ===== TL;DR ===== */
+  .tldr { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 32px 0 0; }
+  .tldr .stat { background: var(--snow); border: 1px solid var(--parchment); border-radius: var(--radius);
+                padding: 18px; }
+  .tldr .stat .label { font-size: 11px; color: var(--dusty); text-transform: uppercase; letter-spacing: 0.08em; }
+  .tldr .stat .value { font-size: 26px; font-weight: 700; color: var(--ink); margin-top: 6px;
+                       font-variant-numeric: tabular-nums; }
+  .tldr .stat .sub { font-size: 12px; color: var(--graphite); margin-top: 4px; }
+
+  /* ===== Card ===== */
+  .card {
+    background: var(--snow);
+    border: 1px solid var(--parchment);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .card.callout { border-left: 4px solid var(--terra); background: #fdf7f3; }
+  .card.note { border-left: 4px solid var(--azure); background: #f1f5f9; }
+  .card h4 { margin-top: 0; }
+
+  /* ===== Table ===== */
+  .table-wrap { overflow-x: auto; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--parchment); vertical-align: top; }
+  th { background: var(--snow); font-weight: 600; color: var(--ink); font-size: 12px; text-transform: uppercase;
+       letter-spacing: 0.06em; }
+  td { color: var(--graphite); }
+  td code { font-size: 0.85em; }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; font-family: var(--font-mono); color: var(--ink); }
+
+  /* ===== Diagram ===== */
+  .arch {
+    background: var(--snow);
+    border: 1px solid var(--parchment);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin: 18px 0;
+  }
+  .arch .layer { display: grid; grid-template-columns: 160px 1fr; gap: 18px; align-items: center;
+                 padding: 14px 0; border-bottom: 1px dashed var(--parchment); }
+  .arch .layer:last-child { border-bottom: 0; }
+  .arch .layer .name { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+                       color: var(--terra); font-weight: 600; }
+  .arch .layer .boxes { display: flex; gap: 10px; flex-wrap: wrap; }
+  .arch .box { background: var(--vellum); border: 1px solid var(--stone); border-radius: var(--radius);
+               padding: 10px 14px; font-size: 13px; color: var(--ink); }
+  .arch .box .b-sub { font-size: 11px; color: var(--dusty); margin-top: 2px; display: block; }
+
+  /* ===== Process flow ===== */
+  .flow { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+  .flow .step {
+    flex: 1 1 200px;
+    background: var(--vellum);
+    border: 1px solid var(--parchment);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    position: relative;
+    min-width: 180px;
+  }
+  .flow .step .n { position: absolute; top: -10px; left: -10px; width: 26px; height: 26px;
+                   background: var(--terra); color: white; border-radius: 50%; display: flex;
+                   align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+  .flow .step .title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+  .flow .step .desc { font-size: 12px; color: var(--graphite); line-height: 1.45; }
+
+  /* ===== Persona sample card ===== */
+  .persona-sample {
+    background: var(--vellum); border: 1px solid var(--parchment);
+    border-radius: var(--radius); padding: 16px 18px; margin: 12px 0;
+  }
+  .persona-sample .head { display: flex; align-items: baseline; justify-content: space-between;
+                          flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+  .persona-sample .head .who { font-size: 15px; font-weight: 600; color: var(--ink); }
+  .persona-sample .head .meta { font-size: 12px; color: var(--dusty); font-family: var(--font-mono); }
+  .persona-sample .summary { font-size: 14px; color: var(--graphite); margin-bottom: 8px; }
+  .persona-sample .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .persona-sample .tag { background: var(--snow); border: 1px solid var(--parchment);
+                         padding: 2px 9px; border-radius: 999px; font-size: 11px; color: var(--graphite); }
+  .persona-sample .tag.cat { border-color: var(--terra-soft); color: var(--terra); }
+
+  /* ===== Tag list ===== */
+  .tags-inline { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+  .tags-inline .t { background: var(--snow); border: 1px solid var(--parchment);
+                    padding: 3px 10px; border-radius: 999px; font-size: 12px; color: var(--graphite); }
+  .tags-inline .t.azure { background: var(--azure-soft); border-color: #c5d2e0; color: var(--azure); }
+  .tags-inline .t.terra { background: var(--terra-soft); border-color: #ecbeab; color: var(--terra); }
+
+  /* ===== TOC ===== */
+  .toc { background: var(--snow); border: 1px solid var(--parchment); border-radius: var(--radius);
+         padding: 18px 24px; margin: 24px 0 0; }
+  .toc h4 { margin: 0 0 10px; color: var(--ink); }
+  .toc ol { margin: 0; padding-left: 24px; }
+  .toc ol li { margin: 5px 0; color: var(--graphite); }
+  .toc a { color: var(--graphite); border-bottom: 0; }
+  .toc a:hover { color: var(--terra); }
+
+  /* ===== Footer ===== */
+  footer { margin-top: 80px; padding-top: 28px; border-top: 1px solid var(--parchment);
+           font-size: 12px; color: var(--dusty); display: flex; justify-content: space-between; gap: 16px; }
+  footer .left { max-width: 60%; }
+
+  /* ===== 인쇄 ===== */
+  @media print {
+    body { background: white; }
+    .page { padding: 32px; max-width: none; }
+    .cover { page-break-after: always; }
+    h2 { page-break-after: avoid; }
+    .card, .arch, table { page-break-inside: avoid; }
+    a { color: var(--ink); border-bottom: 0; }
+  }
+
+  /* ===== 반응형 ===== */
+  @media (max-width: 900px) {
+    .page { padding: 28px 20px; }
+    .cover { padding: 32px 24px; }
+    .cover h1 { font-size: 36px; }
+    .tldr { grid-template-columns: repeat(2, 1fr); }
+    .arch .layer { grid-template-columns: 1fr; gap: 8px; }
+  }
+</style>
+</head>
+
+<body>
+<div class="page">
+
+  <!-- ===== 표지 ===== -->
+  <section class="cover">
+    <p class="eyebrow">Project Report · 2026</p>
+    <h1>PersonaFit</h1>
+    <p class="lede">
+      상품설명서·약관을 입력하면 <strong>NVIDIA Nemotron-Personas-Korea</strong> 100만 합성 페르소나에서
+      반응할 타겟·반응도·공략 지역을 자동으로 산출하는 상품기획 보조 도구.
+      자연어 검색·세그먼트 빌더·페르소나 가상 설문까지 한 워크스페이스에서 처리합니다.
+    </p>
+    <div class="meta">
+      <span><strong>데이터</strong> Nemotron-Personas-Korea 1M · CC BY 4.0</span>
+      <span><strong>LLM</strong> Claude Sonnet/Haiku · vLLM Qwen3.6-27B</span>
+      <span><strong>임베딩</strong> OpenAI text-embedding-3-small · 1,536d</span>
+      <span><strong>스택</strong> Next.js 14 · FastAPI · Supabase(option) · pm2</span>
+    </div>
+
+    <div class="tldr">
+      <div class="stat">
+        <div class="label">합성 페르소나</div>
+        <div class="value">1,000,000</div>
+        <div class="sub">17 시도 · 252 시군구</div>
+      </div>
+      <div class="stat">
+        <div class="label">임베딩 차원</div>
+        <div class="value">1,536</div>
+        <div class="sub">L2 사전정규화 · npy 5.8GB</div>
+      </div>
+      <div class="stat">
+        <div class="label">매칭 응답</div>
+        <div class="value">&lt; 500ms</div>
+        <div class="sub">100만 행 인메모리 dot product</div>
+      </div>
+      <div class="stat">
+        <div class="label">검증 통과</div>
+        <div class="value">11 / 11</div>
+        <div class="sub">22/22 known-target 케이스 100%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 목차 -->
+  <div class="toc">
+    <h4>목차</h4>
+    <ol>
+      <li><a href="#overview">PersonaFit 개요</a></li>
+      <li><a href="#dataset">데이터셋 — Nemotron-Personas-Korea</a></li>
+      <li><a href="#stack">기술 스택</a></li>
+      <li><a href="#architecture">시스템 아키텍처</a></li>
+      <li><a href="#process">핵심 프로세스 4종</a></li>
+      <li><a href="#usage">활용 방법 (페이지별)</a></li>
+      <li><a href="#cases">활용 사례 — 3종 보험 분석</a></li>
+      <li><a href="#perf">성능 · 검증</a></li>
+      <li><a href="#roadmap">확장 로드맵</a></li>
+      <li><a href="#appendix">부록 — 페르소나 샘플</a></li>
+    </ol>
+  </div>
+
+  <!-- ===== 1. 개요 ===== -->
+  <h2 id="overview">1. PersonaFit 개요</h2>
+
+  <p>
+    <strong>PersonaFit</strong>은 보험·금융 상품기획자(FP)와 마케터를 위해
+    <em>"이 상품에 누가 반응할 것인가"</em>를 정량 데이터로 답해주는 의사결정 보조 도구입니다.
+    상품설명서를 텍스트·파일로 입력하면, LLM이 소구점·타겟 5차원을 추출하고
+    100만 합성 페르소나와 임베딩 유사도로 매칭해 반응도·지역 분포·인사이트 리포트를
+    분 단위로 산출합니다.
+  </p>
+
+  <div class="card callout">
+    <h4>왜 합성 페르소나인가?</h4>
+    <p>
+      실제 가입자 데이터는 PII·내부 규정으로 외부 분석에 제한적입니다.
+      NVIDIA Nemotron-Personas-Korea는 KOSIS·대법원·국민건강보험공단·KREI 통계를 기반으로
+      <strong>인구통계가 정합한 합성 데이터</strong>이며 <strong>CC BY 4.0</strong>로 상업적 활용이 가능합니다.
+      실제 인물·가입자와는 무관하므로 PoC·기획 단계에서 빠르게 시나리오를 검증할 수 있습니다.
+    </p>
+  </div>
+
+  <h3>4가지 핵심 기능</h3>
+  <ul>
+    <li><strong>상품 분석</strong> — 약관·설명서 → 소구점 추출 → 타겟 매칭 → 마크다운 리포트 자동 생성</li>
+    <li><strong>현황 대시보드</strong> — 100만 페르소나의 인구통계·지역·직업·텍스트 길이 분포 시각화 + 자연어 검색</li>
+    <li><strong>페르소나 탐색</strong> — 메타 필터 + 자연어 조건을 조합해 타겟 그룹을 만들고 <em>세그먼트</em>로 저장</li>
+    <li><strong>설문 시뮬레이션</strong> — 저장된 세그먼트의 페르소나에게 LLM이 가상 설문 응답을 생성, 차트 리포트 산출</li>
+  </ul>
+
+  <!-- ===== 2. 데이터셋 ===== -->
+  <h2 id="dataset">2. 데이터셋 — Nemotron-Personas-Korea</h2>
+
+  <div class="card">
+    <h4>한눈에 보기</h4>
+    <div class="tags-inline">
+      <span class="t terra">100만 행</span>
+      <span class="t azure">CC BY 4.0 (상업적 이용 가능)</span>
+      <span class="t">한국인 합성 페르소나</span>
+      <span class="t">NVIDIA NeMo Data Designer</span>
+      <span class="t">26개 컬럼</span>
+    </div>
+    <p style="margin-top: 12px;">
+      출처 — <a href="https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea" target="_blank" rel="noreferrer">huggingface.co/datasets/nvidia/Nemotron-Personas-Korea</a><br>
+      기반 통계 — KOSIS(통계청) · 대법원 · 국민건강보험공단 · KREI(농촌경제연구원)
+    </p>
+  </div>
+
+  <h3>컬럼 구성 (26개)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:24%">분류</th><th style="width:24%">컬럼</th><th>설명</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan="2"><strong>페르소나 텍스트 (7)</strong></td>
+          <td><code>persona</code></td>
+          <td>종합 페르소나 한 문장 요약 (예: <em>"…30대 워킹맘입니다"</em>)</td>
+        </tr>
+        <tr>
+          <td><code>professional / sports / arts / travel / culinary / family</code>_persona</td>
+          <td>6개 카테고리별 페르소나 문장 — 상품 유형별 가중 매칭에 사용</td>
+        </tr>
+        <tr>
+          <td rowspan="3"><strong>속성 텍스트 (6)</strong></td>
+          <td><code>cultural_background</code></td>
+          <td>문화·지역적 배경</td>
+        </tr>
+        <tr>
+          <td><code>skills_and_expertise(_list)</code></td>
+          <td>전문성·기술 + 리스트화 버전</td>
+        </tr>
+        <tr>
+          <td><code>hobbies_and_interests(_list)</code> · <code>career_goals_and_ambitions</code></td>
+          <td>취미·관심사 + 경력 목표</td>
+        </tr>
+        <tr>
+          <td rowspan="3"><strong>인구통계 (13)</strong></td>
+          <td><code>sex · age · marital_status · family_type</code></td>
+          <td>성별 · 연령 · 혼인 상태 · 가구 구성 (39종)</td>
+        </tr>
+        <tr>
+          <td><code>education_level · bachelors_field · occupation · military_status · housing_type</code></td>
+          <td>학력 · 전공 계열 · 직업 (KSCO) · 병역 · 주거 형태</td>
+        </tr>
+        <tr>
+          <td><code>province · district · country · uuid</code></td>
+          <td>17 시도 · 252 시군구 · 국적 · 고유 식별자</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>주요 분포 (대표값)</h3>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>축</th><th>값</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td>평균 연령</td><td class="num">49.5세</td><td>중위 50세, 범위 0~99세</td></tr>
+        <tr><td>성별</td><td>여성 ≈ 남성</td><td>실제 KOSIS 분포 반영</td></tr>
+        <tr><td>무직 비율</td><td class="num">≈ 33%</td><td>영유아·학생·은퇴자 포함</td></tr>
+        <tr><td>수도권 비중</td><td class="num">서울+경기+인천 ≈ 46%</td><td>경기 단일 22% 가까이</td></tr>
+        <tr><td>가구 유형</td><td class="num">39종</td><td>혼자 거주 / 배우자·자녀 거주 / 한부모 / 4세대 등</td></tr>
+        <tr><td>직업</td><td class="num">수천 종 KSCO</td><td>"중식 조리사", "보육교사", "마케팅 전문가" 등 구체 직업명</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>샘플 페르소나 한 명 (요약)</h3>
+  <div class="persona-sample">
+    <div class="head">
+      <div class="who">전기태 · 남자 74세 · 광주 서구</div>
+      <div class="meta">uuid 03b4f3…513c8</div>
+    </div>
+    <p class="summary">
+      "광주 서구에서 평생 하역 일을 하며 살아온 70대 가장으로, 투박한 손마디에 삶의 흔적이 배어 있는 성실하고 사교적인 인물."
+    </p>
+    <div class="tags">
+      <span class="tag">초등학교 졸업</span>
+      <span class="tag">배우자·아파트 거주</span>
+      <span class="tag">하역 단순 종사원</span>
+      <span class="tag cat">sports — 무등산 둘레길</span>
+      <span class="tag cat">travel — 역사 유적지</span>
+      <span class="tag cat">family — 무뚝뚝한 애정</span>
+    </div>
+  </div>
+
+  <!-- ===== 3. 기술 스택 ===== -->
+  <h2 id="stack">3. 기술 스택</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th style="width:18%">레이어</th><th style="width:32%">기술</th><th>역할</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Frontend</strong></td>
+          <td>Next.js 14 (App Router) · TypeScript · Tailwind · Recharts · SUITE/IBM Plex 한화 토큰</td>
+          <td>4개 페이지(/, /overview, /personas, /surveys) · 차트 시각화 · 자연어 입력 UX</td>
+        </tr>
+        <tr>
+          <td><strong>Backend</strong></td>
+          <td>FastAPI · uv 의존성 관리 · Pydantic v2 · tenacity 재시도</td>
+          <td>REST API 30+ 엔드포인트 · 비동기 작업 큐 (설문 시뮬레이션)</td>
+        </tr>
+        <tr>
+          <td><strong>LLM (생성)</strong></td>
+          <td>Claude Sonnet 4.6 (소구점) · Claude Haiku 4.5 (리포트·시뮬레이션)<br>
+              사내 vLLM <code>Qwen3.6-27B-FP8</code> (OpenAI 호환, 기본)</td>
+          <td>Anthropic tool_use + OpenAI function calling 추상화 → 동일 코드로 분기</td>
+        </tr>
+        <tr>
+          <td><strong>LLM (임베딩)</strong></td>
+          <td>OpenAI <code>text-embedding-3-small</code> 1,536차원</td>
+          <td>페르소나·쿼리 임베딩 · 영속 캐시(<code>embed_cache</code>) + per-key lock</td>
+        </tr>
+        <tr>
+          <td><strong>데이터</strong></td>
+          <td>Parquet (930MB) + numpy npy (5.8GB) 인메모리</td>
+          <td>L2 사전정규화 매트릭스 · dot product로 코사인 유사도 O(N) 산출</td>
+        </tr>
+        <tr>
+          <td><strong>지속성</strong></td>
+          <td>JSON Lines (분석 이력·설문) · Supabase Postgres (옵션)</td>
+          <td>이력·세그먼트·설문 응답 저장 · 마이그레이션 준비됨</td>
+        </tr>
+        <tr>
+          <td><strong>파일 추출</strong></td>
+          <td>pdfplumber · python-docx · pyhwp · olefile</td>
+          <td>TXT/PDF/DOCX/HWP/HWPX 자동 텍스트 추출 (드래그앤드롭)</td>
+        </tr>
+        <tr>
+          <td><strong>인프라</strong></td>
+          <td>pm2 프로세스 매니저 · ecosystem.config.cjs</td>
+          <td><code>personafit-web</code> (5101) · <code>personafit-api</code> (5102) 분리</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>LLM Provider 추상화</h3>
+  <div class="card note">
+    <p>
+      <code>services/llm.py</code>가 Anthropic의 <code>tool_use</code> 스키마를 OpenAI <code>function calling</code>으로
+      자동 변환합니다. 호출부는 <code>provider="anthropic"</code> 또는 <code>"sllm"</code>만 지정하면 동일 결과를 얻고,
+      해커톤·내부 데모에서는 비용 0인 사내 vLLM Qwen으로, 외부 시연에서는 Claude로 즉시 전환할 수 있습니다.
+    </p>
+  </div>
+
+  <!-- ===== 4. 아키텍처 ===== -->
+  <h2 id="architecture">4. 시스템 아키텍처</h2>
+
+  <div class="arch">
+    <div class="layer">
+      <div class="name">UI</div>
+      <div class="boxes">
+        <div class="box">/ <span class="b-sub">상품 분석</span></div>
+        <div class="box">/overview <span class="b-sub">데이터셋 현황</span></div>
+        <div class="box">/personas <span class="b-sub">페르소나 탐색</span></div>
+        <div class="box">/surveys <span class="b-sub">설문 마법사</span></div>
+        <div class="box">/history <span class="b-sub">분석 이력</span></div>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="name">API (FastAPI)</div>
+      <div class="boxes">
+        <div class="box">/api/analyze <span class="b-sub">상품 → 매칭 + 리포트</span></div>
+        <div class="box">/api/dataset/* <span class="b-sub">overview · search · filter</span></div>
+        <div class="box">/api/segments <span class="b-sub">세그먼트 CRUD</span></div>
+        <div class="box">/api/surveys/* <span class="b-sub">설문 CRUD · run · report</span></div>
+        <div class="box">/api/extract-text <span class="b-sub">파일 → 텍스트</span></div>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="name">Services</div>
+      <div class="boxes">
+        <div class="box">llm <span class="b-sub">tool_use 추상화</span></div>
+        <div class="box">scoring <span class="b-sub">0.7 cos + 0.2 rule + 0.1 cat</span></div>
+        <div class="box">persona_search <span class="b-sub">메타 + 임베딩 하이브리드</span></div>
+        <div class="box">survey_engine <span class="b-sub">persona × question</span></div>
+        <div class="box">text_extractor <span class="b-sub">PDF/DOCX/HWP</span></div>
+        <div class="box">embed_cache · answer_cache</div>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="name">Data</div>
+      <div class="boxes">
+        <div class="box">personas_1m.parquet <span class="b-sub">930MB</span></div>
+        <div class="box">embeddings_1m.npy <span class="b-sub">5.8GB · L2 정규화</span></div>
+        <div class="box">JSON Lines <span class="b-sub">분석·설문 이력</span></div>
+      </div>
+    </div>
+    <div class="layer">
+      <div class="name">External</div>
+      <div class="boxes">
+        <div class="box">Anthropic API <span class="b-sub">Sonnet/Haiku</span></div>
+        <div class="box">OpenAI Embeddings <span class="b-sub">3-small 1536d</span></div>
+        <div class="box">vLLM Qwen3.6-27B <span class="b-sub">사내 호스팅</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 5. 핵심 프로세스 ===== -->
+  <h2 id="process">5. 핵심 프로세스 4종</h2>
+
+  <h3>5-A. 상품 분석 <code>POST /api/analyze</code></h3>
+  <div class="flow">
+    <div class="step"><div class="n">1</div>
+      <div class="title">입력 추출</div>
+      <div class="desc">텍스트 또는 파일(PDF·HWP·DOCX) 업로드 → 본문 텍스트 추출</div>
+    </div>
+    <div class="step"><div class="n">2</div>
+      <div class="title">소구점 추출</div>
+      <div class="desc">Claude Sonnet이 tool_use로 <em>SellingPoints</em>(연령/성별/가구/학력/직업 + 키워드 + 카테고리 가중치) JSON 산출</div>
+    </div>
+    <div class="step"><div class="n">3</div>
+      <div class="title">룰 사전 필터</div>
+      <div class="desc">store에서 메타 조건 일치 후보 추출. 200 미만이면 자동 완화</div>
+    </div>
+    <div class="step"><div class="n">4</div>
+      <div class="title">임베딩 정렬</div>
+      <div class="desc">소구점 텍스트 → 1536d 임베딩 → 후보 대상 dot product → 상위 K</div>
+    </div>
+    <div class="step"><div class="n">5</div>
+      <div class="title">점수 결합</div>
+      <div class="desc"><strong>0.7×cos + 0.2×rule + 0.1×category</strong> → 0~100 정규화</div>
+    </div>
+    <div class="step"><div class="n">6</div>
+      <div class="title">집계 + 리포트</div>
+      <div class="desc">시도/시군구 분포 · cohort 3종 → Claude Haiku가 FP용 마크다운 리포트 생성</div>
+    </div>
+  </div>
+
+  <h3>5-B. 자연어 페르소나 검색 <code>POST /api/dataset/personas/search · /filter</code></h3>
+  <p>"30대 워킹맘", "은퇴 후 등산을 좋아하는 60대 남성" 같은 자연어로 페르소나 후보를 찾는 하이브리드 파이프라인.
+     순수 코사인은 짧은 인구통계 쿼리에서 점수가 낮게 나오는 한계가 있어, <strong>LLM 메타 추출 + 후보 축소 + 잔여 의미 임베딩</strong>의 3단 흐름으로 해결합니다.</p>
+  <div class="flow">
+    <div class="step"><div class="n">1</div>
+      <div class="title">메타 추출</div>
+      <div class="desc">Claude Haiku/Qwen이 tool_use로 sex/age/region/has_children/occupation/employment 분해</div>
+    </div>
+    <div class="step"><div class="n">2</div>
+      <div class="title">후보 필터</div>
+      <div class="desc">store.filter_indices로 메타 일치 후보군 추출 — '검색에 부합하는 사람' 수</div>
+    </div>
+    <div class="step"><div class="n">3</div>
+      <div class="title">잔여 의미 임베딩</div>
+      <div class="desc">메타로 흡수 안 된 잔여 텍스트("등산", "야간 근무" 등)만 임베딩하여 유사도 정렬</div>
+    </div>
+    <div class="step"><div class="n">4</div>
+      <div class="title">컷 + Fallback</div>
+      <div class="desc">잔여 의미가 있으면 ≥0.3 컷. 0건이면 메타 결과로 fallback (사용자에게 0명 안 보임)</div>
+    </div>
+  </div>
+
+  <div class="card callout">
+    <h4>실제 결과 ("30대 워킹맘")</h4>
+    <p>
+      이전: 순수 코사인 → <strong>0/0/2명</strong> (≥0.5/0.4/0.3) — 매칭 실패.<br>
+      이후: 하이브리드 → 메타 추출 <code>{sex:여자, age:30-39, has_children:true, employment:employed}</code> →
+      <strong>25,526명 매칭</strong>. 잔여 텍스트가 빔(워킹맘은 메타로 완전 흡수) → 결과는 의미 유사도 내림차순.
+    </p>
+  </div>
+
+  <h3>5-C. 세그먼트 빌더 <code>/api/segments</code></h3>
+  <div class="flow">
+    <div class="step"><div class="n">1</div>
+      <div class="title">필터 조합</div>
+      <div class="desc">/personas 페이지에서 메타(연령·성별·지역·직업·가구) + 자연어 조건</div>
+    </div>
+    <div class="step"><div class="n">2</div>
+      <div class="title">개별 선택</div>
+      <div class="desc">결과 카드에서 페르소나 체크박스로 정밀 선택 (최대 10,000명)</div>
+    </div>
+    <div class="step"><div class="n">3</div>
+      <div class="title">세그먼트 저장</div>
+      <div class="desc">이름·설명·필터·persona_uuids를 묶어 세그먼트로 영속화</div>
+    </div>
+    <div class="step"><div class="n">4</div>
+      <div class="title">설문에 재사용</div>
+      <div class="desc">설문 마법사에서 세그먼트 불러오기 → 동일 그룹에 반복 조사</div>
+    </div>
+  </div>
+
+  <h3>5-D. 설문 시뮬레이션 <code>/api/surveys/{id}/run</code></h3>
+  <div class="flow">
+    <div class="step"><div class="n">1</div>
+      <div class="title">설문 작성</div>
+      <div class="desc">단일/다중 선택·척도·NPS·주관식 5종 질문 유형. Excel/Word/CSV 일괄 업로드, AI 추천도 지원</div>
+    </div>
+    <div class="step"><div class="n">2</div>
+      <div class="title">타겟 결정</div>
+      <div class="desc">세그먼트 불러오기 또는 즉석 필터로 응답 대상 페르소나 풀 확정</div>
+    </div>
+    <div class="step"><div class="n">3</div>
+      <div class="title">병렬 시뮬레이션</div>
+      <div class="desc">survey_engine이 (persona × question)마다 LLM 호출. 캐시·재시도·진행률 추적</div>
+    </div>
+    <div class="step"><div class="n">4</div>
+      <div class="title">차트 리포트</div>
+      <div class="desc">질문별 분포·confidence + Claude Haiku가 총평·인사이트 생성 → CSV 내보내기 지원</div>
+    </div>
+  </div>
+
+  <!-- ===== 6. 활용법 ===== -->
+  <h2 id="usage">6. 활용 방법 (페이지별)</h2>
+
+  <h3>① 분석 페이지 <code>/</code></h3>
+  <ul>
+    <li>상품설명서·약관을 텍스트 박스에 붙여넣거나 PDF/HWP 파일을 드래그앤드롭</li>
+    <li>"분석 시작" → 20초 내외에 ScoreCard·PersonaList·RegionChart·ReportPanel 4개 패널이 채워짐</li>
+    <li>리포트는 마크다운으로 복사 가능 · 분석 결과는 자동 이력 저장</li>
+    <li>LLM 토글로 사내 sLLM(무료) ↔ Claude(고품질) 즉시 전환</li>
+  </ul>
+
+  <h3>② 현황 페이지 <code>/overview</code></h3>
+  <ul>
+    <li>9개 섹션 — 핵심 지표 → 지역 지도 → 인구통계 7종 → 직업군 → 페르소나 텍스트 → 자연어 검색 → 출처</li>
+    <li>분모 토글: 직업군 분포를 "전체" vs "취업자만"으로 즉시 전환 (무직 36.7% 왜곡 방지)</li>
+    <li>자연어 검색 — "30대 워킹맘"처럼 입력하면 메타 추출 칩 + 매칭 인원 + 상위 페르소나 노출</li>
+  </ul>
+
+  <h3>③ 페르소나 탐색 <code>/personas</code></h3>
+  <ul>
+    <li>좌측 사이드바: 연령·성별·지역·가구·학력·직업 필터 + 자연어 조건</li>
+    <li>우측: 매칭 요약(성별/연령대/시도 분포) + 카드/테이블 토글로 페르소나 24명씩 페이지</li>
+    <li>체크박스로 페르소나 개별 선택 → 하단 sticky CTA "세그먼트로 저장"</li>
+    <li>카드 클릭 시 풀 프로필 모달 (7개 카테고리 페르소나·skills·hobbies·career)</li>
+  </ul>
+
+  <h3>④ 설문 <code>/surveys</code></h3>
+  <ul>
+    <li>설문 마법사: 제목·목적 → 타겟(세그먼트 또는 즉석 필터) → 질문(직접/엑셀/AI 추천)</li>
+    <li>"시뮬레이션 시작" → 진행률 페이지에서 실시간 응답 생성 추적</li>
+    <li>리포트 페이지: 질문 유형별 시각화(파이/막대/히스토그램) + Haiku 자동 총평 + CSV 다운로드</li>
+  </ul>
+
+  <!-- ===== 7. 활용 사례 ===== -->
+  <h2 id="cases">7. 활용 사례 — 3종 보험 분석 결과</h2>
+
+  <p>실제 약관 텍스트를 입력해 E2E 검증한 결과. 모든 케이스가 직관적인 카테고리와 정합:</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>상품</th><th>1순위 카테고리</th><th>평균 점수</th><th>분석 시간</th><th>해석</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>어린이보험</strong></td>
+          <td><span class="tags-inline" style="display:inline-flex; margin:0;"><span class="t terra">family 0.70</span></span></td>
+          <td class="num">67–69</td>
+          <td class="num">22.5초</td>
+          <td>자녀 양육 가구 우세 — 가구 유형·연령 메타로 자연 좁혀짐</td>
+        </tr>
+        <tr>
+          <td><strong>여행자보험</strong></td>
+          <td><span class="tags-inline" style="display:inline-flex; margin:0;"><span class="t terra">travel 0.55</span></span></td>
+          <td class="num">75–77</td>
+          <td class="num">18.9초</td>
+          <td>travel_persona 가중 강 — 액티브한 20~40대 후보 상위</td>
+        </tr>
+        <tr>
+          <td><strong>종신보험</strong></td>
+          <td><span class="tags-inline" style="display:inline-flex; margin:0;"><span class="t terra">family 0.55</span><span class="t azure">professional 0.25</span></span></td>
+          <td class="num">79–81</td>
+          <td class="num">24.9초</td>
+          <td>가장+직장인 결합 — 학력·직업·연령이 동시에 작동</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>활용 시나리오 예시</h3>
+  <ol>
+    <li><strong>신상품 콘셉트 검증</strong> — "이 약관에 정말 30대 워킹맘이 반응할까?" → /analyze로 타겟 5차원·반응도 산출</li>
+    <li><strong>채널 마케팅 지역 우선순위</strong> — RegionChart의 시군구 상위 5개를 광고·영업 자원 배분 근거로</li>
+    <li><strong>경쟁 약관 비교</strong> — 같은 카테고리 두 상품을 분석해 카테고리 가중치·타겟 폭 차이를 정량 비교</li>
+    <li><strong>가상 인터뷰</strong> — 세그먼트에 NPS·만족도 설문을 돌려 카피·약관 문구 A/B 후보 결정</li>
+    <li><strong>FP 영업 준비</strong> — 리포트에 자동 포함된 "영업 화법 예시" 4건으로 현장 응대 시뮬레이션</li>
+  </ol>
+
+  <!-- ===== 8. 성능 / 검증 ===== -->
+  <h2 id="perf">8. 성능 · 검증</h2>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>지표</th><th>측정값</th><th>설계 근거</th></tr></thead>
+      <tbody>
+        <tr><td>매칭 응답 시간</td><td class="num">&lt; 500ms</td><td>100만 행 인메모리 dot product (numpy O(N))</td></tr>
+        <tr><td>전체 분석 응답</td><td class="num">~20초</td><td>LLM 2회(소구점+리포트) + 매칭 + 임베딩</td></tr>
+        <tr><td>임베딩 캐시 적중</td><td class="num">99%+</td><td>(model, text) 키 + per-key lock으로 중복 호출 방지</td></tr>
+        <tr><td>설문 응답 캐시</td><td class="num">동일 (persona × question)</td><td>answer_cache로 재실행 시 LLM 호출 0회</td></tr>
+        <tr><td>모델 검증</td><td class="num">11/11 · 22/22 통과</td><td>known-target 백테스트 100% (군인·지역·직군 어려운 차원 포함)</td></tr>
+        <tr><td>데이터 적재</td><td class="num">~11분 (1회)</td><td>parquet 10초 + OpenAI 임베딩 batch ~10분 ($0.24)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>비용 (참고)</h3>
+  <ul>
+    <li><strong>임베딩 (1회)</strong> — text-embedding-3-small $0.02/1M 토큰 기준 10만 행 ≈ <strong>$0.24</strong>, 100만 행 ≈ <strong>$4</strong></li>
+    <li><strong>분석 1건</strong> — Sonnet(소구점) + Haiku(리포트) ≈ <strong>$0.01~0.03</strong></li>
+    <li><strong>설문 1건</strong> — 페르소나 100명 × 질문 5개 = 500 호출 ≈ <strong>$0.10~0.30</strong> (Haiku 기준, 사내 vLLM 사용 시 0)</li>
+  </ul>
+
+  <!-- ===== 9. 로드맵 ===== -->
+  <h2 id="roadmap">9. 확장 로드맵</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>우선순위</th><th>항목</th><th>설명</th></tr></thead>
+      <tbody>
+        <tr><td>P1</td><td>Supabase Postgres 무료 업로드</td><td>10만 행 + 분석 이력 → pgvector로 다중 인스턴스·동시 사용자 지원</td></tr>
+        <tr><td>P2</td><td>100만 임베딩 GitHub Release 배포</td><td>npy 5.8GB → 분할 압축. 외부 사용자가 재생성 없이 즉시 사용</td></tr>
+        <tr><td>P2</td><td>실시간 협업 세그먼트</td><td>다중 사용자 동시 필터링 · 댓글 · 버전 관리</td></tr>
+        <tr><td>P2</td><td>HuggingFace fork 업로드</td><td>임베딩 포함 버전 공개 (선택)</td></tr>
+        <tr><td>P3</td><td>다국어 페르소나</td><td>Nemotron 영문/일문 버전 추가 — 글로벌 상품 분석</td></tr>
+        <tr><td>P3</td><td>리포트 PDF 자동 변환</td><td>마크다운 → 한화 톤 PDF 한 클릭</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== 10. 부록 ===== -->
+  <h2 id="appendix">10. 부록 — 페르소나 샘플 2건</h2>
+
+  <div class="persona-sample">
+    <div class="head">
+      <div class="who">최은지 · 여자 71세 · 서울 서초구</div>
+      <div class="meta">회계 사무원 · 4년제 대학교 · uuid 73f75d…2715a</div>
+    </div>
+    <p class="summary">"서초구에서 부동산 회계 사무원으로 일하며 경제적 자립과 사교적인 삶을 동시에 누리는 당찬 70대 여성."</p>
+    <div class="tags">
+      <span class="tag">배우자·자녀 거주</span>
+      <span class="tag">다세대주택</span>
+      <span class="tag">자연과학·수학 전공</span>
+      <span class="tag cat">professional — 부동산 세금 암산</span>
+      <span class="tag cat">arts — 서예 + 분위기 메이커</span>
+      <span class="tag cat">family — 집안의 중심축</span>
+    </div>
+  </div>
+
+  <div class="persona-sample">
+    <div class="head">
+      <div class="who">안상식 · 남자 73세 · 서울 양천구 (목동)</div>
+      <div class="meta">고등학교 · 배우자와 거주 · uuid 89eca8…7680</div>
+    </div>
+    <p class="summary">"목동에서 평생을 성실함과 규칙으로 무장해 온, 꼼꼼한 가계부와 나훈아의 노래가 어울리는 정갈한 노신사."</p>
+    <div class="tags">
+      <span class="tag">아파트 거주</span>
+      <span class="tag">비현역</span>
+      <span class="tag">공복혈당장애 관리</span>
+      <span class="tag cat">professional — 동네 민원 해결사</span>
+      <span class="tag cat">travel — 창덕궁·고궁 산책</span>
+      <span class="tag cat">arts — 나훈아 음악 감상</span>
+    </div>
+  </div>
+
+  <div class="card note" style="margin-top: 28px;">
+    <h4>주의 — 합성 데이터의 사용 한계</h4>
+    <p>
+      Nemotron-Personas-Korea는 통계에 정합하지만 <strong>실제 가입자·인물과 무관</strong>합니다.
+      PersonaFit의 결과는 <em>가설 검증·우선순위 정렬</em> 용도로 활용하시고,
+      실제 상품 출시·약관 확정 전에는 사내 실데이터(보장된 PII 보호 환경)에서 재검증이 필요합니다.
+    </p>
+  </div>
+
+  <footer>
+    <div class="left">
+      <strong>PersonaFit</strong> — Project Report · 2026-05<br>
+      합성 페르소나 데이터: <a href="https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea" target="_blank" rel="noreferrer">nvidia/Nemotron-Personas-Korea</a> (CC BY 4.0)
+    </div>
+    <div>
+      Generated for internal review
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>

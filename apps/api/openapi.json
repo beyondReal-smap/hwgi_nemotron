@@ -1,0 +1,4267 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PersonaFit API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health",
+        "description": "헬스체크. 부팅 검증 및 외부 모니터링용.",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "string"
+                      }
+                    ]
+                  },
+                  "type": "object",
+                  "title": "Response Health Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyze": {
+      "post": {
+        "tags": [
+          "analyze"
+        ],
+        "summary": "Analyze",
+        "description": "상품설명서·약관 → 타겟 페르소나 + 반응도 + 페르소나별 의견 + 리포트.",
+        "operationId": "analyze_api_analyze_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalyzeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyzeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/extract-text": {
+      "post": {
+        "tags": [
+          "extract"
+        ],
+        "summary": "Extract Text",
+        "description": "파일을 받아 텍스트만 추출해 반환.\n\n프론트엔드는 응답의 `text`를 textarea에 채우고, 사용자는 그대로 분석 가능.",
+        "operationId": "extract_text_api_extract_text_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_extract_text_api_extract_text_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/extract-text/supported": {
+      "get": {
+        "tags": [
+          "extract"
+        ],
+        "summary": "Supported Formats",
+        "description": "지원 형식 목록 (UI에서 accept 속성 채울 때 사용).",
+        "operationId": "supported_formats_api_extract_text_supported_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Supported Formats Api Extract Text Supported Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "List Endpoint",
+        "description": "분석 이력 요약 리스트 (최신순).",
+        "operationId": "list_endpoint_api_analyses_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysesListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Delete All Endpoint",
+        "description": "모든 분석 + 시뮬레이션 일괄 삭제 (되돌릴 수 없음).",
+        "operationId": "delete_all_endpoint_api_analyses_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete All Endpoint Api Analyses Delete"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/analyses/{analysis_id}": {
+      "get": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Detail Endpoint",
+        "description": "분석 이력 단건 전체 (4섹션 다시 렌더링용).\n\n응답은 AnalyzeResponse와 동일 구조 + 추가 메타(id, created_at, product_text 일부)\n+ simulations(이 분석에 묶인 과거 시뮬레이션 전체, 최신순).",
+        "operationId": "detail_endpoint_api_analyses__analysis_id__get",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Detail Endpoint Api Analyses  Analysis Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "analyses"
+        ],
+        "summary": "Delete Endpoint",
+        "description": "분석 단건 + 연관 시뮬레이션 삭제.",
+        "operationId": "delete_endpoint_api_analyses__analysis_id__delete",
+        "parameters": [
+          {
+            "name": "analysis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Analysis Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Endpoint Api Analyses  Analysis Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/simulate": {
+      "post": {
+        "tags": [
+          "simulate"
+        ],
+        "summary": "Simulate",
+        "description": "기 분석된 페르소나 상위 N명에게 주관식 문항 응답 시뮬레이션.",
+        "operationId": "simulate_api_simulate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SimulateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SimulateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dataset/overview": {
+      "get": {
+        "tags": [
+          "dataset"
+        ],
+        "summary": "Overview",
+        "description": "데이터셋 전체 통계 — 메타 + 인구통계 분포 + 지역 + 직업 Top + 페르소나 길이.\n\nPersonaStore의 df를 활용하므로 임베딩과 무관하게 즉시 응답.\n내부적으로 lru_cache로 1회만 계산 (~수십 ms 이내).",
+        "operationId": "overview_api_dataset_overview_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Overview Api Dataset Overview Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dataset/personas/samples": {
+      "get": {
+        "tags": [
+          "dataset"
+        ],
+        "summary": "Persona Samples",
+        "description": "특정 페르소나 카테고리에서 대표 샘플 N건 (길이 양극단).\n\n/overview 페이지의 \"페르소나 텍스트 길이\" 표에서 카테고리 클릭 시 사용.",
+        "operationId": "persona_samples_api_dataset_personas_samples_get",
+        "parameters": [
+          {
+            "name": "column",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "페르소나 카테고리 컬럼. 허용: persona, professional_persona, sports_persona, arts_persona, travel_persona, culinary_persona, family_persona",
+              "default": "persona",
+              "title": "Column"
+            },
+            "description": "페르소나 카테고리 컬럼. 허용: persona, professional_persona, sports_persona, arts_persona, travel_persona, culinary_persona, family_persona"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 20,
+              "minimum": 2,
+              "default": 8,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Persona Samples Api Dataset Personas Samples Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dataset/personas/search": {
+      "post": {
+        "tags": [
+          "dataset"
+        ],
+        "summary": "Persona Search",
+        "description": "자연어 시멘틱 검색 (메타 추출 + 임베딩 정렬 하이브리드).\n\n내부적으로 /personas/filter와 동일한 메타 추출 → 후보 축소 → 잔여 의미 임베딩 정렬\n파이프라인을 사용. 응답에는 추출된 메타(extracted_filter)와 단계별 매칭 수\n(meta_filter_total / match_total)가 포함된다.\n\n예: \"은퇴 후 등산 좋아하는 60대 남성\" → sex=남자, age 60+, employment=unemployed,\n    remaining='등산' → 메타 후보 N명, 임베딩 ≥0.3 컷으로 M명 매칭.\n예: \"30대 워킹맘 수도권\" → sex=여자, age 30-39, has_children=true, employment=employed,\n    provinces=[서울/경기/인천], remaining='' → 메타 후보가 곧 매칭 결과.",
+        "operationId": "persona_search_api_dataset_personas_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Persona Search Api Dataset Personas Search Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dataset/personas/facets": {
+      "get": {
+        "tags": [
+          "dataset"
+        ],
+        "summary": "Personas Facets",
+        "description": "필터 UI에 채울 distinct 값 목록 (province / family_type / education_level 등).\n\n1회 계산 후 lru_cache (df 불변 가정). 응답 크기 작음.",
+        "operationId": "personas_facets_api_dataset_personas_facets_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Personas Facets Api Dataset Personas Facets Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dataset/personas/filter": {
+      "post": {
+        "tags": [
+          "dataset"
+        ],
+        "summary": "Personas Filter",
+        "description": "메타 필터 + (옵션) 자연어 검색 + 페이지네이션 + 분포 통계.\n\n흐름:\n  1) store.filter_indices(meta) → 후보 인덱스\n  2) req.query 있으면 → 임베딩 후 그 인덱스 대상 cosine 정렬, similarity 부여\n               없으면 → 인덱스 그대로 (정렬은 uuid asc로 안정)\n  3) 페이지 슬라이스 + 인구통계 분포(sex/age_bins/province) 집계",
+        "operationId": "personas_filter_api_dataset_personas_filter_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PersonaFilterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonaFilterResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dataset/personas/{persona_uuid}": {
+      "get": {
+        "tags": [
+          "dataset"
+        ],
+        "summary": "Get Persona Detail",
+        "description": "단일 페르소나 상세 — PersonaDetailModal용 풀 프로필.",
+        "operationId": "get_persona_detail_api_dataset_personas__persona_uuid__get",
+        "parameters": [
+          {
+            "name": "persona_uuid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Persona Uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Persona Detail Api Dataset Personas  Persona Uuid  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys": {
+      "post": {
+        "tags": [
+          "surveys"
+        ],
+        "summary": "Create Survey",
+        "operationId": "create_survey_api_surveys_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SurveyCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Survey"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "surveys"
+        ],
+        "summary": "List Surveys Endpoint",
+        "operationId": "list_surveys_endpoint_api_surveys_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "draft",
+                    "running",
+                    "completed",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurveyListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}": {
+      "get": {
+        "tags": [
+          "surveys"
+        ],
+        "summary": "Get Survey Endpoint",
+        "operationId": "get_survey_endpoint_api_surveys__survey_id__get",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Survey"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "surveys"
+        ],
+        "summary": "Update Survey Endpoint",
+        "operationId": "update_survey_endpoint_api_surveys__survey_id__put",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SurveyCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Survey"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "surveys"
+        ],
+        "summary": "Delete Survey Endpoint",
+        "operationId": "delete_survey_endpoint_api_surveys__survey_id__delete",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/suggest-questions": {
+      "post": {
+        "tags": [
+          "surveys"
+        ],
+        "summary": "Suggest Questions",
+        "description": "제목·목적·대상자를 바탕으로 AI가 질문 N개를 추천.\n\n호출 시점: 마법사 Step 3에서 \"AI 추천\" 버튼.\n출력: SurveyQuestion[] (id·order 자동 할당, validate 통과 보장).",
+        "operationId": "suggest_questions_api_surveys_suggest_questions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestQuestionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestQuestionsResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/questions/parse-file": {
+      "post": {
+        "tags": [
+          "surveys_questions_import"
+        ],
+        "summary": "Parse File",
+        "operationId": "parse_file_api_surveys_questions_parse_file_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_parse_file_api_surveys_questions_parse_file_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParseResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/questions/template/excel": {
+      "get": {
+        "tags": [
+          "surveys_questions_import"
+        ],
+        "summary": "Template Excel",
+        "operationId": "template_excel_api_surveys_questions_template_excel_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/questions/template/word": {
+      "get": {
+        "tags": [
+          "surveys_questions_import"
+        ],
+        "summary": "Template Word",
+        "operationId": "template_word_api_surveys_questions_template_word_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}/run": {
+      "post": {
+        "tags": [
+          "survey_run"
+        ],
+        "summary": "Trigger Run",
+        "description": "설문 시뮬레이션 시작 (백그라운드).\n\nArgs:\n    force: True이면 status='running'이라도 강제로 다시 시작.\n           pm2 재시작 등으로 백그라운드 작업이 끊겨 세션이 stale running으로 남았을 때 복구용.\n           completed 세션은 보존(캐시 hit으로 즉시 통과), running/failed 세션은 pending으로 리셋.\n\nReturns:\n    {status: \"started\", survey_id, total, reset, completed_preserved}",
+        "operationId": "trigger_run_api_surveys__survey_id__run_post",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          },
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Force"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Trigger Run Api Surveys  Survey Id  Run Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}/status": {
+      "get": {
+        "tags": [
+          "survey_progress"
+        ],
+        "summary": "Survey Status",
+        "description": "진행률·통계 집계. polling으로 자주 호출되니 IO 최소화.",
+        "operationId": "survey_status_api_surveys__survey_id__status_get",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SurveyStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}/retry-failed": {
+      "post": {
+        "tags": [
+          "survey_progress"
+        ],
+        "summary": "Retry Failed",
+        "description": "failed 상태 세션만 다시 실행. completed는 캐시 hit으로 즉시 통과.",
+        "operationId": "retry_failed_api_surveys__survey_id__retry_failed_post",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}/responses": {
+      "get": {
+        "tags": [
+          "survey_responses"
+        ],
+        "summary": "Get Responses",
+        "operationId": "get_responses_api_surveys__survey_id__responses_get",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "페르소나 텍스트 부분 매칭",
+              "title": "Q"
+            },
+            "description": "페르소나 텍스트 부분 매칭"
+          },
+          {
+            "name": "status_filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "세션 상태 필터: \"completed\"/\"failed\"/\"pending\"/\"running\"",
+              "title": "Status Filter"
+            },
+            "description": "세션 상태 필터: \"completed\"/\"failed\"/\"pending\"/\"running\""
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResponsesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}/report": {
+      "get": {
+        "tags": [
+          "survey_report"
+        ],
+        "summary": "Get Report",
+        "description": "완료된 응답 전체 집계. 백엔드에서 사전 가공해 프론트 부담 제거.",
+        "operationId": "get_report_api_surveys__survey_id__report_get",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}/commentary/regenerate": {
+      "post": {
+        "tags": [
+          "survey_report"
+        ],
+        "summary": "Regenerate Commentary",
+        "description": "비동기 백필. 즉시 202 반환 후 background에서 LLM 호출 + 저장.",
+        "operationId": "regenerate_commentary_api_surveys__survey_id__commentary_regenerate_post",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          },
+          {
+            "name": "X-Admin-Token",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Regenerate Commentary Api Surveys  Survey Id  Commentary Regenerate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/surveys/{survey_id}/report.csv": {
+      "get": {
+        "tags": [
+          "survey_report"
+        ],
+        "summary": "Get Report Csv",
+        "description": "응답 raw 데이터 CSV — 1행 = 페르소나 1명.",
+        "operationId": "get_report_csv_api_surveys__survey_id__report_csv_get",
+        "parameters": [
+          {
+            "name": "survey_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Survey Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/segments": {
+      "post": {
+        "tags": [
+          "segments"
+        ],
+        "summary": "Create Segment",
+        "operationId": "create_segment_api_segments_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Segment"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "segments"
+        ],
+        "summary": "List Segments Endpoint",
+        "operationId": "list_segments_endpoint_api_segments_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SegmentListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/segments/{segment_id}": {
+      "get": {
+        "tags": [
+          "segments"
+        ],
+        "summary": "Get Segment Endpoint",
+        "operationId": "get_segment_endpoint_api_segments__segment_id__get",
+        "parameters": [
+          {
+            "name": "segment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Segment Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Segment"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "segments"
+        ],
+        "summary": "Delete Segment Endpoint",
+        "operationId": "delete_segment_endpoint_api_segments__segment_id__delete",
+        "parameters": [
+          {
+            "name": "segment_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Segment Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysesListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AnalysisSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "AnalysesListResponse"
+      },
+      "AnalysisSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "key_benefits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Benefits"
+          },
+          "max_score": {
+            "type": "number",
+            "title": "Max Score"
+          },
+          "top_persona_count": {
+            "type": "integer",
+            "title": "Top Persona Count"
+          },
+          "top_province": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Province"
+          },
+          "top_province_count": {
+            "type": "integer",
+            "title": "Top Province Count",
+            "default": 0
+          },
+          "total_ms": {
+            "type": "integer",
+            "title": "Total Ms"
+          },
+          "simulation_count": {
+            "type": "integer",
+            "title": "Simulation Count",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "summary",
+          "key_benefits",
+          "max_score",
+          "top_persona_count",
+          "total_ms"
+        ],
+        "title": "AnalysisSummary"
+      },
+      "AnalyzeRequest": {
+        "properties": {
+          "product_text": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 20,
+            "title": "Product Text",
+            "description": "상품설명서 + 약관 본문 (20-20000자)"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 5.0,
+            "title": "Top K",
+            "description": "반환할 상위 페르소나 수",
+            "default": 100
+          },
+          "llm_provider": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "sllm"
+            ],
+            "title": "Llm Provider",
+            "description": "사용할 LLM provider. anthropic=Claude Sonnet+Haiku, sllm=OpenAI 호환 vLLM (Qwen3.6-27B-FP8)",
+            "default": "sllm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "product_text"
+        ],
+        "title": "AnalyzeRequest",
+        "description": "POST /api/analyze 요청 바디."
+      },
+      "AnalyzeResponse": {
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "title": "Analysis Id"
+          },
+          "selling_points": {
+            "$ref": "#/components/schemas/SellingPoints"
+          },
+          "top_personas": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaHit"
+            },
+            "type": "array",
+            "title": "Top Personas"
+          },
+          "bottom_personas": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaHit"
+            },
+            "type": "array",
+            "title": "Bottom Personas",
+            "description": "전체 점수 하위 N명 (반대 반응 비교용)"
+          },
+          "province_stats": {
+            "items": {
+              "$ref": "#/components/schemas/RegionStat"
+            },
+            "type": "array",
+            "title": "Province Stats",
+            "description": "상위 50명 기준 시도 집계 (카드용)"
+          },
+          "district_stats": {
+            "items": {
+              "$ref": "#/components/schemas/RegionStat"
+            },
+            "type": "array",
+            "title": "District Stats",
+            "description": "상위 시도의 시군구 집계 (drill-down용)"
+          },
+          "population_stats": {
+            "$ref": "#/components/schemas/PopulationStats",
+            "description": "100만 행 전체 스코어링 기반 모집단 통계"
+          },
+          "top_opinions": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaOpinion"
+            },
+            "type": "array",
+            "title": "Top Opinions",
+            "description": "top_personas와 같은 순서로 매칭된 의견 (uuid join도 가능)"
+          },
+          "bottom_opinions": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaOpinion"
+            },
+            "type": "array",
+            "title": "Bottom Opinions",
+            "description": "bottom_personas와 같은 순서로 매칭된 의견"
+          },
+          "report_md": {
+            "type": "string",
+            "title": "Report Md",
+            "description": "Claude(Haiku) 생성 FP/기획자용 마크다운 리포트"
+          },
+          "elapsed_ms": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Elapsed Ms",
+            "description": "단계별 소요 ms: selling_points, embed, score, opinions, report"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis_id",
+          "selling_points",
+          "top_personas",
+          "province_stats",
+          "district_stats",
+          "population_stats",
+          "report_md",
+          "elapsed_ms"
+        ],
+        "title": "AnalyzeResponse",
+        "description": "POST /api/analyze 응답."
+      },
+      "Answer": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "answer_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ],
+            "title": "Answer Value"
+          },
+          "reasoning": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Reasoning",
+            "default": ""
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id",
+          "answer_value"
+        ],
+        "title": "Answer",
+        "description": "단일 페르소나 × 단일 질문의 응답."
+      },
+      "Body_extract_text_api_extract_text_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_extract_text_api_extract_text_post"
+      },
+      "Body_parse_file_api_surveys_questions_parse_file_post": {
+        "properties": {
+          "file": {
+            "type": "string",
+            "contentMediaType": "application/octet-stream",
+            "title": "File"
+          }
+        },
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "title": "Body_parse_file_api_surveys_questions_parse_file_post"
+      },
+      "CohortStat": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "cohort 식별자 (core/target/interest)"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "표시용 라벨 (예: '핵심 타겟')"
+          },
+          "percentile": {
+            "type": "number",
+            "title": "Percentile",
+            "description": "상위 X% (0~100)"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size",
+            "description": "해당 cohort 인원 수"
+          },
+          "min_score": {
+            "type": "number",
+            "title": "Min Score",
+            "description": "이 cohort에 포함되는 최소 점수"
+          },
+          "avg_score": {
+            "type": "number",
+            "title": "Avg Score",
+            "description": "평균 점수"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "percentile",
+          "size",
+          "min_score",
+          "avg_score"
+        ],
+        "title": "CohortStat",
+        "description": "percentile 기반 cohort 1개."
+      },
+      "DemographicGroup": {
+        "properties": {
+          "column": {
+            "type": "string",
+            "title": "Column",
+            "description": "원본 컬럼명 (예: sex, marital_status)"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "표시용 라벨 (예: 성별, 혼인 상태)"
+          },
+          "bins": {
+            "items": {
+              "$ref": "#/components/schemas/DistributionBin"
+            },
+            "type": "array",
+            "title": "Bins",
+            "description": "분포 막대 (내림차순)"
+          },
+          "total_unique": {
+            "type": "integer",
+            "title": "Total Unique",
+            "description": "해당 컬럼의 전체 고유값 수"
+          },
+          "truncated_to": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Truncated To",
+            "description": "Top N으로 잘랐다면 N, 아니면 None (즉 bins가 전체)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "column",
+          "label",
+          "bins",
+          "total_unique"
+        ],
+        "title": "DemographicGroup",
+        "description": "Nemotron 인구통계 1개 컬럼의 분포.\n\n자유 텍스트 컬럼(persona, *_persona, skills_and_expertise,\nhobbies_and_interests, career_goals_and_ambitions)은 카테고리 분포로\n표현할 수 없어 포함하지 않는다."
+      },
+      "DistributionBin": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "count"
+        ],
+        "title": "DistributionBin",
+        "description": "히스토그램 / 카테고리 분포 1개 막대."
+      },
+      "ExecutionConfig": {
+        "properties": {
+          "llm_provider": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "sllm"
+            ],
+            "title": "Llm Provider",
+            "default": "anthropic"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model",
+            "default": "claude-haiku-4-5"
+          },
+          "temperature": {
+            "type": "number",
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Temperature",
+            "default": 0.7
+          },
+          "include_reasoning": {
+            "type": "boolean",
+            "title": "Include Reasoning",
+            "default": true
+          }
+        },
+        "type": "object",
+        "title": "ExecutionConfig",
+        "description": "LLM 실행 파라미터."
+      },
+      "ExtractResponse": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "char_count": {
+            "type": "integer",
+            "title": "Char Count"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "char_count",
+          "text",
+          "truncated"
+        ],
+        "title": "ExtractResponse"
+      },
+      "ExtractedFilter": {
+        "properties": {
+          "sex": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sex"
+          },
+          "age_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Min"
+          },
+          "age_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Max"
+          },
+          "provinces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Provinces"
+          },
+          "marital_statuses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Marital Statuses"
+          },
+          "has_children": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Children"
+          },
+          "employment_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Employment Status"
+          },
+          "occupations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Occupations"
+          },
+          "education_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Education Levels"
+          },
+          "family_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Family Types"
+          },
+          "additional_filters": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "object",
+            "title": "Additional Filters"
+          },
+          "remaining_query": {
+            "type": "string",
+            "title": "Remaining Query",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "title": "ExtractedFilter",
+        "description": "자연어 쿼리에서 LLM이 추출한 메타 조건. 사용자에게 투명하게 노출."
+      },
+      "FailedPersonaInfo": {
+        "properties": {
+          "persona_uuid": {
+            "type": "string",
+            "title": "Persona Uuid"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_uuid",
+          "error",
+          "started_at"
+        ],
+        "title": "FailedPersonaInfo"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "OpenEndedSample": {
+        "properties": {
+          "persona_uuid": {
+            "type": "string",
+            "title": "Persona Uuid"
+          },
+          "sex": {
+            "type": "string",
+            "title": "Sex"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "occupation": {
+            "type": "string",
+            "title": "Occupation"
+          },
+          "answer": {
+            "type": "string",
+            "title": "Answer"
+          },
+          "reasoning": {
+            "type": "string",
+            "title": "Reasoning"
+          },
+          "confidence": {
+            "type": "number",
+            "title": "Confidence"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_uuid",
+          "sex",
+          "age",
+          "province",
+          "occupation",
+          "answer",
+          "reasoning",
+          "confidence"
+        ],
+        "title": "OpenEndedSample"
+      },
+      "ParseResult": {
+        "properties": {
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "file_format": {
+            "type": "string",
+            "enum": [
+              "xlsx",
+              "csv",
+              "docx"
+            ],
+            "title": "File Format"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ParseSummary"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ParsedQuestion"
+            },
+            "type": "array",
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "filename",
+          "file_format",
+          "summary",
+          "questions"
+        ],
+        "title": "ParseResult"
+      },
+      "ParseSummary": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "valid": {
+            "type": "integer",
+            "title": "Valid"
+          },
+          "invalid": {
+            "type": "integer",
+            "title": "Invalid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "valid",
+          "invalid"
+        ],
+        "title": "ParseSummary"
+      },
+      "ParsedQuestion": {
+        "properties": {
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single_choice",
+              "multi_choice",
+              "scale",
+              "open_ended",
+              "nps"
+            ],
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "scale_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Min"
+          },
+          "scale_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Max"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row",
+          "type"
+        ],
+        "title": "ParsedQuestion"
+      },
+      "PersonaCard": {
+        "properties": {
+          "uuid": {
+            "type": "string",
+            "title": "Uuid"
+          },
+          "sex": {
+            "type": "string",
+            "title": "Sex"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "district": {
+            "type": "string",
+            "title": "District"
+          },
+          "occupation": {
+            "type": "string",
+            "title": "Occupation"
+          },
+          "family_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family Type"
+          },
+          "marital_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marital Status"
+          },
+          "education_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Education Level"
+          },
+          "persona": {
+            "type": "string",
+            "title": "Persona"
+          },
+          "similarity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Similarity"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uuid",
+          "sex",
+          "age",
+          "province",
+          "district",
+          "occupation",
+          "family_type",
+          "marital_status",
+          "education_level",
+          "persona"
+        ],
+        "title": "PersonaCard"
+      },
+      "PersonaFilterDistribution": {
+        "properties": {
+          "sex": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Sex"
+          },
+          "age_bins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Age Bins"
+          },
+          "province": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Province"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sex",
+          "age_bins",
+          "province"
+        ],
+        "title": "PersonaFilterDistribution"
+      },
+      "PersonaFilterRequest": {
+        "properties": {
+          "age_min": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Min"
+          },
+          "age_max": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Max"
+          },
+          "sex": {
+            "items": {
+              "type": "string",
+              "enum": [
+                "남자",
+                "여자"
+              ]
+            },
+            "type": "array",
+            "title": "Sex"
+          },
+          "provinces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Provinces"
+          },
+          "family_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Family Types"
+          },
+          "education_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Education Levels"
+          },
+          "occupations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Occupations"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "page": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Page",
+            "default": 1
+          },
+          "page_size": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Page Size",
+            "default": 24
+          }
+        },
+        "type": "object",
+        "title": "PersonaFilterRequest",
+        "description": "페르소나 메타 필터 + 옵션 자연어 검색.\n\n빈 필드는 해당 조건 무시. query가 있으면 후보 인덱스 대상 cosine 정렬."
+      },
+      "PersonaFilterResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "meta_filter_total": {
+            "type": "integer",
+            "title": "Meta Filter Total"
+          },
+          "match_threshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Match Threshold"
+          },
+          "extracted_filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtractedFilter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "page_personas": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaCard"
+            },
+            "type": "array",
+            "title": "Page Personas"
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/PersonaFilterDistribution"
+          },
+          "has_query": {
+            "type": "boolean",
+            "title": "Has Query"
+          },
+          "elapsed_ms": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Elapsed Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "meta_filter_total",
+          "match_threshold",
+          "extracted_filter",
+          "page",
+          "page_size",
+          "page_personas",
+          "distribution",
+          "has_query",
+          "elapsed_ms"
+        ],
+        "title": "PersonaFilterResponse"
+      },
+      "PersonaHit": {
+        "properties": {
+          "uuid": {
+            "type": "string",
+            "title": "Uuid"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score",
+            "description": "0-100 정규화 반응도 점수"
+          },
+          "persona": {
+            "type": "string",
+            "title": "Persona"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "district": {
+            "type": "string",
+            "title": "District"
+          },
+          "sex": {
+            "type": "string",
+            "title": "Sex"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "occupation": {
+            "type": "string",
+            "title": "Occupation"
+          },
+          "education_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Education Level"
+          },
+          "family_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family Type"
+          },
+          "marital_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marital Status"
+          },
+          "military_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Military Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uuid",
+          "score",
+          "persona",
+          "province",
+          "district",
+          "sex",
+          "age",
+          "occupation"
+        ],
+        "title": "PersonaHit",
+        "description": "매칭된 페르소나 1명 (상위/하위 모두 동일 스키마)."
+      },
+      "PersonaOpinion": {
+        "properties": {
+          "persona_uuid": {
+            "type": "string",
+            "title": "Persona Uuid"
+          },
+          "opinion_text": {
+            "type": "string",
+            "title": "Opinion Text",
+            "description": "1-2문장 본인 말투 의견"
+          },
+          "sentiment": {
+            "type": "string",
+            "enum": [
+              "긍정",
+              "중립",
+              "부정"
+            ],
+            "title": "Sentiment"
+          },
+          "purchase_intent": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Purchase Intent",
+            "description": "가입 의향 1-5"
+          },
+          "key_concern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Concern",
+            "description": "본인이 가장 신경 쓰는 한 가지 (없으면 None)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_uuid",
+          "opinion_text",
+          "sentiment",
+          "purchase_intent"
+        ],
+        "title": "PersonaOpinion",
+        "description": "페르소나가 상품에 대해 빙의 작성한 의견.\n\n설문(simulation)이 임의의 질문에 대한 응답이라면, opinion은\n상품 자체에 대한 자유 코멘트. 분석 시점에 top_k + bottom_k 모두 생성."
+      },
+      "PersonaResponse": {
+        "properties": {
+          "persona_uuid": {
+            "type": "string",
+            "title": "Persona Uuid"
+          },
+          "persona_summary": {
+            "type": "string",
+            "title": "Persona Summary",
+            "description": "식별용 한 줄 요약 (예: \"남자 45세 · 경기 수원 · 회사원\")"
+          },
+          "response_text": {
+            "type": "string",
+            "title": "Response Text",
+            "description": "페르소나가 자기 말투로 작성한 응답 본문"
+          },
+          "sentiment": {
+            "type": "string",
+            "enum": [
+              "긍정",
+              "중립",
+              "부정"
+            ],
+            "title": "Sentiment"
+          },
+          "purchase_intent": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Purchase Intent",
+            "description": "가입 의향 1-5"
+          },
+          "key_concern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key Concern",
+            "description": "주요 우려·관심사 한 줄 (없으면 None)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_uuid",
+          "persona_summary",
+          "response_text",
+          "sentiment",
+          "purchase_intent"
+        ],
+        "title": "PersonaResponse",
+        "description": "페르소나 1명의 시뮬레이션 응답."
+      },
+      "PersonaSearchRequest": {
+        "properties": {
+          "query": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Query",
+            "description": "자연어 검색 쿼리"
+          },
+          "limit": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "description": "반환할 페르소나 수",
+            "default": 20
+          }
+        },
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "title": "PersonaSearchRequest"
+      },
+      "PersonaWithSession": {
+        "properties": {
+          "persona_uuid": {
+            "type": "string",
+            "title": "Persona Uuid"
+          },
+          "sex": {
+            "type": "string",
+            "title": "Sex"
+          },
+          "age": {
+            "type": "integer",
+            "title": "Age"
+          },
+          "province": {
+            "type": "string",
+            "title": "Province"
+          },
+          "district": {
+            "type": "string",
+            "title": "District"
+          },
+          "occupation": {
+            "type": "string",
+            "title": "Occupation"
+          },
+          "family_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Family Type"
+          },
+          "marital_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Marital Status"
+          },
+          "persona": {
+            "type": "string",
+            "title": "Persona"
+          },
+          "session": {
+            "$ref": "#/components/schemas/ResponseSession"
+          }
+        },
+        "type": "object",
+        "required": [
+          "persona_uuid",
+          "sex",
+          "age",
+          "province",
+          "district",
+          "occupation",
+          "family_type",
+          "marital_status",
+          "persona",
+          "session"
+        ],
+        "title": "PersonaWithSession"
+      },
+      "PopulationStats": {
+        "properties": {
+          "total_scored": {
+            "type": "integer",
+            "title": "Total Scored",
+            "description": "전체 스코어링된 페르소나 수"
+          },
+          "cohorts": {
+            "items": {
+              "$ref": "#/components/schemas/CohortStat"
+            },
+            "type": "array",
+            "title": "Cohorts",
+            "description": "3단계 cohort 정보"
+          },
+          "score_distribution": {
+            "items": {
+              "$ref": "#/components/schemas/DistributionBin"
+            },
+            "type": "array",
+            "title": "Score Distribution",
+            "description": "5점 단위 점수 히스토그램 (interest cohort 기준)"
+          },
+          "demographics": {
+            "items": {
+              "$ref": "#/components/schemas/DemographicGroup"
+            },
+            "type": "array",
+            "title": "Demographics",
+            "description": "Nemotron 카테고리형 컬럼별 분포 (target cohort 기준). 표시 우선순위 순서대로."
+          },
+          "districts_full": {
+            "items": {
+              "$ref": "#/components/schemas/RegionStat"
+            },
+            "type": "array",
+            "title": "Districts Full",
+            "description": "타겟 cohort(상위 5%, ≈5만명) 기준 전국 시군구별 집계. name 형식: '시도-시군구' (예: '경기-광명시'). 지도 choropleth와 Top N 표용. count 내림차순."
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_scored",
+          "cohorts",
+          "score_distribution",
+          "demographics"
+        ],
+        "title": "PopulationStats",
+        "description": "100만 행 전체 스코어링 결과 + 모집단 통계.\n\ncohort 정의:\n  - core: 상위 0.5% (≈5,000명) — 카드·리포트 컨텍스트로 이미 노출됨\n  - target: 상위 5% (≈50,000명) — demographics 집계의 주 모집단\n  - interest: 상위 20% (≈200,000명) — 점수 분포 차트 베이스"
+      },
+      "Question": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "uuid4"
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Order",
+            "description": "1-based 노출 순서"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single_choice",
+              "multi_choice",
+              "scale",
+              "open_ended",
+              "nps"
+            ],
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Options"
+          },
+          "scale_min": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Min"
+          },
+          "scale_max": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Max"
+          },
+          "scale_label_low": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Label Low"
+          },
+          "scale_label_high": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Label High"
+          },
+          "required": {
+            "type": "boolean",
+            "title": "Required",
+            "default": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "order",
+          "type",
+          "text"
+        ],
+        "title": "Question",
+        "description": "설문 1문항.\n\n유형별 필드 사용:\n  - single_choice / multi_choice: options 필수 (최소 2개)\n  - scale: scale_min/scale_max 필수 (예: 1-5, 1-7)\n  - open_ended: 추가 필드 없음\n  - nps: scale_min=0, scale_max=10 고정"
+      },
+      "QuestionReport": {
+        "properties": {
+          "question_id": {
+            "type": "string",
+            "title": "Question Id"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "single_choice",
+              "multi_choice",
+              "scale",
+              "open_ended",
+              "nps"
+            ],
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "total_responses": {
+            "type": "integer",
+            "title": "Total Responses"
+          },
+          "avg_confidence": {
+            "type": "number",
+            "title": "Avg Confidence"
+          },
+          "choice_distribution": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "integer"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice Distribution"
+          },
+          "scale_histogram": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Histogram"
+          },
+          "scale_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Mean"
+          },
+          "scale_median": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scale Median"
+          },
+          "open_ended_samples": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/OpenEndedSample"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Ended Samples"
+          },
+          "open_ended_length_avg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Ended Length Avg"
+          },
+          "open_ended_length_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Ended Length Max"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question_id",
+          "order",
+          "type",
+          "text",
+          "total_responses",
+          "avg_confidence"
+        ],
+        "title": "QuestionReport"
+      },
+      "RegionStat": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "description": "province 또는 district 이름"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count",
+            "description": "해당 지역에 속한 상위 페르소나 수"
+          },
+          "avg_score": {
+            "type": "number",
+            "title": "Avg Score",
+            "description": "해당 지역 평균 반응도"
+          },
+          "top_persona_uuid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top Persona Uuid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "count",
+          "avg_score"
+        ],
+        "title": "RegionStat",
+        "description": "시도/시군구별 집계 통계."
+      },
+      "ReportResponse": {
+        "properties": {
+          "survey": {
+            "$ref": "#/components/schemas/Survey"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/ReportSummary"
+          },
+          "respondent_distribution": {
+            "$ref": "#/components/schemas/RespondentDistribution"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionReport"
+            },
+            "type": "array",
+            "title": "Questions"
+          },
+          "overall_commentary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Overall Commentary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "survey",
+          "summary",
+          "respondent_distribution",
+          "questions"
+        ],
+        "title": "ReportResponse"
+      },
+      "ReportSummary": {
+        "properties": {
+          "total_completed": {
+            "type": "integer",
+            "title": "Total Completed"
+          },
+          "total_failed": {
+            "type": "integer",
+            "title": "Total Failed"
+          },
+          "total_tokens": {
+            "type": "integer",
+            "title": "Total Tokens"
+          },
+          "avg_response_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Response Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_completed",
+          "total_failed",
+          "total_tokens",
+          "avg_response_seconds"
+        ],
+        "title": "ReportSummary"
+      },
+      "RespondentDistribution": {
+        "properties": {
+          "sex": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Sex"
+          },
+          "age_bins": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Age Bins"
+          },
+          "province": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Province"
+          }
+        },
+        "type": "object",
+        "required": [
+          "sex",
+          "age_bins",
+          "province"
+        ],
+        "title": "RespondentDistribution"
+      },
+      "ResponseSession": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id",
+            "description": "{survey_id}:{persona_uuid} 합성"
+          },
+          "survey_id": {
+            "type": "string",
+            "title": "Survey Id"
+          },
+          "persona_uuid": {
+            "type": "string",
+            "title": "Persona Uuid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "default": "pending"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "llm_model_used": {
+            "type": "string",
+            "title": "Llm Model Used",
+            "default": ""
+          },
+          "total_tokens": {
+            "type": "integer",
+            "title": "Total Tokens",
+            "default": 0
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/Answer"
+            },
+            "type": "array",
+            "title": "Answers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "survey_id",
+          "persona_uuid"
+        ],
+        "title": "ResponseSession",
+        "description": "단일 페르소나의 설문 응답 세션."
+      },
+      "ResponsesResponse": {
+        "properties": {
+          "survey_id": {
+            "type": "string",
+            "title": "Survey Id"
+          },
+          "total_personas": {
+            "type": "integer",
+            "title": "Total Personas"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaWithSession"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "survey_id",
+          "total_personas",
+          "completed",
+          "failed",
+          "page",
+          "page_size",
+          "items"
+        ],
+        "title": "ResponsesResponse"
+      },
+      "RetryResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "started",
+              "noop"
+            ],
+            "title": "Status"
+          },
+          "survey_id": {
+            "type": "string",
+            "title": "Survey Id"
+          },
+          "retry_count": {
+            "type": "integer",
+            "title": "Retry Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "survey_id",
+          "retry_count"
+        ],
+        "title": "RetryResponse"
+      },
+      "Segment": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          },
+          "filter": {
+            "$ref": "#/components/schemas/TargetFilter"
+          },
+          "persona_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Persona Uuids"
+          },
+          "size": {
+            "type": "integer",
+            "title": "Size",
+            "default": 0
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "filter",
+          "persona_uuids",
+          "created_at"
+        ],
+        "title": "Segment",
+        "description": "저장된 페르소나 세그먼트. 마법사 Step 2에서 불러옴."
+      },
+      "SegmentCreateRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Description",
+            "default": ""
+          },
+          "filter": {
+            "$ref": "#/components/schemas/TargetFilter"
+          },
+          "persona_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Persona Uuids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "filter",
+          "persona_uuids"
+        ],
+        "title": "SegmentCreateRequest"
+      },
+      "SegmentListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "SegmentListResponse"
+      },
+      "SellingPoints": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary",
+            "description": "상품을 한 줄로 요약"
+          },
+          "key_benefits": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Key Benefits",
+            "description": "핵심 혜택 3-5개"
+          },
+          "target_age_min": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Age Min",
+            "description": "최소 가입 연령 (없으면 None)"
+          },
+          "target_age_max": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Age Max",
+            "description": "최대 가입 연령 (없으면 None)"
+          },
+          "target_sex": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Target Sex",
+            "description": "[\"남자\"] / [\"여자\"] / [] (성별 무관)"
+          },
+          "target_family_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Target Family Types",
+            "description": "우대되는 가구 유형 (예: '배우자·자녀와 거주')"
+          },
+          "target_education_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Target Education Levels",
+            "description": "필요·우대되는 교육 수준 (enum 7값): '무학', '초등학교', '중학교', '고등학교', '2~3년제 전문대학', '4년제 대학교', '대학원'"
+          },
+          "target_occupations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Target Occupations",
+            "description": "직업 키워드 (occupation 컬럼에 부분 매칭). 예: ['의사', '교수', '간호사']. 약관에 직업 한정이 없으면 []"
+          },
+          "target_keywords": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Target Keywords",
+            "description": "페르소나 매칭에 쓸 5-10개 한국어 키워드"
+          },
+          "persona_category_weights": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Persona Category Weights",
+            "description": "6개 페르소나 카테고리 가중치 (합=1.0)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "SellingPoints",
+        "description": "Claude(Sonnet)가 상품 텍스트에서 추출한 분석 결과.\n\ntool_use 모드로 스키마 강제. 누락 가능 필드는 None/빈 배열로."
+      },
+      "SessionCounts": {
+        "properties": {
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "default": 0
+          },
+          "running": {
+            "type": "integer",
+            "title": "Running",
+            "default": 0
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed",
+            "default": 0
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "title": "SessionCounts"
+      },
+      "SimulateRequest": {
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "title": "Analysis Id",
+            "description": "기 분석 ID (top_personas를 재사용)"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 300,
+            "minLength": 5,
+            "title": "Question",
+            "description": "페르소나에게 던질 주관식 질문 (5-300자)"
+          },
+          "n_respondents": {
+            "type": "integer",
+            "enum": [
+              3,
+              5,
+              10
+            ],
+            "title": "N Respondents",
+            "description": "응답자 수 (top_personas 상위 N명)",
+            "default": 5
+          },
+          "llm_provider": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "sllm"
+            ],
+            "title": "Llm Provider",
+            "description": "시뮬레이션에 사용할 LLM provider (anthropic 또는 sllm)",
+            "default": "sllm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "analysis_id",
+          "question"
+        ],
+        "title": "SimulateRequest",
+        "description": "POST /api/simulate 요청 바디."
+      },
+      "SimulateResponse": {
+        "properties": {
+          "simulation_id": {
+            "type": "string",
+            "title": "Simulation Id"
+          },
+          "analysis_id": {
+            "type": "string",
+            "title": "Analysis Id"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "responses": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaResponse"
+            },
+            "type": "array",
+            "title": "Responses"
+          },
+          "elapsed_ms": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Elapsed Ms",
+            "description": "단계별 소요 ms: simulate, persist, total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "simulation_id",
+          "analysis_id",
+          "question",
+          "responses",
+          "elapsed_ms"
+        ],
+        "title": "SimulateResponse",
+        "description": "POST /api/simulate 응답."
+      },
+      "SuggestQuestionsRequest": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Title",
+            "default": ""
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Description",
+            "default": ""
+          },
+          "objective": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Objective",
+            "default": ""
+          },
+          "target_filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TargetFilter"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "num": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Num",
+            "default": 5
+          },
+          "existing_question_texts": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Existing Question Texts"
+          },
+          "start_order": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Start Order",
+            "description": "첫 추천 질문의 order (기존 질문 다음부터)",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "title": "SuggestQuestionsRequest"
+      },
+      "SuggestQuestionsResponse": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/Question"
+            },
+            "type": "array",
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "questions"
+        ],
+        "title": "SuggestQuestionsResponse"
+      },
+      "Survey": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Description",
+            "default": ""
+          },
+          "objective": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Objective",
+            "description": "조사 목적 (LLM 응답 품질 향상에 활용)",
+            "default": ""
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Status",
+            "default": "draft"
+          },
+          "target_filter": {
+            "$ref": "#/components/schemas/TargetFilter"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionConfig"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/Question"
+            },
+            "type": "array",
+            "title": "Questions"
+          },
+          "persona_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Persona Uuids",
+            "description": "Step 2 확정 시점의 페르소나 스냅샷"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "target_filter",
+          "execution",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "Survey",
+        "description": "설문 본체. 마법사 Step 1~4의 결과물."
+      },
+      "SurveyCreateRequest": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Description",
+            "default": ""
+          },
+          "objective": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Objective",
+            "default": ""
+          },
+          "target_filter": {
+            "$ref": "#/components/schemas/TargetFilter"
+          },
+          "execution": {
+            "$ref": "#/components/schemas/ExecutionConfig"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/Question"
+            },
+            "type": "array",
+            "title": "Questions"
+          },
+          "persona_uuids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Persona Uuids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "target_filter",
+          "execution"
+        ],
+        "title": "SurveyCreateRequest"
+      },
+      "SurveyListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "limit": {
+            "type": "integer",
+            "title": "Limit"
+          },
+          "offset": {
+            "type": "integer",
+            "title": "Offset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "SurveyListResponse"
+      },
+      "SurveyStatusResponse": {
+        "properties": {
+          "survey_id": {
+            "type": "string",
+            "title": "Survey Id"
+          },
+          "survey_status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "running",
+              "completed",
+              "failed"
+            ],
+            "title": "Survey Status"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/SessionCounts"
+          },
+          "completed_ratio": {
+            "type": "number",
+            "title": "Completed Ratio"
+          },
+          "answered_questions": {
+            "type": "integer",
+            "title": "Answered Questions",
+            "default": 0
+          },
+          "total_planned_answers": {
+            "type": "integer",
+            "title": "Total Planned Answers",
+            "default": 0
+          },
+          "answered_ratio": {
+            "type": "number",
+            "title": "Answered Ratio",
+            "default": 0.0
+          },
+          "avg_response_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Response Seconds"
+          },
+          "total_tokens": {
+            "type": "integer",
+            "title": "Total Tokens"
+          },
+          "failed_personas": {
+            "items": {
+              "$ref": "#/components/schemas/FailedPersonaInfo"
+            },
+            "type": "array",
+            "title": "Failed Personas"
+          }
+        },
+        "type": "object",
+        "required": [
+          "survey_id",
+          "survey_status",
+          "total",
+          "counts",
+          "completed_ratio",
+          "avg_response_seconds",
+          "total_tokens"
+        ],
+        "title": "SurveyStatusResponse"
+      },
+      "TargetFilter": {
+        "properties": {
+          "age_min": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Min"
+          },
+          "age_max": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 120.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age Max"
+          },
+          "sex": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sex"
+          },
+          "provinces": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Provinces"
+          },
+          "family_types": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Family Types"
+          },
+          "education_levels": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Education Levels"
+          },
+          "occupations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Occupations"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "sampling": {
+            "type": "string",
+            "enum": [
+              "all",
+              "random_n",
+              "proportional"
+            ],
+            "title": "Sampling",
+            "default": "random_n"
+          },
+          "sample_size": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Sample Size",
+            "default": 100
+          }
+        },
+        "type": "object",
+        "title": "TargetFilter",
+        "description": "페르소나 선별 조건 — /api/dataset/personas/filter 입력과 호환."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

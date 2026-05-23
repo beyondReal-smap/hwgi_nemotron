@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PersonaFit 프로젝트 보고 슬라이드</title>
+  <style>
+    @font-face {
+      font-family: "SUITE";
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url("../apps/web/public/fonts/SUITE/SUITE-Variable.woff2") format("woff2-variations"),
+           url("../apps/web/public/fonts/SUITE/SUITE-Variable.woff2") format("woff2");
+    }
+
+    @font-face {
+      font-family: "AtoZ";
+      font-style: normal;
+      font-weight: 700;
+      font-display: swap;
+      src: url("../apps/web/public/fonts/AtoZ/AtoZ-7Bold.woff2") format("woff2");
+    }
+
+    :root {
+      --vellum: #faf9f5;
+      --snow: #ffffff;
+      --paper: #f1eee3;
+      --parchment: #dedcd1;
+      --stone: #9c9a92;
+      --dusty: #73726c;
+      --graphite: #3d3d3a;
+      --ink: #141413;
+      --onyx: #1f1e1d;
+      --terra: #d97757;
+      --terra-deep: #a94f34;
+      --terra-soft: #f3d6c9;
+      --azure: #4e7ca8;
+      --azure-soft: #d9e3ee;
+      --mint: #5a8b78;
+      --mint-soft: #dcebe3;
+      --gold: #c89342;
+      --gold-soft: #efe0bd;
+      --shadow: 0 24px 70px rgba(20, 20, 19, 0.16);
+      --radius: 8px;
+      --sans: "SUITE", "AtoZ", ui-sans-serif, system-ui, sans-serif;
+      --mono: "SFMono-Regular", "Menlo", "Consolas", ui-monospace, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        linear-gradient(120deg, rgba(217, 119, 87, 0.10), transparent 32%),
+        linear-gradient(240deg, rgba(78, 124, 168, 0.14), transparent 34%),
+        var(--vellum);
+      color: var(--ink);
+      font-family: var(--sans);
+      word-break: keep-all;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+    }
+
+    .deck {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      padding: clamp(14px, 2.2vw, 32px);
+    }
+
+    .slide {
+      display: none;
+      position: relative;
+      width: min(100%, calc(100vh * 16 / 9));
+      max-width: 1360px;
+      aspect-ratio: 16 / 9;
+      max-height: calc(100vh - clamp(28px, 4.4vw, 64px));
+      margin: 0 auto;
+      padding: clamp(34px, 4.2vw, 64px);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(250, 249, 245, 0.88)),
+        radial-gradient(circle at 94% 8%, rgba(217, 119, 87, 0.22), transparent 30%),
+        radial-gradient(circle at 4% 100%, rgba(78, 124, 168, 0.18), transparent 28%);
+      border: 1px solid rgba(20, 20, 19, 0.09);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .slide.active {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      animation: enter 260ms ease-out both;
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(20, 20, 19, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20, 20, 19, 0.035) 1px, transparent 1px);
+      background-size: 36px 36px;
+      mask-image: linear-gradient(140deg, rgba(0, 0, 0, 0.26), transparent 58%);
+      z-index: -2;
+    }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 36%;
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--terra), var(--azure));
+      opacity: 0.88;
+    }
+
+    @keyframes enter {
+      from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.992);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--terra-deep);
+      font-size: clamp(11px, 1.05vw, 14px);
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 880px;
+      font-size: clamp(56px, 7.8vw, 96px);
+      line-height: 0.97;
+      letter-spacing: 0;
+      font-weight: 850;
+    }
+
+    h2 {
+      max-width: 940px;
+      font-size: clamp(36px, 4.7vw, 62px);
+      line-height: 1.03;
+      letter-spacing: 0;
+      font-weight: 820;
+    }
+
+    h3 {
+      color: var(--ink);
+      font-size: clamp(18px, 1.75vw, 25px);
+      line-height: 1.22;
+      letter-spacing: 0;
+      font-weight: 780;
+    }
+
+    .lead {
+      max-width: 780px;
+      margin-top: 18px;
+      color: var(--graphite);
+      font-size: clamp(19px, 2vw, 28px);
+      line-height: 1.42;
+      font-weight: 520;
+    }
+
+    .caption {
+      color: var(--dusty);
+      font-size: clamp(12px, 1.08vw, 15px);
+      line-height: 1.45;
+    }
+
+    .body {
+      color: var(--graphite);
+      font-size: clamp(16px, 1.48vw, 21px);
+      line-height: 1.52;
+    }
+
+    .mono {
+      font-family: var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .header-row,
+    .footer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      min-width: 0;
+    }
+
+    .content {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: clamp(18px, 2vw, 28px);
+      min-height: 0;
+    }
+
+    .footer-row {
+      align-self: end;
+      color: var(--stone);
+      font-size: clamp(11px, 1vw, 14px);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--ink);
+      font-size: 17px;
+      font-weight: 850;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 34% 34%, #fff6ef 0 16%, transparent 17%),
+        conic-gradient(from 40deg, var(--terra), var(--azure), var(--mint), var(--terra));
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.72);
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr minmax(310px, 0.72fr);
+      align-items: center;
+      gap: clamp(28px, 4vw, 54px);
+    }
+
+    .hero-visual {
+      position: relative;
+      min-height: 475px;
+      border-radius: 22px;
+      overflow: hidden;
+      background:
+        linear-gradient(145deg, rgba(20, 20, 19, 0.88), rgba(61, 61, 58, 0.86)),
+        var(--ink);
+      border: 1px solid rgba(20, 20, 19, 0.28);
+      box-shadow: 0 28px 70px rgba(20, 20, 19, 0.23);
+    }
+
+    .hero-visual img {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.36;
+      filter: saturate(1.04) contrast(1.08);
+    }
+
+    .hero-visual .panel {
+      position: absolute;
+      left: 26px;
+      right: 26px;
+      bottom: 26px;
+      display: grid;
+      gap: 12px;
+      padding: 22px;
+      background: rgba(250, 249, 245, 0.91);
+      border: 1px solid rgba(255, 255, 255, 0.72);
+      border-radius: 16px;
+      backdrop-filter: blur(16px);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      padding: 5px 11px;
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.76);
+      color: var(--graphite);
+      font-size: clamp(12px, 1.02vw, 14px);
+      font-weight: 650;
+      white-space: nowrap;
+    }
+
+    .chip.terra {
+      border-color: rgba(217, 119, 87, 0.28);
+      background: var(--terra-soft);
+      color: var(--terra-deep);
+    }
+
+    .chip.azure {
+      border-color: rgba(78, 124, 168, 0.28);
+      background: var(--azure-soft);
+      color: #315e85;
+    }
+
+    .chip.mint {
+      border-color: rgba(90, 139, 120, 0.28);
+      background: var(--mint-soft);
+      color: #396d5a;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .stat {
+      min-height: 122px;
+      padding: 20px;
+      border: 1px solid rgba(20, 20, 19, 0.09);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.74);
+      box-shadow: 0 12px 34px rgba(20, 20, 19, 0.06);
+    }
+
+    .stat .label {
+      color: var(--dusty);
+      font-size: clamp(12px, 1vw, 14px);
+      line-height: 1.35;
+      font-weight: 700;
+    }
+
+    .stat .value {
+      margin-top: 8px;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: clamp(27px, 3.3vw, 46px);
+      line-height: 1;
+      font-weight: 850;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat .sub {
+      margin-top: 8px;
+      color: var(--graphite);
+      font-size: clamp(12px, 1.08vw, 15px);
+      line-height: 1.35;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(310px, 0.82fr);
+      gap: clamp(24px, 3.3vw, 48px);
+      align-items: stretch;
+    }
+
+    .split.equal {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .card {
+      padding: clamp(18px, 1.8vw, 26px);
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.74);
+      box-shadow: 0 14px 34px rgba(20, 20, 19, 0.06);
+    }
+
+    .card.accent-terra {
+      border-top: 5px solid var(--terra);
+    }
+
+    .card.accent-azure {
+      border-top: 5px solid var(--azure);
+    }
+
+    .card.accent-mint {
+      border-top: 5px solid var(--mint);
+    }
+
+    .card.accent-gold {
+      border-top: 5px solid var(--gold);
+    }
+
+    .card p {
+      margin-top: 10px;
+      color: var(--graphite);
+      font-size: clamp(14px, 1.25vw, 18px);
+      line-height: 1.48;
+    }
+
+    .list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .list li {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 12px;
+      align-items: start;
+      color: var(--graphite);
+      font-size: clamp(15px, 1.38vw, 20px);
+      line-height: 1.45;
+    }
+
+    .bullet {
+      display: inline-grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--ink);
+      color: var(--snow);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .architecture {
+      display: grid;
+      gap: 14px;
+    }
+
+    .arch-row {
+      display: grid;
+      grid-template-columns: 165px 1fr;
+      align-items: stretch;
+      gap: 14px;
+    }
+
+    .arch-label {
+      display: grid;
+      place-items: center start;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: rgba(20, 20, 19, 0.88);
+      color: var(--snow);
+      font-weight: 800;
+      line-height: 1.22;
+    }
+
+    .arch-boxes {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .arch-box {
+      min-height: 86px;
+      padding: 15px;
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.76);
+    }
+
+    .arch-box strong {
+      display: block;
+      color: var(--ink);
+      font-size: clamp(14px, 1.2vw, 18px);
+      line-height: 1.2;
+    }
+
+    .arch-box span {
+      display: block;
+      margin-top: 6px;
+      color: var(--dusty);
+      font-size: clamp(11px, 1vw, 14px);
+      line-height: 1.34;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 10px;
+    }
+
+    .flow-step {
+      position: relative;
+      min-height: 172px;
+      padding: 18px 15px;
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      overflow: hidden;
+    }
+
+    .flow-step::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 5px;
+      background: var(--tone, var(--terra));
+    }
+
+    .flow-step .num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      margin-bottom: 12px;
+      border-radius: 50%;
+      background: var(--tone, var(--terra));
+      color: var(--snow);
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .flow-step strong {
+      display: block;
+      color: var(--ink);
+      font-size: clamp(14px, 1.22vw, 18px);
+      line-height: 1.2;
+      font-weight: 850;
+    }
+
+    .flow-step span {
+      display: block;
+      margin-top: 8px;
+      color: var(--graphite);
+      font-size: clamp(12px, 1.04vw, 15px);
+      line-height: 1.36;
+    }
+
+    .process-lanes {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    .lane {
+      display: grid;
+      grid-template-columns: 150px 1fr;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .lane-title {
+      color: var(--ink);
+      font-weight: 850;
+      font-size: clamp(15px, 1.3vw, 18px);
+    }
+
+    .lane-line {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .lane-node {
+      min-height: 76px;
+      padding: 12px;
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--graphite);
+      font-size: clamp(12px, 1.05vw, 15px);
+      line-height: 1.35;
+    }
+
+    .lane-node strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: clamp(13px, 1.1vw, 16px);
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.76);
+      font-size: clamp(13px, 1.12vw, 16px);
+    }
+
+    .data-table th,
+    .data-table td {
+      padding: 13px 15px;
+      border-bottom: 1px solid rgba(20, 20, 19, 0.10);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .data-table th {
+      color: var(--ink);
+      background: rgba(222, 220, 209, 0.42);
+      font-weight: 850;
+    }
+
+    .data-table td {
+      color: var(--graphite);
+      line-height: 1.4;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .screen-mock {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+      border-radius: 18px;
+      background: var(--ink);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .browser-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: var(--stone);
+    }
+
+    .dot:nth-child(1) {
+      background: #e06a4f;
+    }
+
+    .dot:nth-child(2) {
+      background: #d5a241;
+    }
+
+    .dot:nth-child(3) {
+      background: #6caa72;
+    }
+
+    .mock-body {
+      display: grid;
+      grid-template-columns: 0.56fr 1fr;
+      gap: 12px;
+      min-height: 340px;
+    }
+
+    .mock-panel {
+      border-radius: 12px;
+      background: var(--vellum);
+      padding: 14px;
+    }
+
+    .mock-line {
+      height: 11px;
+      border-radius: 999px;
+      background: rgba(20, 20, 19, 0.12);
+      margin-bottom: 10px;
+    }
+
+    .mock-line.short {
+      width: 48%;
+    }
+
+    .mock-line.medium {
+      width: 72%;
+    }
+
+    .mock-result {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .mock-card {
+      min-height: 93px;
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.78);
+      padding: 12px;
+    }
+
+    .map-block {
+      min-height: 196px;
+      border-radius: 12px;
+      background:
+        linear-gradient(135deg, rgba(78, 124, 168, 0.18), rgba(217, 119, 87, 0.18)),
+        repeating-linear-gradient(90deg, rgba(20, 20, 19, 0.05) 0 1px, transparent 1px 32px),
+        rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      display: grid;
+      place-items: center;
+      color: var(--graphite);
+      font-weight: 850;
+    }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .timeline-card {
+      min-height: 220px;
+      padding: 20px;
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.77);
+    }
+
+    .timeline-card .step-label {
+      color: var(--terra-deep);
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 850;
+    }
+
+    .timeline-card p {
+      margin-top: 10px;
+      color: var(--graphite);
+      font-size: clamp(13px, 1.12vw, 16px);
+      line-height: 1.42;
+    }
+
+    .command {
+      display: block;
+      margin-top: 10px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: var(--onyx);
+      color: #f1eee3;
+      font-family: var(--mono);
+      font-size: clamp(11px, 0.95vw, 14px);
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .risk {
+      display: grid;
+      grid-template-columns: 116px 1fr;
+      gap: 14px;
+      padding: 18px;
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.76);
+    }
+
+    .risk strong {
+      color: var(--ink);
+      font-size: clamp(14px, 1.18vw, 17px);
+    }
+
+    .risk span {
+      color: var(--graphite);
+      font-size: clamp(13px, 1.1vw, 16px);
+      line-height: 1.4;
+    }
+
+    .controls {
+      position: fixed;
+      right: clamp(18px, 2.1vw, 30px);
+      bottom: clamp(18px, 2.1vw, 30px);
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px;
+      border: 1px solid rgba(20, 20, 19, 0.12);
+      border-radius: 999px;
+      background: rgba(250, 249, 245, 0.82);
+      box-shadow: 0 16px 44px rgba(20, 20, 19, 0.14);
+      backdrop-filter: blur(14px);
+    }
+
+    .nav-btn {
+      display: inline-grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      background: var(--snow);
+      color: var(--ink);
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      font-size: 22px;
+      line-height: 1;
+      transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .nav-btn:hover {
+      transform: translateY(-1px);
+      background: var(--paper);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.38;
+      cursor: default;
+      transform: none;
+    }
+
+    .counter {
+      min-width: 62px;
+      text-align: center;
+      color: var(--graphite);
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .progress {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 25;
+      height: 4px;
+      width: 100%;
+      background: rgba(20, 20, 19, 0.08);
+    }
+
+    .progress span {
+      display: block;
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--terra), var(--azure), var(--mint));
+      transition: width 180ms ease;
+    }
+
+    .watermark {
+      position: absolute;
+      right: clamp(26px, 3vw, 46px);
+      top: clamp(22px, 2.8vw, 42px);
+      color: rgba(20, 20, 19, 0.06);
+      font-family: var(--mono);
+      font-size: clamp(82px, 10vw, 150px);
+      font-weight: 900;
+      line-height: 0.8;
+      z-index: -1;
+      user-select: none;
+    }
+
+    .slide-cover {
+      background:
+        linear-gradient(135deg, rgba(20, 20, 19, 0.96), rgba(45, 44, 41, 0.92)),
+        radial-gradient(circle at 76% 28%, rgba(217, 119, 87, 0.34), transparent 34%);
+      color: var(--snow);
+    }
+
+    .slide-cover::before {
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+      mask-image: linear-gradient(140deg, rgba(0, 0, 0, 0.38), transparent 70%);
+    }
+
+    .slide-cover h1,
+    .slide-cover h2,
+    .slide-cover .brand,
+    .slide-cover .footer-row {
+      color: var(--snow);
+    }
+
+    .slide-cover .eyebrow {
+      color: #ffb89e;
+    }
+
+    .slide-cover .lead {
+      color: rgba(250, 249, 245, 0.78);
+    }
+
+    .slide-cover .brand-mark {
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.82);
+    }
+
+    .slide-cover .hero-visual {
+      border-color: rgba(255, 255, 255, 0.18);
+      background: rgba(250, 249, 245, 0.08);
+    }
+
+    .slide-cover .panel {
+      color: var(--ink);
+    }
+
+    .muted-box {
+      padding: 18px 20px;
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      border-radius: var(--radius);
+      background: rgba(241, 238, 227, 0.74);
+      color: var(--graphite);
+      font-size: clamp(14px, 1.25vw, 18px);
+      line-height: 1.45;
+    }
+
+    .quote-box {
+      padding: 24px 26px;
+      border-left: 6px solid var(--terra);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.78);
+      color: var(--ink);
+      font-size: clamp(21px, 2.2vw, 32px);
+      line-height: 1.32;
+      font-weight: 760;
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .metric-pill {
+      padding: 18px 20px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(20, 20, 19, 0.10);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .metric-pill span {
+      color: var(--dusty);
+      font-size: clamp(13px, 1.1vw, 16px);
+      font-weight: 750;
+    }
+
+    .metric-pill strong {
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: clamp(18px, 2vw, 28px);
+      font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 960px) {
+      body {
+        overflow: auto;
+      }
+
+      .deck {
+        height: auto;
+        padding: 12px;
+      }
+
+      .slide,
+      .slide.active {
+        display: grid;
+        width: 100%;
+        min-height: auto;
+        max-height: none;
+        aspect-ratio: auto;
+        margin: 0 0 16px;
+        padding: 28px;
+      }
+
+      .slide:not(.active) {
+        display: none;
+      }
+
+      .hero-grid,
+      .split,
+      .split.equal,
+      .cards,
+      .stat-grid,
+      .flow,
+      .timeline,
+      .risk-grid,
+      .metric-row {
+        grid-template-columns: 1fr;
+      }
+
+      .arch-row,
+      .lane,
+      .risk {
+        grid-template-columns: 1fr;
+      }
+
+      .arch-boxes,
+      .lane-line,
+      .mock-body,
+      .mock-result {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-visual {
+        min-height: 360px;
+      }
+
+      .controls {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+      }
+    }
+
+    @media print {
+      @page {
+        size: 16in 9in;
+        margin: 0;
+      }
+
+      html,
+      body {
+        background: white;
+        overflow: visible;
+      }
+
+      .deck {
+        width: auto;
+        height: auto;
+        padding: 0;
+      }
+
+      .slide,
+      .slide.active,
+      .slide:not(.active) {
+        display: grid !important;
+        width: 16in;
+        height: 9in;
+        max-width: none;
+        max-height: none;
+        margin: 0;
+        border-radius: 0;
+        box-shadow: none;
+        page-break-after: always;
+      }
+
+      .controls,
+      .progress {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"><span id="progressBar"></span></div>
+  <main class="deck" aria-live="polite">
+    <section class="slide slide-cover active" data-title="표지">
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">프로젝트 보고 · 2026.05.22</div>
+      </div>
+      <div class="content hero-grid">
+        <div>
+          <p class="eyebrow">AI Persona Strategy Platform</p>
+          <h1>상품 설명서를 타겟 전략으로 바꾸는 합성 페르소나 분석 도구</h1>
+          <p class="lead">
+            보험 상품 설명서·약관을 입력하면 100만 합성 한국인 페르소나 기반으로
+            반응 타겟, 반응도, 공략 지역, 설문 응답까지 산출합니다.
+          </p>
+          <div class="chips" style="margin-top: 28px">
+            <span class="chip terra">Next.js 14</span>
+            <span class="chip azure">FastAPI</span>
+            <span class="chip mint">1M Personas</span>
+            <span class="chip">OpenAI Embedding</span>
+            <span class="chip">sLLM · Claude</span>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <img src="../apps/web/public/personafit-terra.png" alt="PersonaFit 서비스 시각 자료" />
+          <div class="panel">
+            <h3>보고 핵심</h3>
+            <div class="chips">
+              <span class="chip terra">100만 행 인메모리 매칭</span>
+              <span class="chip azure">11/11 검증 통과</span>
+              <span class="chip mint">설문 시뮬레이션 확장</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>Prepared for internal briefing</span>
+        <span class="mono">01</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="한 장 요약">
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Executive Summary</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">한 장 요약</p>
+          <h2>상품기획자와 FP가 “누구에게, 어디서, 어떤 말로 팔지”를 빠르게 판단하게 합니다.</h2>
+        </div>
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="label">데이터 기반</div>
+            <div class="value">1M</div>
+            <div class="sub">Nemotron-Personas-Korea 합성 페르소나</div>
+          </div>
+          <div class="stat">
+            <div class="label">검증 결과</div>
+            <div class="value">22/22</div>
+            <div class="sub">Known-target 체크 통과</div>
+          </div>
+          <div class="stat">
+            <div class="label">분석 산출</div>
+            <div class="value">5종</div>
+            <div class="sub">소구점·타겟·점수·지역·리포트</div>
+          </div>
+          <div class="stat">
+            <div class="label">운영 구조</div>
+            <div class="value">5101</div>
+            <div class="sub">단일 외부 포트, 내부 API 프록시</div>
+          </div>
+        </div>
+        <div class="quote-box">
+          핵심은 “LLM이 말만 만드는 도구”가 아니라, 대규모 합성 고객군을 점수화해 전략 후보를 좁히는 분석 보조 도구라는 점입니다.
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>상품 설명서 → 타겟 전략 → 설문 시뮬레이션</span>
+        <span class="mono">02</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="프로젝트 개요">
+      <div class="watermark">01</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Project Overview</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">프로젝트 개요</p>
+          <h2>보험 상품의 초기 타겟 가설을 정량적으로 좁히는 의사결정 보조 플랫폼입니다.</h2>
+          <p class="lead">
+            입력은 상품설명서·약관이고, 출력은 반응 가능성이 높은 페르소나·인구통계·지역·영업 화법입니다.
+          </p>
+        </div>
+        <div class="cards" style="grid-template-columns: 1fr">
+          <div class="card accent-terra">
+            <h3>대상 사용자</h3>
+            <p>상품기획자, FP, 마케팅 담당자가 신규 상품 타겟과 공략 지역을 빠르게 점검합니다.</p>
+          </div>
+          <div class="card accent-azure">
+            <h3>핵심 데이터</h3>
+            <p>NVIDIA Nemotron-Personas-Korea 100만 합성 한국인 페르소나와 1536차원 임베딩을 사용합니다.</p>
+          </div>
+          <div class="card accent-mint">
+            <h3>결과 활용</h3>
+            <p>상·하위 반응 비교, 지역 분포, 설문 응답 생성, 리포트로 상품 전략 회의 자료를 구성합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>실제 인물 데이터가 아닌 합성 페르소나 기준 분석입니다.</span>
+        <span class="mono">03</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="해결하는 문제">
+      <div class="watermark">02</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Problem & Value</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">해결하는 문제</p>
+          <h2>상품 설명은 길고, 타겟 가설은 주관적이며, 지역 전략은 늦게 만들어집니다.</h2>
+        </div>
+        <div class="cards">
+          <div class="card accent-terra">
+            <h3>기획 단계</h3>
+            <p>약관·상품설명서에서 타겟 조건과 소구점을 사람이 수작업으로 해석합니다.</p>
+          </div>
+          <div class="card accent-azure">
+            <h3>영업 단계</h3>
+            <p>FP가 어떤 고객에게 어떤 문장으로 접근할지 정성 경험에 의존합니다.</p>
+          </div>
+          <div class="card accent-mint">
+            <h3>검증 단계</h3>
+            <p>시장 반응 확인 전에 세그먼트별 예상 반응을 빠르게 비교하기 어렵습니다.</p>
+          </div>
+        </div>
+        <div class="metric-row">
+          <div class="metric-pill"><span>입력 단순화</span><strong>문서 1건</strong></div>
+          <div class="metric-pill"><span>탐색 범위</span><strong>100만 명</strong></div>
+          <div class="metric-pill"><span>결과 형태</span><strong>전략 리포트</strong></div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>업무 가정 수립 시간을 줄이고, 회의에서 검토할 타겟 후보를 구체화합니다.</span>
+        <span class="mono">04</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="주요 기능">
+      <div class="watermark">03</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Capabilities</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">주요 기능</p>
+          <h2>분석, 탐색, 설문 시뮬레이션까지 한 흐름으로 연결되어 있습니다.</h2>
+        </div>
+        <div class="cards">
+          <div class="card accent-terra">
+            <h3>상품 분석</h3>
+            <p>소구점, 핵심 혜택, 타겟 연령·성별·가구·학력·직업, 카테고리 가중치를 구조화합니다.</p>
+          </div>
+          <div class="card accent-azure">
+            <h3>페르소나 매칭</h3>
+            <p>100만 행 전체 점수화 후 상위·하위 페르소나와 핵심·타겟·관심층 통계를 반환합니다.</p>
+          </div>
+          <div class="card accent-mint">
+            <h3>지역 전략</h3>
+            <p>17개 시도와 252개 시군구 분포를 집계해 우선 공략 지역을 도출합니다.</p>
+          </div>
+          <div class="card accent-gold">
+            <h3>인사이트 리포트</h3>
+            <p>FP 관점의 공략 포인트, 반응 사유, 우려 요소, 영업 화법을 마크다운으로 생성합니다.</p>
+          </div>
+          <div class="card accent-terra">
+            <h3>페르소나 탐색</h3>
+            <p>자연어 조건과 메타 필터로 페르소나를 찾고 세그먼트로 저장합니다.</p>
+          </div>
+          <div class="card accent-azure">
+            <h3>설문 시뮬레이션</h3>
+            <p>저장 세그먼트 또는 조건 기반 대상자에게 LLM 응답을 생성하고 차트 리포트로 확인합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>메인 화면: 분석 · 이력 / 보조 화면: 데이터 현황 · 페르소나 탐색 · 설문</span>
+        <span class="mono">05</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="시스템 아키텍처">
+      <div class="watermark">04</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Architecture</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">시스템 아키텍처</p>
+          <h2>Next.js가 단일 외부 진입점이고, FastAPI가 분석·저장·LLM 호출을 담당합니다.</h2>
+        </div>
+        <div class="architecture">
+          <div class="arch-row">
+            <div class="arch-label">Frontend<br />5101</div>
+            <div class="arch-boxes">
+              <div class="arch-box"><strong>Next.js 14</strong><span>App Router · TypeScript</span></div>
+              <div class="arch-box"><strong>Tailwind</strong><span>한화 톤 디자인 토큰</span></div>
+              <div class="arch-box"><strong>Recharts</strong><span>분포·리포트 차트</span></div>
+              <div class="arch-box"><strong>TopoJSON</strong><span>한국 지도 시각화</span></div>
+            </div>
+          </div>
+          <div class="arch-row">
+            <div class="arch-label">Backend<br />5102</div>
+            <div class="arch-boxes">
+              <div class="arch-box"><strong>FastAPI</strong><span>/api/analyze · /api/surveys</span></div>
+              <div class="arch-box"><strong>인메모리 Store</strong><span>parquet + npy 사전 로드</span></div>
+              <div class="arch-box"><strong>JSON 저장소</strong><span>분석·설문·세그먼트 영속화</span></div>
+              <div class="arch-box"><strong>BackgroundTasks</strong><span>설문 실행 비동기 처리</span></div>
+            </div>
+          </div>
+          <div class="arch-row">
+            <div class="arch-label">AI · Data</div>
+            <div class="arch-boxes">
+              <div class="arch-box"><strong>sLLM</strong><span>Qwen3.6-27B-FP8 기본</span></div>
+              <div class="arch-box"><strong>Claude</strong><span>Sonnet · Haiku 선택 가능</span></div>
+              <div class="arch-box"><strong>OpenAI</strong><span>text-embedding-3-small</span></div>
+              <div class="arch-box"><strong>Nemotron</strong><span>100만 합성 페르소나</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>외부 노출은 5101만 필요하며, API는 127.0.0.1:5102에서 내부 호출됩니다.</span>
+        <span class="mono">06</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="상품 분석 프로세스">
+      <div class="watermark">05</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Analysis Process</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">상품 분석 프로세스</p>
+          <h2>문서 입력부터 리포트까지 6단계로 자동 처리합니다.</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step" style="--tone: var(--terra)">
+            <span class="num">1</span>
+            <strong>문서 입력</strong>
+            <span>텍스트 직접 입력 또는 TXT/PDF/DOCX/HWP/HWPX 업로드</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--azure)">
+            <span class="num">2</span>
+            <strong>소구점 추출</strong>
+            <span>LLM tool 호출로 타겟 조건과 혜택을 구조화</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--mint)">
+            <span class="num">3</span>
+            <strong>쿼리 임베딩</strong>
+            <span>요약·혜택·키워드를 1536차원 벡터로 변환</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--gold)">
+            <span class="num">4</span>
+            <strong>전체 점수화</strong>
+            <span>코사인 유사도 + 룰 보너스 + 카테고리 보너스</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--terra-deep)">
+            <span class="num">5</span>
+            <strong>지역·계층 집계</strong>
+            <span>핵심 타겟 0.5%, 타겟층 5%, 관심층 20%</span>
+          </div>
+          <div class="flow-step" style="--tone: var(--ink)">
+            <span class="num">6</span>
+            <strong>의견·리포트</strong>
+            <span>상·하위 페르소나 의견과 FP용 영업 리포트 생성</span>
+          </div>
+        </div>
+        <div class="muted-box">
+          현재 스코어링 공식은 <span class="mono">0.7 × cosine + 0.2 × rule_bonus + 0.1 × category_bonus</span>입니다.
+          룰 보너스는 연령·성별·가구·학력·직업을 반영하며, 직업은 부분 매칭으로 처리합니다.
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>분석 결과는 JSON Lines로 저장되어 이력 화면에서 재확인됩니다.</span>
+        <span class="mono">07</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="설문 시뮬레이션 프로세스">
+      <div class="watermark">06</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Survey Simulation</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">설문 시뮬레이션 프로세스</p>
+          <h2>저장된 페르소나 그룹을 대상으로 가상 설문을 실행하고 결과 리포트를 만듭니다.</h2>
+        </div>
+        <div class="process-lanes">
+          <div class="lane">
+            <div class="lane-title">대상자 준비</div>
+            <div class="lane-line">
+              <div class="lane-node"><strong>자연어 조건</strong>30대 워킹맘, 수도권 등</div>
+              <div class="lane-node"><strong>메타 필터</strong>연령·성별·지역·직업</div>
+              <div class="lane-node"><strong>미리보기</strong>분포와 매칭 수 확인</div>
+              <div class="lane-node"><strong>세그먼트</strong>선택 그룹 저장</div>
+              <div class="lane-node"><strong>샘플링</strong>전체·랜덤·비례</div>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-title">질문 설계</div>
+            <div class="lane-line">
+              <div class="lane-node"><strong>기본 정보</strong>제목·배경·목적</div>
+              <div class="lane-node"><strong>AI 추천</strong>질문 자동 생성</div>
+              <div class="lane-node"><strong>파일 업로드</strong>XLSX·CSV·DOCX</div>
+              <div class="lane-node"><strong>문항 유형</strong>선택·척도·NPS·주관식</div>
+              <div class="lane-node"><strong>실행 설정</strong>모델·온도·근거 포함</div>
+            </div>
+          </div>
+          <div class="lane">
+            <div class="lane-title">실행·리포트</div>
+            <div class="lane-line">
+              <div class="lane-node"><strong>백그라운드</strong>설문 실행 시작</div>
+              <div class="lane-node"><strong>동시성 제한</strong>4개 병렬 호출</div>
+              <div class="lane-node"><strong>캐시</strong>동일 응답 재사용</div>
+              <div class="lane-node"><strong>진행률</strong>문항 단위 갱신</div>
+              <div class="lane-node"><strong>차트 리포트</strong>응답·분포·총평</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>설문 세션은 data/surveys 하위 JSON 파일로 저장됩니다.</span>
+        <span class="mono">08</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="서비스 화면 구성">
+      <div class="watermark">07</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">User Experience</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">서비스 화면 구성</p>
+          <h2>분석 입력과 결과 확인을 한 화면에서 처리하고, 탐색·설문은 별도 작업면으로 분리했습니다.</h2>
+          <ul class="list" style="margin-top: 26px">
+            <li><span class="bullet">1</span><span><strong>홈</strong> 새 분석·분석 이력·결과 대시보드</span></li>
+            <li><span class="bullet">2</span><span><strong>데이터 현황</strong> 100만 행 분포와 자연어 검색</span></li>
+            <li><span class="bullet">3</span><span><strong>페르소나 탐색</strong> 조건 검색·카드/테이블·세그먼트 저장</span></li>
+            <li><span class="bullet">4</span><span><strong>설문</strong> 4단계 마법사·진행률·응답·리포트</span></li>
+          </ul>
+        </div>
+        <div class="screen-mock" aria-label="PersonaFit 화면 모형">
+          <div class="browser-bar"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+          <div class="mock-body">
+            <div class="mock-panel">
+              <div class="mock-line medium"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line short"></div>
+              <div style="height: 20px"></div>
+              <div class="mock-line"></div>
+              <div class="mock-line medium"></div>
+              <div class="mock-line short"></div>
+            </div>
+            <div class="mock-panel">
+              <div class="mock-result">
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+                <div class="mock-card"><div class="mock-line short"></div><div class="mock-line"></div></div>
+              </div>
+              <div style="height: 12px"></div>
+              <div class="map-block">지역 분포 · 시군구 집계</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>UI는 한화 톤 토큰, SUITE·AtoZ 폰트, 1440px 업무형 레이아웃을 기준으로 구성되어 있습니다.</span>
+        <span class="mono">09</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="사용 방법">
+      <div class="watermark">08</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">How to Use</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">사용 방법</p>
+          <h2>데모 사용자는 문서 입력, 결과 확인, 세그먼트 저장, 설문 실행 순서로 쓰면 됩니다.</h2>
+        </div>
+        <div class="timeline">
+          <div class="timeline-card">
+            <div class="step-label">STEP 1</div>
+            <h3>상품 입력</h3>
+            <p>홈 화면에서 약관·상품설명서를 붙여넣거나 파일로 업로드합니다. 모델은 기본 sLLM, 필요 시 Claude로 전환합니다.</p>
+          </div>
+          <div class="timeline-card">
+            <div class="step-label">STEP 2</div>
+            <h3>결과 검토</h3>
+            <p>요약 점수, 상위·하위 페르소나, 지역 지도, 핵심·타겟·관심층 통계, 리포트를 확인합니다.</p>
+          </div>
+          <div class="timeline-card">
+            <div class="step-label">STEP 3</div>
+            <h3>대상자 확장</h3>
+            <p>페르소나 탐색에서 자연어 조건과 필터로 대상을 찾고, 선택 그룹을 세그먼트로 저장합니다.</p>
+          </div>
+          <div class="timeline-card">
+            <div class="step-label">STEP 4</div>
+            <h3>설문 실행</h3>
+            <p>설문 마법사에서 대상·질문·모델을 설정한 뒤 진행률 화면과 응답 리포트에서 결과를 확인합니다.</p>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>화면</th>
+              <th>경로</th>
+              <th>목적</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>상품 분석</td>
+              <td class="mono">/</td>
+              <td>신규 분석, 분석 이력, 결과 대시보드</td>
+            </tr>
+            <tr>
+              <td>데이터 현황</td>
+              <td class="mono">/overview</td>
+              <td>100만 행 분포, 지역·직업·페르소나 텍스트 확인</td>
+            </tr>
+            <tr>
+              <td>페르소나 탐색</td>
+              <td class="mono">/personas</td>
+              <td>조건 검색, 세그먼트 저장</td>
+            </tr>
+            <tr>
+              <td>설문 시뮬레이션</td>
+              <td class="mono">/surveys</td>
+              <td>설문 생성, 실행, 응답, 리포트 확인</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer-row">
+        <span>분석 이력과 설문 이력은 로컬 JSON 저장소 기준으로 유지됩니다.</span>
+        <span class="mono">10</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="운영 방법">
+      <div class="watermark">09</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Runbook</div>
+      </div>
+      <div class="content split equal">
+        <div>
+          <p class="eyebrow">운영 방법</p>
+          <h2>로컬 데모는 pm2 기준으로 두 서비스를 기동합니다.</h2>
+          <div class="card accent-terra" style="margin-top: 24px">
+            <h3>필수 환경</h3>
+            <p>Node 20+, pnpm 11+, Python 3.12+, uv 0.11+, OpenAI 키, 선택적으로 Anthropic 키가 필요합니다.</p>
+          </div>
+          <div class="card accent-azure">
+            <h3>데이터 파일</h3>
+            <p><span class="mono">data/personas_1m.parquet</span>와 <span class="mono">data/embeddings_1m_v2.npy</span>를 FastAPI가 부팅 시 로드합니다.</p>
+          </div>
+        </div>
+        <div>
+          <div class="card accent-mint">
+            <h3>설치·빌드</h3>
+            <code class="command">pnpm install
+cd apps/api && uv sync && cd ../..
+pnpm --filter web build</code>
+          </div>
+          <div class="card accent-gold">
+            <h3>서비스 기동</h3>
+            <code class="command">pm2 start ecosystem.config.cjs
+pm2 list
+pm2 logs personafit-web
+pm2 logs personafit-api</code>
+          </div>
+          <div class="card accent-terra">
+            <h3>접속 정보</h3>
+            <p>브라우저: <span class="mono">http://localhost:5101</span><br />API 내부: <span class="mono">http://127.0.0.1:5102</span></p>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>개발 모드는 FastAPI 5102와 Next.js 3000을 별도 터미널에서 실행합니다.</span>
+        <span class="mono">11</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="검증 결과">
+      <div class="watermark">10</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Validation</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">검증 결과</p>
+          <h2>명시 타겟 약관 11종에서 모든 케이스와 체크가 통과했습니다.</h2>
+        </div>
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="label">케이스 통과</div>
+            <div class="value">11/11</div>
+            <div class="sub">여성·시니어·유자녀·청년·전문직 등</div>
+          </div>
+          <div class="stat">
+            <div class="label">체크 통과</div>
+            <div class="value">22/22</div>
+            <div class="sub">성별·연령·가구·학력·직업·지역</div>
+          </div>
+          <div class="stat">
+            <div class="label">제주 케이스</div>
+            <div class="value">50%</div>
+            <div class="sub">상위 20명 중 제주 비중</div>
+          </div>
+          <div class="stat">
+            <div class="label">군인 케이스</div>
+            <div class="value">60%</div>
+            <div class="sub">현역 또는 군 관련 매칭</div>
+          </div>
+        </div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>검증 포인트</th>
+              <th>의미</th>
+              <th>근거 파일</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>명시 조건 추출</td>
+              <td>약관에 적힌 가입 대상 조건을 구조화해 매칭에 반영합니다.</td>
+              <td class="mono">docs/VALIDATION.md</td>
+            </tr>
+            <tr>
+              <td>스키마 밖 단서 흡수</td>
+              <td>지역·군복무처럼 전용 필드가 없어도 임베딩과 직업 매칭으로 일부 회수합니다.</td>
+              <td class="mono">docs/VALIDATION_STORY.md</td>
+            </tr>
+            <tr>
+              <td>한계 명시</td>
+              <td>실제 가입률 예측이 아니라 합성 페르소나 내 타겟 일관성 검증입니다.</td>
+              <td class="mono">scripts/validate_known_targets.py</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="footer-row">
+        <span>검증은 모델 작동 일관성 평가이며, 실제 전환율은 별도 데이터가 필요합니다.</span>
+        <span class="mono">12</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="성능과 비용">
+      <div class="watermark">11</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Performance & Cost</div>
+      </div>
+      <div class="content split">
+        <div>
+          <p class="eyebrow">성능과 비용</p>
+          <h2>분석 시간의 대부분은 LLM 생성이며, 스코어링은 인메모리로 처리합니다.</h2>
+          <ul class="list" style="margin-top: 24px">
+            <li><span class="bullet">1</span><span>FastAPI 부팅 시 100만 행 store를 사전 로드해 첫 요청 지연을 줄입니다.</span></li>
+            <li><span class="bullet">2</span><span>OpenAI 임베딩은 텍스트 캐시를 적용해 동일 쿼리 재호출 비용을 줄입니다.</span></li>
+            <li><span class="bullet">3</span><span>설문 응답은 페르소나·질문·모델·온도 기준으로 캐시됩니다.</span></li>
+          </ul>
+        </div>
+        <div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>항목</th>
+                <th>현재 기준</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>데이터 로드</td>
+                <td>100만 행 parquet + 6.1GB npy</td>
+              </tr>
+              <tr>
+                <td>메모리 설정</td>
+                <td>API pm2 재시작 기준 30GB</td>
+              </tr>
+              <tr>
+                <td>운영 포트</td>
+                <td>Web 5101, API 5102</td>
+              </tr>
+              <tr>
+                <td>기본 LLM</td>
+                <td>sLLM Qwen3.6-27B-FP8</td>
+              </tr>
+              <tr>
+                <td>외부 임베딩</td>
+                <td>OpenAI text-embedding-3-small</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="muted-box" style="margin-top: 14px">
+            README의 초기 실측 기준은 Claude 분석 1회당 약 19-25초, 약 $0.022입니다.
+            현재 기본 sLLM 경로는 사내 모델 사용으로 LLM 비용 구조가 달라집니다.
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>병목은 스코어링보다 LLM 호출과 리포트 생성입니다.</span>
+        <span class="mono">13</span>
+      </div>
+    </section>
+
+    <section class="slide" data-title="리스크와 다음 단계">
+      <div class="watermark">12</div>
+      <div class="header-row">
+        <div class="brand"><span class="brand-mark" aria-hidden="true"></span>PersonaFit</div>
+        <div class="caption">Risks & Next Steps</div>
+      </div>
+      <div class="content">
+        <div>
+          <p class="eyebrow">리스크와 다음 단계</p>
+          <h2>데모 완성도는 높지만, 실제 의사결정 도구로 쓰려면 검증 축을 추가해야 합니다.</h2>
+        </div>
+        <div class="risk-grid">
+          <div class="risk">
+            <strong>데이터 한계</strong>
+            <span>합성 페르소나가 실제 가입자 분포를 완전히 대변하지 않습니다. 외부 실제 통계와 교차 검증이 필요합니다.</span>
+          </div>
+          <div class="risk">
+            <strong>전환율 한계</strong>
+            <span>현재 검증은 타겟 조건 일치성입니다. 실제 가입 의향·전환율은 A/B 테스트나 사내 데이터가 필요합니다.</span>
+          </div>
+          <div class="risk">
+            <strong>운영 한계</strong>
+            <span>100만 행 인메모리 구조는 빠르지만 메모리 요구량이 큽니다. 운영 배포 시 벡터 DB 또는 샤딩 검토가 필요합니다.</span>
+          </div>
+          <div class="risk">
+            <strong>품질 한계</strong>
+            <span>LLM 응답 품질은 프롬프트·모델 상태에 좌우됩니다. 핵심 설문 유형별 회귀 테스트가 필요합니다.</span>
+          </div>
+        </div>
+        <div class="cards">
+          <div class="card accent-terra">
+            <h3>다음 단계 1</h3>
+            <p>실제 보험 가입자 분포와 비교하는 외부 벤치마크를 추가합니다.</p>
+          </div>
+          <div class="card accent-azure">
+            <h3>다음 단계 2</h3>
+            <p>Supabase 또는 벡터 저장소로 운영형 데이터 계층을 분리합니다.</p>
+          </div>
+          <div class="card accent-mint">
+            <h3>다음 단계 3</h3>
+            <p>설문 리포트 자동 해석, CSV 내보내기, 팀 공유 흐름을 보강합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="footer-row">
+        <span>현재 산출물은 데모와 내부 보고에 적합하며, 운영 전 검증 체계 확장이 필요합니다.</span>
+        <span class="mono">14</span>
+      </div>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="슬라이드 이동">
+    <button class="nav-btn" id="prevBtn" type="button" aria-label="이전 슬라이드">‹</button>
+    <div class="counter" id="counter">01 / 14</div>
+    <button class="nav-btn" id="nextBtn" type="button" aria-label="다음 슬라이드">›</button>
+  </nav>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const counter = document.getElementById("counter");
+    const progressBar = document.getElementById("progressBar");
+    const pad = (n) => String(n).padStart(2, "0");
+
+    let current = (() => {
+      const raw = window.location.hash.replace("#", "");
+      const parsed = Number.parseInt(raw, 10);
+      if (Number.isFinite(parsed) && parsed >= 1 && parsed <= slides.length) {
+        return parsed - 1;
+      }
+      return 0;
+    })();
+
+    function show(index) {
+      current = Math.max(0, Math.min(index, slides.length - 1));
+      slides.forEach((slide, i) => {
+        const active = i === current;
+        slide.classList.toggle("active", active);
+        slide.setAttribute("aria-hidden", active ? "false" : "true");
+      });
+
+      prevBtn.disabled = current === 0;
+      nextBtn.disabled = current === slides.length - 1;
+      counter.textContent = `${pad(current + 1)} / ${pad(slides.length)}`;
+      progressBar.style.width = `${((current + 1) / slides.length) * 100}%`;
+
+      const title = slides[current].dataset.title || "슬라이드";
+      document.title = `PersonaFit 프로젝트 보고 슬라이드 · ${title}`;
+      history.replaceState(null, "", `#${current + 1}`);
+    }
+
+    prevBtn.addEventListener("click", () => show(current - 1));
+    nextBtn.addEventListener("click", () => show(current + 1));
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+        event.preventDefault();
+        show(current + 1);
+      } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        show(current - 1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        show(0);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        show(slides.length - 1);
+      }
+    });
+
+    window.addEventListener("hashchange", () => {
+      const parsed = Number.parseInt(window.location.hash.replace("#", ""), 10);
+      if (Number.isFinite(parsed)) show(parsed - 1);
+    });
+
+    show(current);
+  </script>
+</body>
+</html>

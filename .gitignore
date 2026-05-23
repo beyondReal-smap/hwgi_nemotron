@@ -1,0 +1,47 @@
+# 환경변수
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.uv/
+.python-version
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Data / cache
+.cache/
+*.parquet
+sample_personas.json
+data/embed_cache/
+data/answer_cache/
+data/surveys/
+*.npy
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Build / logs
+*.log
+.turbo/
+
+# Archive (정리한 산출물 보관)
+.archive/

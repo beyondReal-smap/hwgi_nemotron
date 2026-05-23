@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PersonaFit: 사내 경진대회 발표 프레젠테이션</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ============================================================
+       PREMIUM LIGHT SYSTEM (Signature Vellum & Terra Palette)
+       ============================================================ */
+    :root {
+      --bg-vellum: #faf9f5;        /* 부드러운 양피지 크림 톤 */
+      --bg-snow: #ffffff;          /* 순백의 화이트 */
+      --text-ink: #1f1e1d;         /* 우아한 먹색 */
+      --text-graphite: #3d3d3a;    /* 진한 차콜 */
+      --text-dusty: #73726c;       /* 따뜻한 연회색 */
+      --text-stone: #9c9a92;       /* 차분한 돌회색 */
+      
+      --border-parchment: #dedcd1; /* 경계선 양피지 톤 */
+      
+      --color-terra: #d97757;      /* 테라코타 오렌지 (대표 악센트) */
+      --color-terra-light: #f5dccf;/* 테라코타 연색 */
+      --color-azure: #ccdbe8;      /* 고요한 스카이 블루 */
+      --color-azure-deep: #2b5c8f; /* 신뢰감 있는 딥 블루 */
+      --color-green: #2e7d32;      /* 소프트 포레스트 그린 */
+      
+      /* Harmonious Gradient Palette (Light Version) */
+      --gradient-primary: linear-gradient(135deg, var(--color-terra) 0%, #c2410c 100%);
+      --gradient-azure: linear-gradient(135deg, var(--color-azure-deep) 0%, #1e3a8a 100%);
+      --gradient-soft: linear-gradient(135deg, var(--bg-snow) 0%, var(--bg-vellum) 100%);
+      
+      --shadow-premium: 0 15px 40px rgba(31, 30, 29, 0.06), 0 2px 8px rgba(31, 30, 29, 0.03);
+      --transition-slide: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-vellum);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(217, 119, 87, 0.04) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(43, 92, 143, 0.04) 0%, transparent 40%);
+      color: var(--text-ink);
+      font-family: 'Outfit', 'Noto Sans KR', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Presentation Header */
+    header.presentation-header {
+      padding: 1.5rem 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-parchment);
+      background-color: var(--bg-snow);
+      z-index: 100;
+      box-shadow: 0 1px 3px rgba(31, 30, 29, 0.02);
+    }
+
+    .brand-logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-logo span {
+      font-weight: 400;
+      color: var(--text-stone);
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      border-left: 1px solid var(--border-parchment);
+      padding-left: 0.5rem;
+    }
+
+    .contest-badge {
+      background: var(--bg-vellum);
+      border: 1px solid var(--border-parchment);
+      color: var(--text-graphite);
+      padding: 0.35rem 1rem;
+      border-radius: 50px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    /* Slides Container */
+    .slides-viewport {
+      position: relative;
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      perspective: 1500px;
+      padding: 2rem;
+    }
+
+    .slide {
+      position: absolute;
+      width: 100%;
+      max-width: 1100px;
+      height: 620px;
+      background: var(--bg-snow);
+      border: 1px solid var(--border-parchment);
+      border-radius: 24px;
+      padding: 3rem 4rem;
+      box-shadow: var(--shadow-premium);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      opacity: 0;
+      transform: rotateY(45deg) translateZ(-200px) scale(0.9);
+      pointer-events: none;
+      transition: var(--transition-slide);
+      z-index: 1;
+    }
+
+    /* Active & Past slide states */
+    .slide.active {
+      opacity: 1;
+      transform: rotateY(0deg) translateZ(0) scale(1);
+      pointer-events: auto;
+      z-index: 10;
+    }
+
+    .slide.past {
+      opacity: 0;
+      transform: rotateY(-45deg) translateZ(-200px) scale(0.9);
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* Slide Content Structure */
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+    }
+
+    .slide-tag {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--color-terra);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 0.5rem;
+    }
+
+    .slide-title {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: var(--text-ink);
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+    }
+
+    .slide-title span {
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .slide-body {
+      flex-grow: 1;
+      display: grid;
+      align-items: center;
+      gap: 2rem;
+    }
+
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--border-parchment);
+      padding-top: 1.5rem;
+      color: var(--text-stone);
+      font-size: 0.85rem;
+    }
+
+    /* ============================================================
+       SLIDE-SPECIFIC CUSTOM LAYOUTS & COMPONENT CARDS
+       ============================================================ */
+
+    /* Slide 1: Hero Cover */
+    .slide-cover {
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: radial-gradient(circle at center, rgba(217, 119, 87, 0.05) 0%, transparent 70%), var(--bg-snow);
+    }
+
+    .cover-title {
+      font-size: 3.5rem;
+      font-weight: 900;
+      line-height: 1.2;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.03em;
+      color: var(--text-ink);
+    }
+
+    .cover-title span {
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .cover-subtitle {
+      font-size: 1.4rem;
+      color: var(--text-graphite);
+      max-width: 800px;
+      margin: 0 auto 3rem auto;
+      font-weight: 400;
+      line-height: 1.6;
+    }
+
+    .cover-meta {
+      display: flex;
+      gap: 3rem;
+      color: var(--text-dusty);
+      font-size: 0.95rem;
+      border-top: 1px solid var(--border-parchment);
+      padding-top: 1.5rem;
+      width: 80%;
+      justify-content: center;
+    }
+
+    .cover-meta strong {
+      color: var(--text-ink);
+    }
+
+    /* 2-Column Grid Layout */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2.5rem;
+      align-items: center;
+      height: 100%;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    /* Premium Content Box & Timeline Card */
+    .highlight-card {
+      background: var(--bg-vellum);
+      border: 1px solid var(--border-parchment);
+      border-radius: 16px;
+      padding: 1.5rem;
+      transition: var(--transition-slide);
+    }
+
+    .highlight-card:hover {
+      border-color: var(--color-terra);
+      background: var(--bg-snow);
+      transform: translateY(-5px);
+      box-shadow: 0 10px 20px rgba(217, 119, 87, 0.05);
+    }
+
+    .card-icon {
+      font-size: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-ink);
+    }
+
+    .card-text {
+      color: var(--text-graphite);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* Pain vs Gain Visualization */
+    .flow-compare {
+      display: grid;
+      grid-template-columns: 1fr 50px 1fr;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .compare-box {
+      border-radius: 16px;
+      padding: 2rem;
+      height: 100%;
+    }
+
+    .compare-box.pain {
+      background: rgba(225, 29, 72, 0.02);
+      border: 1px solid rgba(225, 29, 72, 0.15);
+    }
+
+    .compare-box.gain {
+      background: rgba(46, 125, 50, 0.02);
+      border: 1px solid rgba(46, 125, 50, 0.15);
+    }
+
+    .compare-box h3 {
+      font-size: 1.3rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .compare-box.pain h3 { color: #c0153f; }
+    .compare-box.gain h3 { color: var(--color-green); }
+
+    .compare-list li {
+      margin-bottom: 0.8rem;
+      font-size: 0.95rem;
+      color: var(--text-graphite);
+      list-style-type: none;
+      padding-left: 1.5rem;
+      position: relative;
+    }
+
+    .compare-box.pain .compare-list li::before {
+      content: "✕";
+      position: absolute;
+      left: 0;
+      color: #c0153f;
+      font-weight: 700;
+    }
+
+    .compare-box.gain .compare-list li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--color-green);
+      font-weight: 700;
+    }
+
+    /* Timeline Process Flow */
+    .timeline {
+      display: flex;
+      justify-content: space-between;
+      position: relative;
+      margin-top: 1rem;
+    }
+
+    .timeline::before {
+      content: "";
+      position: absolute;
+      top: 35px;
+      left: 10%;
+      width: 80%;
+      height: 2px;
+      background: var(--border-parchment);
+      z-index: 1;
+    }
+
+    .timeline-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+      padding: 0 1rem;
+    }
+
+    .step-number {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: var(--bg-snow);
+      border: 2px solid var(--border-parchment);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin-bottom: 1.2rem;
+      color: var(--text-stone);
+      transition: var(--transition-slide);
+    }
+
+    .timeline-step:hover .step-number {
+      border-color: var(--color-terra);
+      color: var(--color-terra);
+      box-shadow: 0 0 20px rgba(217, 119, 87, 0.15);
+      transform: scale(1.1);
+    }
+
+    .step-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-ink);
+    }
+
+    .step-desc {
+      font-size: 0.85rem;
+      color: var(--text-graphite);
+      line-height: 1.5;
+    }
+
+    /* Known-Target Validation Chart Mockup */
+    .validation-panel {
+      background: var(--bg-vellum);
+      border: 1px solid var(--border-parchment);
+      border-radius: 20px;
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      gap: 3rem;
+    }
+
+    .stat-circle {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(217, 119, 87, 0.05) 0%, transparent 80%);
+      border: 6px solid var(--color-terra);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .stat-circle::after {
+      content: "VERIFIED";
+      position: absolute;
+      bottom: -12px;
+      background: var(--color-green);
+      color: var(--bg-snow);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+    }
+
+    .stat-circle .number {
+      font-size: 3rem;
+      font-weight: 900;
+      color: var(--text-ink);
+    }
+
+    .stat-circle .label {
+      font-size: 0.8rem;
+      color: var(--text-graphite);
+      font-weight: 600;
+    }
+
+    .val-list {
+      flex: 1;
+    }
+
+    .val-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border-parchment);
+      font-size: 0.95rem;
+      color: var(--text-graphite);
+    }
+
+    .val-item span.pass {
+      color: var(--color-green);
+      font-weight: 700;
+    }
+
+    /* Key Benefits KPI */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2rem;
+    }
+
+    .kpi-card {
+      background: var(--bg-vellum);
+      border: 1px solid var(--border-parchment);
+      border-radius: 16px;
+      padding: 2rem;
+      text-align: center;
+    }
+
+    .kpi-value {
+      font-size: 3.5rem;
+      font-weight: 900;
+      background: var(--gradient-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-label {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-sub {
+      font-size: 0.85rem;
+      color: var(--text-graphite);
+      line-height: 1.5;
+    }
+
+    /* Presentation Controls Footer */
+    footer.presentation-footer {
+      padding: 1.5rem 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 1px solid var(--border-parchment);
+      background-color: var(--bg-snow);
+      z-index: 100;
+      box-shadow: 0 -2px 10px rgba(31, 30, 29, 0.01);
+    }
+
+    .slide-progress-bar {
+      display: flex;
+      gap: 6px;
+      flex-grow: 0.5;
+      max-width: 400px;
+    }
+
+    .progress-dot {
+      flex: 1;
+      height: 4px;
+      background: var(--border-parchment);
+      border-radius: 2px;
+      transition: var(--transition-slide);
+      cursor: pointer;
+    }
+
+    .progress-dot.active {
+      background: var(--color-terra);
+      box-shadow: 0 0 10px rgba(217, 119, 87, 0.3);
+    }
+
+    .nav-controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .btn-nav {
+      background: var(--bg-vellum);
+      border: 1px solid var(--border-parchment);
+      color: var(--text-graphite);
+      width: 45px;
+      height: 45px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 1.2rem;
+      transition: var(--transition-slide);
+    }
+
+    .btn-nav:hover {
+      background: var(--color-terra);
+      border-color: var(--color-terra);
+      color: var(--bg-snow);
+      box-shadow: 0 0 15px rgba(217, 119, 87, 0.25);
+      transform: scale(1.05);
+    }
+
+    .btn-nav:active {
+      transform: scale(0.95);
+    }
+
+    .slide-counter {
+      font-size: 0.95rem;
+      color: var(--text-dusty);
+      font-weight: 600;
+      min-width: 60px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <header class="presentation-header">
+    <div class="brand-logo">
+      PersonaFit <span>100만 가상 고객 검증 플랫폼</span>
+    </div>
+    <div class="contest-badge">
+      🏆 사내 AI 경진대회 최우수 후보작
+    </div>
+  </header>
+
+  <!-- Main Slides Viewport -->
+  <main class="slides-viewport">
+
+    <!-- Slide 1: Cover -->
+    <section class="slide slide-cover active" id="slide-1">
+      <div class="slide-tag">AI-Powered Targeting Engine</div>
+      <h1 class="cover-title">PersonaFit: 100만 가상 타겟이 제안하는<br><span>초개인화 금융 영업 전략</span></h1>
+      <p class="cover-subtitle">
+        초거대 가상 한국인 페르소나 데이터셋 기반<br>
+        상품 약관 분석, 반응도 코사인 유사도 매칭 및 영업 인사이트 자동화 플랫폼
+      </p>
+      <div class="cover-meta">
+        <div>부서 <strong>디지털 영업 혁신본부</strong></div>
+        <div>제출 구분 <strong>인공지능 비즈니스 적용 부문</strong></div>
+        <div>발표 시간 <strong>10분</strong></div>
+      </div>
+    </section>
+
+    <!-- Slide 2: Business Background -->
+    <section class="slide" id="slide-2">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Background & Opportunity</div>
+          <h2 class="slide-title">전통적 고객 분석의 한계와 <span>새로운 비즈니스 기회</span></h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="flow-compare">
+          <div class="compare-box pain">
+            <h3>✕ 기존 방식의 병목</h3>
+            <ul class="compare-list">
+              <li><strong>시간 지연</strong>: 신상품 기획 시 설문조사 및 표본 확보에 최소 2주~한 달 이상 소요</li>
+              <li><strong>높은 비용</strong>: 전문 리서치 대행사 활용 시 회당 수천만 원의 외주 비용 발생</li>
+              <li><strong>FP 개인 편차</strong>: 설계사의 직관과 주관적 영업 경험에만 전적으로 의존</li>
+              <li><strong>로컬 전략 공백</strong>: 전국 지사별 지역 특화 공략 포인트를 구체적으로 산출 불가능</li>
+            </ul>
+          </div>
+          <div style="font-size: 2rem; color: var(--text-stone); text-align: center; font-weight: 300;">→</div>
+          <div class="compare-box gain">
+            <h3>✓ PersonaFit 혁신 가치</h3>
+            <ul class="compare-list">
+              <li><strong>실시간 매칭</strong>: 약관 파일 업로드 즉시 0.5초 만에 타겟 분석 완료</li>
+              <li><strong>비용 제로화</strong>: 오픈 LLM과 고성능 임베딩 매칭 조합으로 자체 가상 조사 수행</li>
+              <li><strong>정량적 스코어링</strong>: 100만 가상 고객의 반응을 데이터 기반 수치로 환산</li>
+              <li><strong>입체적 영업 지원</strong>: 타겟 상세 특성, 지역 공략처, 대면 대화 스크립트 즉각 생성</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <div>PersonaFit: 데이터와 AI로 영업의 속도와 정확성을 재정의합니다.</div>
+        <div>02 / 08</div>
+      </div>
+    </section>
+
+    <!-- Slide 3: Nemotron-Personas-Korea Dataset -->
+    <section class="slide" id="slide-3">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">NVIDIA Nemotron-Personas-Korea Baseline</div>
+          <h2 class="slide-title">100만 명의 대한민국 거울 자아, <span>가상 페르소나란?</span></h2>
+        </div>
+      </div>
+      <div class="slide-body" style="gap: 1.5rem;">
+        <div class="grid-2" style="gap: 2rem; align-items: start; height: auto;">
+          <!-- Left Column: Impact Numbers -->
+          <div style="background: var(--bg-vellum); border: 1px solid var(--border-parchment); border-radius: 16px; padding: 1.2rem; height: 100%;">
+            <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--color-terra); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.4rem;">
+              🎯 임팩트 숫자 <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-dusty);">(왜 큰 자산인가)</span>
+            </h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-parchment); color: var(--text-ink); font-weight: 700;">
+                  <th style="padding: 0.4rem 0.5rem; width: 30%;">지표</th>
+                  <th style="padding: 0.4rem 0.5rem; width: 25%;">값</th>
+                  <th style="padding: 0.4rem 0.5rem;">메시지</th>
+                </tr>
+              </thead>
+              <tbody style="color: var(--text-graphite);">
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">페르소나 수</td>
+                  <td style="padding: 0.4rem 0.5rem; color: var(--color-terra); font-weight: 700;">100만 명</td>
+                  <td style="padding: 0.4rem 0.5rem;">한국 시장 단일 데이터셋 최대급</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">페르소나 텍스트</td>
+                  <td style="padding: 0.4rem 0.5rem; color: var(--color-terra); font-weight: 700;">700만 개</td>
+                  <td style="padding: 0.4rem 0.5rem;">직업·스포츠·예술·여행·요리·가족·종합 (1인 7종)</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">토큰 수</td>
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">17억 토큰</td>
+                  <td style="padding: 0.4rem 0.5rem;">페르소나 텍스트만 10억 토큰</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">인구통계 필드</td>
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">25개 필드</td>
+                  <td style="padding: 0.4rem 0.5rem; font-size: 0.75rem;">성별·연령·혼인·병역·가구·주거·학력·전공·직업·지자체 등</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">시군구 커버리지</td>
+                  <td style="padding: 0.4rem 0.5rem; color: var(--color-azure-deep); font-weight: 700;">252/252</td>
+                  <td style="padding: 0.4rem 0.5rem;">전국 17개 시도 행정구역 빈틈없는 커버리지</td>
+                </tr>
+                <tr>
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">최신 발표일</td>
+                  <td style="padding: 0.4rem 0.5rem; font-weight: 700;">2026-04-20</td>
+                  <td style="padding: 0.4rem 0.5rem; color: var(--color-terra); font-weight: 700;">최근 공식 공개된 국가 최신 자산</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Right Column: Government Sources -->
+          <div style="background: var(--bg-vellum); border: 1px solid var(--border-parchment); border-radius: 16px; padding: 1.2rem; height: 100%;">
+            <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--color-azure-deep); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 0.4rem;">
+              🛡️ 신뢰성 <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-dusty);">(한국 정부 5대 기관 공식 통계 기반)</span>
+            </h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--border-parchment); color: var(--text-ink); font-weight: 700;">
+                  <th style="padding: 0.4rem 0.5rem; width: 35%;">공식 통계 소스</th>
+                  <th style="padding: 0.4rem 0.5rem;">페르소나 생성시 구체적 활용 항목</th>
+                </tr>
+              </thead>
+              <tbody style="color: var(--text-graphite);">
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.6rem 0.5rem; font-weight: 700; color: var(--color-azure-deep);">대한민국 통계청 KOSIS</td>
+                  <td style="padding: 0.6rem 0.5rem;">성별, 지역 분포, 산업 및 한국표준직업분류(KSCO), 국내 여행, 국민 여가 활동 패턴</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.6rem 0.5rem; font-weight: 700; color: var(--color-azure-deep);">대한민국 대법원</td>
+                  <td style="padding: 0.6rem 0.5rem;">실제 세대별 출생연도, 성별 및 인명(이름) 분포 재현 (동명이인 일치율 79% 달성)</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.6rem 0.5rem; font-weight: 700; color: var(--color-azure-deep);">국민건강보험공단</td>
+                  <td style="padding: 0.6rem 0.5rem;">2024-12-31 기준 최신 공식 건강검진 정보 및 라이프스타일 통계 결합</td>
+                </tr>
+                <tr style="border-bottom: 1px solid rgba(31, 30, 29, 0.05);">
+                  <td style="padding: 0.6rem 0.5rem; font-weight: 700; color: var(--color-azure-deep);">한국농촌경제연구원</td>
+                  <td style="padding: 0.6rem 0.5rem;">2024 식품소비행태조사를 통한 가구별 취식 성향 및 가구 형태 매핑</td>
+                </tr>
+                <tr>
+                  <td style="padding: 0.6rem 0.5rem; font-weight: 700; color: var(--color-azure-deep);">NAVER Cloud</td>
+                  <td style="padding: 0.6rem 0.5rem;">초기 원천 데이터셋 고도화 및 한국어 도메인 전문성 설계 협업 검증</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <div>출처: NVIDIA Dataset Hub & 대한민국 5대 정부기관 국가통계망 및 네이버클라우드 도메인 협업 검증 완료</div>
+        <div>03 / 08</div>
+      </div>
+    </section>
+
+    <!-- Slide 4: Embedded Technical Architecture -->
+    <section class="slide" id="slide-4">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Operational Engine Technology</div>
+          <h2 class="slide-title">초고속 정밀 매칭을 지원하는 <span>핵심 기능적 모듈</span></h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="highlight-card">
+            <div class="card-icon">🧠</div>
+            <h3 class="card-title">1단계: 소구점 정밀 추출</h3>
+            <p style="font-size: 0.85rem; color: var(--color-terra); margin-bottom: 0.5rem; font-weight: 700;">초고성능 문맥 의미 분석 엔진</p>
+            <p class="card-text">
+              보험사 약관이나 복잡한 상품설명서에서 가입 조건, 우대 대상, 소구 키워드를 문맥적으로 완벽히 추출하고 구조화된 JSON 데이터로 자동 규격화합니다.
+            </p>
+          </div>
+          <div class="highlight-card">
+            <div class="card-icon">🚀</div>
+            <h3 class="card-title">2단계: 벡터 코사인 매칭</h3>
+            <p style="font-size: 0.85rem; color: var(--color-terra); margin-bottom: 0.5rem; font-weight: 700;">수학적 다차원 인코딩 매칭 엔진</p>
+            <p class="card-text">
+              10만 명의 페르소나 정보를 고차원 다차원 벡터로 변환. 고성능 numpy 코사인 유사도 연산을 결합해 10만 명 중 타겟 상위 군을 0.5초 이내 정밀 발굴합니다.
+            </p>
+          </div>
+          <div class="highlight-card">
+            <div class="card-icon">✍️</div>
+            <h3 class="card-title">3단계: 비즈니스 가이드 생성</h3>
+            <p style="font-size: 0.85rem; color: var(--color-terra); margin-bottom: 0.5rem; font-weight: 700;">하이퍼-로컬 영업 가이드 자동화 엔진</p>
+            <p class="card-text">
+              영업 현장에서 즉시 활용 가능한 종합 마케팅 리포트, 시군구 단위 공략 지도, 페르소나별 1:1 영업 맞춤 스크립트를 신속하게 생성해 냅니다.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <div>클라우드 서버 기반 초고속 대용량 데이터 연산으로 1초 이내 대시보드 시각화 및 정렬 처리 완료.</div>
+        <div>04 / 08</div>
+      </div>
+    </section>
+
+    <!-- Slide 5: Business Process Flow -->
+    <section class="slide" id="slide-5">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Operational Workflow</div>
+          <h2 class="slide-title">임직원이 바로 활용하는 <span>4단계 업무 프로세스</span></h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="timeline">
+          <div class="timeline-step">
+            <div class="step-number">01</div>
+            <h3 class="step-title">약관·설명서 업로드</h3>
+            <p class="step-desc">기획서나 복잡한 PDF/TXT/HWP 문서를 드래그하여 사이트에 올립니다.</p>
+          </div>
+          <div class="timeline-step">
+            <div class="step-number">02</div>
+            <h3 class="step-title">가상 타겟 정량 매칭</h3>
+            <p class="step-desc">나이, 성별, 직업, 가구 5차원 룰 필터링과 코사인 유사도가 실시간 매칭됩니다.</p>
+          </div>
+          <div class="timeline-step">
+            <div class="step-number">03</div>
+            <h3 class="step-title">공략 지도 및 인사이트</h3>
+            <p class="step-desc">17개 시도 시각화 차트 및 시군구 드릴다운으로 마케팅 핵심 지역을 지도에 띄웁니다.</p>
+          </div>
+          <div class="timeline-step">
+            <div class="step-number">04</div>
+            <h3 class="step-title">실전 영업 가이드 수령</h3>
+            <p class="step-desc">FP 대면 화법용 리포트와 함께, 가상 1:1 고객 인터뷰 채팅방을 열고 화법을 연습합니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <div>가장 직관적인 One-Stop 웹 인터페이스를 제공해 추가 교육 없이 현장에서 즉각 도입 가능.</div>
+        <div>05 / 08</div>
+      </div>
+    </section>
+
+    <!-- Slide 6: Rigorous Validation & Known-Targets -->
+    <section class="slide" id="slide-6">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">AI Integrity & Known-Target Test</div>
+          <h2 class="slide-title">과연 AI 타겟팅 결과는 <span>신뢰할 수 있는가?</span></h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="grid-2">
+          <div>
+            <p style="font-size: 1.1rem; line-height: 1.8; color: var(--text-graphite); margin-bottom: 1.5rem;">
+              인공지능의 주관적 환각이나 편향을 방지하기 위해, 정답이 명시된 보험 상품 11종(여성전용, 유자녀 가구용, 시니어, <strong>군인전용, 간호사 특화, 제주 지역 전용</strong> 등)에 대한 정밀 백테스트를 수행했습니다.
+            </p>
+            <div style="background: rgba(46, 125, 50, 0.05); border-left: 4px solid var(--color-green); padding: 1rem 1.5rem; border-radius: 8px;">
+              <h4 style="color: var(--color-green); font-weight: 700; margin-bottom: 0.25rem;">검증 결과: Known-Target 백테스트 100% 만족</h4>
+              <p style="font-size: 0.85rem; color: var(--text-graphite);">
+                가장 까다로운 틈새 타겟(예: 직업이 군인이고 군복무 경력이 있는 남성, 제주도 거주자)까지 스코어링 알고리즘이 완벽하게 1순위로 필터링 및 매칭 완료.
+              </p>
+            </div>
+          </div>
+          <div class="validation-panel">
+            <div class="stat-circle">
+              <span class="number" style="color: var(--color-terra);">100%</span>
+              <span class="label">정밀 타겟 도달률</span>
+            </div>
+            <div class="val-list">
+              <div class="val-item">
+                <span>군인 전용 보험 → 군복무 타겟</span>
+                <span class="pass">PASS (100%)</span>
+              </div>
+              <div class="val-item">
+                <span>제주 지역 보험 → 제주도민 매칭</span>
+                <span class="pass">PASS (100%)</span>
+              </div>
+              <div class="val-item">
+                <span>전문직 퇴직 보험 → 4년제 대졸 은퇴군</span>
+                <span class="pass">PASS (100%)</span>
+              </div>
+              <div class="val-item">
+                <span>여성 케어 보험 → 20-30대 여성층</span>
+                <span class="pass">PASS (100%)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <div>총 11개 전용 시나리오에 대해 22개의 정밀 매칭 조건 테스트 전원 만점 획득.</div>
+        <div>06 / 08</div>
+      </div>
+    </section>
+
+    <!-- Slide 7: Business Impact & ROI -->
+    <section class="slide" id="slide-7">
+      <div class="slide-header">
+        <div>
+          <div class="slide-tag">Business Impact & Future Roadmap</div>
+          <h2 class="slide-title">PersonaFit 도입에 따른 <span>기대 효과</span></h2>
+        </div>
+      </div>
+      <div class="slide-body">
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-value">-95%</div>
+            <h4 class="kpi-label">기획/마케팅 리서치 비용 절감</h4>
+            <p class="kpi-sub">수천만 원대 리서치 외주를 자체 가상 분석 툴로 대체해 비용 절감 극대화</p>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value">10배+</div>
+            <h4 class="kpi-label">영업 가망 고객 매칭 효율화</h4>
+            <p class="kpi-sub">FP가 사전에 영업 대상의 고민과 성향을 미리 파악하고 만나는 "사전 학습 대면 영업" 가동</p>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-value">CRM</div>
+            <h4 class="kpi-label">사내 고객 DB 확장성</h4>
+            <p class="kpi-sub">향후 100만 가상 고객에서 사내 실제 보유 고객 마케팅 스코어링 시스템(CRM)으로 즉각 연동 가능</p>
+          </div>
+        </div>
+      </div>
+      <div class="slide-footer">
+        <div>비용 절감과 영업 생산성 혁신, 미래 금융 마케팅 플랫폼의 핵심 인프라가 될 것입니다.</div>
+        <div>07 / 08</div>
+      </div>
+    </section>
+
+    <!-- Slide 8: Thank You -->
+    <section class="slide slide-cover" id="slide-8">
+      <div class="slide-tag">PersonaFit Presentation End</div>
+      <h1 class="cover-title" style="font-size: 4rem;">고객의 마음을<br><span>먼저 입어보는 곳</span></h1>
+      <p class="cover-subtitle" style="font-size: 1.5rem; margin-top: 1rem;">
+        가상 고객 분석 플랫폼 <strong>PersonaFit</strong> 발표를 마칩니다.<br>
+        감사합니다.
+      </p>
+      <div style="margin-top: 2rem; background: var(--bg-vellum); border: 1px solid var(--color-terra-light); padding: 1rem 3rem; border-radius: 50px; font-weight: 600; color: var(--color-terra);">
+        질의응답 (Q&A)
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Panel -->
+  <footer class="presentation-footer">
+    <div class="slide-progress-bar" id="progress-bar">
+      <!-- Generated via JS -->
+    </div>
+    <div class="nav-controls">
+      <button class="btn-nav" id="btn-prev" aria-label="이전 슬라이드">←</button>
+      <div class="slide-counter" id="slide-counter">1 / 8</div>
+      <button class="btn-nav" id="btn-next" aria-label="다음 슬라이드">→</button>
+    </div>
+  </footer>
+
+  <!-- Inline Slide Controller Scripts -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const slides = document.querySelectorAll(".slide");
+      const prevBtn = document.getElementById("btn-prev");
+      const nextBtn = document.getElementById("btn-next");
+      const counter = document.getElementById("slide-counter");
+      const progressBar = document.getElementById("progress-bar");
+
+      let currentIdx = 0;
+      const totalSlides = slides.length;
+
+      // 1. Progress Bar Dots Generation
+      for (let i = 0; i < totalSlides; i++) {
+        const dot = document.createElement("div");
+        dot.classList.add("progress-dot");
+        if (i === 0) dot.classList.add("active");
+        dot.addEventListener("click", () => {
+          goToSlide(i);
+        });
+        progressBar.appendChild(dot);
+      }
+      const dots = document.querySelectorAll(".progress-dot");
+
+      // 2. Slide Go-to core logic
+      function goToSlide(index) {
+        if (index < 0 || index >= totalSlides) return;
+        
+        slides.forEach((slide, idx) => {
+          slide.classList.remove("active", "past");
+          if (idx === index) {
+            slide.classList.add("active");
+          } else if (idx < index) {
+            slide.classList.add("past");
+          }
+        });
+
+        dots.forEach((dot, idx) => {
+          if (idx === index) {
+            dot.classList.add("active");
+          } else {
+            dot.classList.remove("active");
+          }
+        });
+
+        currentIdx = index;
+        counter.textContent = `${currentIdx + 1} / ${totalSlides}`;
+      }
+
+      // 3. Next / Prev Event Binding
+      nextBtn.addEventListener("click", () => {
+        if (currentIdx < totalSlides - 1) {
+          goToSlide(currentIdx + 1);
+        } else {
+          // Loop back to cover on last click
+          goToSlide(0);
+        }
+      });
+
+      prevBtn.addEventListener("click", () => {
+        if (currentIdx > 0) {
+          goToSlide(currentIdx - 1);
+        }
+      });
+
+      // 4. Keyboard Shortcuts Binding
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowRight" || e.key === " ") {
+          e.preventDefault();
+          if (currentIdx < totalSlides - 1) {
+            goToSlide(currentIdx + 1);
+          } else {
+            goToSlide(0);
+          }
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          if (currentIdx > 0) {
+            goToSlide(currentIdx - 1);
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
