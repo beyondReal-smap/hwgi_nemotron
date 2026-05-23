@@ -56,17 +56,19 @@ async def _analyze_one_variant(
     label: str,
     text: str,
     llm_provider: str,
+    input_mode: str,
     top_k: int,
     timings: dict[str, int],
     timing_suffix: str,
 ) -> ABVariantResult:
     """단일 안 분석 — 소구점/임베딩/스코어링/의견 생성까지.
 
-    soup ABVariantResult로 wrap. 단계별 ms는 timings 사전에 누적.
+    input_mode("terms"|"marketing"|"concept")가 selling_points 추출 시
+    LLM이 hallucination 없이 입력의 본질만 추출하도록 가드 prefix를 결정한다.
     """
     t0 = perf_counter()
     sp: SellingPoints = await asyncio.to_thread(
-        extract_selling_points, text, llm_provider
+        extract_selling_points, text, llm_provider, input_mode
     )
     timings[f"extract_{timing_suffix}"] = int((perf_counter() - t0) * 1000)
 
@@ -137,6 +139,7 @@ async def abtest(req: ABTestRequest) -> ABTestResponse:
                 label=req.variant_a.label,
                 text=req.variant_a.text,
                 llm_provider=req.llm_provider,
+                input_mode=req.input_mode,
                 top_k=req.top_k,
                 timings=timings,
                 timing_suffix="a",
@@ -145,6 +148,7 @@ async def abtest(req: ABTestRequest) -> ABTestResponse:
                 label=req.variant_b.label,
                 text=req.variant_b.text,
                 llm_provider=req.llm_provider,
+                input_mode=req.input_mode,
                 top_k=req.top_k,
                 timings=timings,
                 timing_suffix="b",

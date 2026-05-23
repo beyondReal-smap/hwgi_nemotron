@@ -159,12 +159,46 @@ def _anthropic_to_openai_tool(tool: dict) -> dict:
     }
 
 
+def _input_mode_prefix(input_mode: str) -> str:
+    """입력 모드별 user message prefix — selling_points 추출 시 hallucination 방지.
+
+    문제: 약관 분석용 system 프롬프트가 짧은 카피·컨셉 입력을 받으면 LLM이 상상으로
+    가짜 보장 항목(만기환급·특약·보험료 등)을 만들어내 분석 전체가 오염됨.
+    대응: 카피·컨셉 모드일 때는 user message 앞에 "추측 금지" 가드를 명시적으로 추가.
+    """
+    if input_mode == "marketing":
+        return (
+            "**입력 형태: 마케팅 카피·광고 문구입니다.**\n"
+            "카피는 짧으므로 약관에 있을 법한 보장 한도·특약·만기·보험료·가입 연령 등 "
+            "명시되지 않은 정보는 모두 null 또는 빈 배열로 두세요. "
+            "카피의 정서적 톤·암시된 타겟·후킹 포인트(예: '안심', '여성', '24시간')만 "
+            "target_keywords와 카테고리 가중치에 반영하세요. "
+            "summary는 '카피의 메시지를 한 줄로 요약'이지, '카피가 가리키는 상품 스펙'이 아닙니다.\n\n"
+            "[카피 본문]\n"
+        )
+    if input_mode == "concept":
+        return (
+            "**입력 형태: 신상품 컨셉·핵심 보장 요약입니다.**\n"
+            "요약에 명시된 항목만 인용하고, 명시되지 않은 상세 스펙(특약 한도, 갱신 주기, "
+            "면책 등)은 만들지 마세요.\n\n"
+            "[컨셉 요약]\n"
+        )
+    # terms: 기본 동작 (가드 prefix 없음)
+    return ""
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
 def extract_selling_points(
-    product_text: str, provider: LLMProvider = DEFAULT_PROVIDER
+    product_text: str,
+    provider: LLMProvider = DEFAULT_PROVIDER,
+    input_mode: str = "terms",
 ) -> SellingPoints:
-    """상품 분석 → SellingPoints. get_llm_service() 위임."""
-    return get_llm_service(provider).extract_selling_points(product_text)
+    """상품 분석 → SellingPoints. get_llm_service() 위임.
+
+    input_mode("terms" | "marketing" | "concept")에 따라 LLM이 hallucination 없이
+    카피·컨셉 입력의 본질만 추출하도록 user message에 가드 prefix가 prepend된다.
+    """
+    return get_llm_service(provider).extract_selling_points(product_text, input_mode)
 
 
 # ============================================================
@@ -1005,7 +1039,9 @@ class BaseLLMService(ABC):
     """LLM 추상화용 Base 서비스 클래스."""
 
     @abstractmethod
-    def extract_selling_points(self, product_text: str) -> SellingPoints:
+    def extract_selling_points(
+        self, product_text: str, input_mode: str = "terms"
+    ) -> SellingPoints:
         pass
 
     @abstractmethod
@@ -1060,15 +1096,18 @@ class BaseLLMService(ABC):
 class AnthropicLLMService(BaseLLMService):
     """Anthropic Claude API 기반 LLM 서비스 구현."""
 
-    def extract_selling_points(self, product_text: str) -> SellingPoints:
+    def extract_selling_points(
+        self, product_text: str, input_mode: str = "terms"
+    ) -> SellingPoints:
         truncated = product_text[:MAX_PRODUCT_TEXT_CHARS]
+        user_content = _input_mode_prefix(input_mode) + truncated
         msg = anthropic_client().messages.create(
             model=CLAUDE_SONNET,
             max_tokens=1500,
             system=SELLING_POINTS_PROMPT,
             tools=[_SELLING_POINTS_TOOL],
             tool_choice={"type": "tool", "name": "record_selling_points"},
-            messages=[{"role": "user", "content": truncated}],
+            messages=[{"role": "user", "content": user_content}],
         )
         for block in msg.content:
             if block.type == "tool_use" and block.name == "record_selling_points":
@@ -1195,15 +1234,18 @@ class AnthropicLLMService(BaseLLMService):
 class SLLMService(BaseLLMService):
     """OpenAI 호환 sLLM vLLM API 기반 LLM 서비스 구현."""
 
-    def extract_selling_points(self, product_text: str) -> SellingPoints:
+    def extract_selling_points(
+        self, product_text: str, input_mode: str = "terms"
+    ) -> SellingPoints:
         truncated = product_text[:MAX_PRODUCT_TEXT_CHARS]
+        user_content = _input_mode_prefix(input_mode) + truncated
         completion = sllm_client().chat.completions.create(
             model=SLLM_MODEL,
             max_tokens=1500,
             temperature=0.2,
             messages=[
                 {"role": "system", "content": SELLING_POINTS_PROMPT},
-                {"role": "user", "content": truncated},
+                {"role": "user", "content": user_content},
             ],
             tools=[_anthropic_to_openai_tool(_SELLING_POINTS_TOOL)],
             tool_choice={"type": "function", "function": {"name": "record_selling_points"}},
