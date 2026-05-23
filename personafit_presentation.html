@@ -598,6 +598,18 @@
       min-width: 60px;
       text-align: center;
     }
+    
+    /* Premium Video Play Button Hover Effect */
+    #btn-play-video {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    #btn-play-video:hover {
+      transform: translateY(-2px) scale(1.03);
+      box-shadow: 0 8px 25px rgba(217, 119, 87, 0.35) !important;
+    }
+    #btn-play-video:active {
+      transform: translateY(0) scale(0.98);
+    }
   </style>
 </head>
 <body>
@@ -669,11 +681,15 @@
 
     <!-- Slide 3: Nemotron-Personas-Korea Dataset -->
     <section class="slide" id="slide-3">
-      <div class="slide-header">
+      <div class="slide-header" style="align-items: center;">
         <div>
           <div class="slide-tag">NVIDIA Nemotron-Personas-Korea Baseline</div>
           <h2 class="slide-title">100만 명의 대한민국 거울 자아, <span>가상 페르소나란?</span></h2>
         </div>
+        <!-- 럭셔리 그라디언트 플레이 버튼 -->
+        <button id="btn-play-video" style="background: var(--gradient-primary); border: none; color: var(--bg-snow); padding: 0.8rem 1.6rem; border-radius: 50px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; box-shadow: 0 4px 15px rgba(217, 119, 87, 0.25); font-size: 0.95rem; transition: var(--transition-slide); margin-top: 0.5rem; outline: none; font-family: inherit;">
+          <span style="font-size: 1.1rem; line-height: 1;">▶</span> 시연 영상 재생
+        </button>
       </div>
       <div class="slide-body" style="gap: 1.5rem;">
         <div class="grid-2" style="gap: 2rem; align-items: start; height: auto;">
@@ -1030,6 +1046,8 @@
       // 4. Keyboard Shortcuts Binding
       window.addEventListener("keydown", (e) => {
         if (e.key === "ArrowRight" || e.key === " ") {
+          // 비디오 모달이 열려있을 때는 슬라이드 넘김 무시
+          if (document.getElementById("video-modal").style.display === "flex") return;
           e.preventDefault();
           if (currentIdx < totalSlides - 1) {
             goToSlide(currentIdx + 1);
@@ -1037,13 +1055,59 @@
             goToSlide(0);
           }
         } else if (e.key === "ArrowLeft") {
+          if (document.getElementById("video-modal").style.display === "flex") return;
           e.preventDefault();
           if (currentIdx > 0) {
             goToSlide(currentIdx - 1);
           }
         }
       });
+
+      // 5. Video Modal Controller
+      const playBtn = document.getElementById("btn-play-video");
+      const videoModal = document.getElementById("video-modal");
+      const video = document.getElementById("presentation-video");
+      const closeBtn = document.getElementById("close-video");
+
+      if (playBtn && videoModal && video && closeBtn) {
+        playBtn.addEventListener("click", () => {
+          videoModal.style.display = "flex";
+          setTimeout(() => {
+            videoModal.style.opacity = "1";
+            video.play().catch(err => console.log("Auto-play blocked or failed", err));
+          }, 50);
+        });
+
+        const closeModal = () => {
+          video.pause();
+          video.currentTime = 0;
+          videoModal.style.opacity = "0";
+          setTimeout(() => {
+            videoModal.style.display = "none";
+          }, 400);
+        };
+
+        closeBtn.addEventListener("click", closeModal);
+        videoModal.addEventListener("click", (e) => {
+          if (e.target === videoModal) closeModal();
+        });
+
+        // ESC 키로 모달 닫기
+        window.addEventListener("keydown", (e) => {
+          if (e.key === "Escape" && videoModal.style.display === "flex") {
+            closeModal();
+          }
+        });
+      }
     });
   </script>
+
+  <!-- Video Modal Overlay (Glassmorphism & Terra Accent) -->
+  <div id="video-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(31, 30, 29, 0.85); backdrop-filter: blur(10px); z-index: 1000; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.4s ease;">
+    <div style="position: relative; width: 80%; max-width: 960px; aspect-ratio: 16/9; background: #000; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255,255,255,0.1);">
+      <video id="presentation-video" src="ai-qa.mp4" controls style="width: 100%; height: 100%; object-fit: contain;"></video>
+      <button id="close-video" style="position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: #fff; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 1.4rem; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px); transition: all 0.3s; z-index: 1010;" onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.05)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">✕</button>
+    </div>
+  </div>
 </body>
 </html>
