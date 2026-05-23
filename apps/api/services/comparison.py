@@ -130,8 +130,19 @@ def _winner_by_rel_size(a: int | None, b: int | None, rel_epsilon: float) -> str
     return "A" if a > b else "B"
 
 
-def build_comparison(a: ABVariantResult, b: ABVariantResult) -> ABComparison:
-    """ABVariantResult 두 개 → 비교 표 + 카테고리 diff."""
+def build_comparison(
+    a: ABVariantResult,
+    b: ABVariantResult,
+    input_mode: str = "terms",
+) -> ABComparison:
+    """ABVariantResult 두 개 → 비교 표 + 카테고리 diff.
+
+    input_mode가 "marketing"이면 일부 행의 라벨을 카피 평가용으로 분기
+    ('평균 가입의향' → '평균 관심도' 등).
+    """
+    is_marketing = input_mode == "marketing"
+    intent_label = "평균 관심도 (의견 샘플)" if is_marketing else "평균 가입의향 (의견 샘플)"
+    positive_label = "긍정 인상 비율" if is_marketing else "긍정 의견 비율"
     rows: list[ComparisonRow] = []
 
     # 1) 평균 반응도 점수 (top_personas 상위 50명 평균)
@@ -223,7 +234,7 @@ def build_comparison(a: ABVariantResult, b: ABVariantResult) -> ABComparison:
     )
     rows.append(ComparisonRow(
         key="avg_intent",
-        label="평균 가입의향 (의견 샘플)",
+        label=intent_label,
         a_value=f"{a_intent:.2f} / 5" if a_intent is not None else "—",
         b_value=f"{b_intent:.2f} / 5" if b_intent is not None else "—",
         delta=delta_intent,
@@ -241,7 +252,7 @@ def build_comparison(a: ABVariantResult, b: ABVariantResult) -> ABComparison:
     )
     rows.append(ComparisonRow(
         key="positive_ratio",
-        label="긍정 의견 비율",
+        label=positive_label,
         a_value=_fmt_pct(a_pos),
         b_value=_fmt_pct(b_pos),
         delta=delta_pos,

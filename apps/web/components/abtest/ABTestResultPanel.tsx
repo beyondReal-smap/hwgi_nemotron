@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import type {
   ABChallengerKind,
+  ABTestInputMode,
   ABTestResponse,
   ABVariantResult,
   PersonaHit,
@@ -36,6 +37,7 @@ export function ABTestResultPanel({ result }: Props) {
     recommended_variant,
     baseline_variant,
     challenger_kind,
+    input_mode,
   } = result;
 
   return (
@@ -56,12 +58,14 @@ export function ABTestResultPanel({ result }: Props) {
           accent="A"
           isBaseline={baseline_variant === "A"}
           challengerKind={challenger_kind}
+          inputMode={input_mode}
         />
         <VariantSummaryCard
           variant={variant_b}
           accent="B"
           isBaseline={baseline_variant === "B"}
           challengerKind={challenger_kind}
+          inputMode={input_mode}
         />
       </section>
 
@@ -290,13 +294,16 @@ function VariantSummaryCard({
   accent,
   isBaseline,
   challengerKind,
+  inputMode,
 }: {
   variant: ABVariantResult;
   accent: "A" | "B";
   isBaseline: boolean;
   challengerKind: ABChallengerKind;
+  inputMode: ABTestInputMode;
 }) {
   const { label, selling_points, top_personas, top_opinions, province_stats } = variant;
+  const isMarketing = inputMode === "marketing";
   // 기준안일 때는 ink(진한 색)으로 강조, 아니면 accent 컬러
   const accentClass = isBaseline
     ? "border-l-ink"
@@ -370,10 +377,12 @@ function VariantSummaryCard({
         {/* 의견 샘플 3건 */}
         {top_opinions.length > 0 && (
           <div>
-            <p className="text-overline text-graphite mb-1.5">의견 샘플</p>
+            <p className="text-overline text-graphite mb-1.5">
+              {isMarketing ? "카피 인상 샘플" : "의견 샘플"}
+            </p>
             <ul className="space-y-2">
               {top_opinions.slice(0, 3).map((o) => (
-                <OpinionRow key={o.persona_uuid} o={o} />
+                <OpinionRow key={o.persona_uuid} o={o} inputMode={inputMode} />
               ))}
             </ul>
           </div>
@@ -417,20 +426,30 @@ function PersonaRow({ p }: { p: PersonaHit }) {
   );
 }
 
-function OpinionRow({ o }: { o: PersonaOpinion }) {
+function OpinionRow({
+  o,
+  inputMode,
+}: {
+  o: PersonaOpinion;
+  inputMode: ABTestInputMode;
+}) {
   const sentimentColor =
     o.sentiment === "긍정"
       ? "text-emerald-700 bg-emerald-50 border-emerald-200"
       : o.sentiment === "부정"
         ? "text-rose-700 bg-rose-50 border-rose-200"
         : "text-graphite bg-snow border-parchment";
+  // 카피 입력일 때는 가입의향 → 관심도(이 카피를 본 후 알아볼 의향). 약관·컨셉은 그대로.
+  const intentLabel = inputMode === "marketing" ? "관심도" : "가입의향";
   return (
     <li className="rounded-[7px] border border-parchment bg-snow/40 p-2.5">
       <div className="flex items-center gap-2 mb-1">
         <span className={`inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-caption font-medium border ${sentimentColor}`}>
           {o.sentiment}
         </span>
-        <span className="text-caption text-dusty">가입의향 {o.purchase_intent}/5</span>
+        <span className="text-caption text-dusty">
+          {intentLabel} {o.purchase_intent}/5
+        </span>
       </div>
       <p className="text-body-sm text-graphite leading-6">&ldquo;{o.opinion_text}&rdquo;</p>
     </li>

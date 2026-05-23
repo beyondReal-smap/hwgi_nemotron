@@ -165,7 +165,7 @@ async def abtest(req: ABTestRequest) -> ABTestResponse:
 
     # 2) 비교 표 산출 (LLM 미사용)
     t0 = perf_counter()
-    comparison = build_comparison(variant_a_result, variant_b_result)
+    comparison = build_comparison(variant_a_result, variant_b_result, req.input_mode)
     recommended = recommend_variant(variant_a_result, variant_b_result, comparison)
     timings["compare"] = int((perf_counter() - t0) * 1000)
 

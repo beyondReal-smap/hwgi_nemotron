@@ -197,8 +197,14 @@ def extract_selling_points(
 
     input_mode("terms" | "marketing" | "concept")에 따라 LLM이 hallucination 없이
     카피·컨셉 입력의 본질만 추출하도록 user message에 가드 prefix가 prepend된다.
+
+    카피 모드 안전망: key_benefits를 강제로 빈 배열로 덮어쓴다. 카피 한 줄에는
+    명시된 보장 혜택이 없으므로 LLM이 추론한 값(예: '전면적 케어')은 모두 hallucination.
     """
-    return get_llm_service(provider).extract_selling_points(product_text, input_mode)
+    sp = get_llm_service(provider).extract_selling_points(product_text, input_mode)
+    if input_mode == "marketing":
+        sp.key_benefits = []
+    return sp
 
 
 # ============================================================
