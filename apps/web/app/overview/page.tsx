@@ -221,7 +221,6 @@ function Dashboard({ data }: { data: DatasetOverview }) {
             label="평균 연령"
             value={data.age.mean.toString()}
             suffix="세"
-            sub={`${data.age.min}~${data.age.max} · 중위 ${data.age.median}`}
           />
         </div>
       </SectionCard>
