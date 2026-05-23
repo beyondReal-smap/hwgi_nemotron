@@ -1,17 +1,32 @@
 "use client";
 
-import type { ABComparison } from "@/lib/api";
+import type { ABComparison, ABTestInputMode } from "@/lib/api";
 
 type Props = {
   labelA: string;
   labelB: string;
   comparison: ABComparison;
+  inputMode?: ABTestInputMode;
 };
 
-/** A vs B 비교 표 — winner 표시(▲)로 우위 강조. 분기형(tie)은 중립. */
-export function ComparisonTable({ labelA, labelB, comparison }: Props) {
+/**
+ * A vs B 비교 표 — winner 표시(▲)로 우위 강조. 분기형(tie)은 중립.
+ *
+ * 옛 이력 호환: comparison.summary_table은 백엔드 생성 시점의 라벨을 그대로
+ * 담고 있으므로, 카피 모드에서 옛 라벨('평균 가입의향')이 들어 있으면 UI에서
+ * 동적으로 치환('평균 관심도')해 일관성을 유지한다.
+ */
+export function ComparisonTable({ labelA, labelB, comparison, inputMode }: Props) {
   const rows = comparison.summary_table;
   if (rows.length === 0) return null;
+  const isMarketing = inputMode === "marketing";
+
+  function displayLabel(row: (typeof rows)[number]): string {
+    if (!isMarketing) return row.label;
+    if (row.key === "avg_intent") return "평균 관심도 (의견 샘플)";
+    if (row.key === "positive_ratio") return "긍정 인상 비율";
+    return row.label;
+  }
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
@@ -37,7 +52,7 @@ export function ComparisonTable({ labelA, labelB, comparison }: Props) {
                 key={row.key}
                 className={`${idx % 2 === 0 ? "bg-vellum" : "bg-snow/30"} border-t border-parchment`}
               >
-                <td className="px-4 py-2.5 text-ink font-medium">{row.label}</td>
+                <td className="px-4 py-2.5 text-ink font-medium">{displayLabel(row)}</td>
                 <td
                   className={`px-4 py-2.5 ${
                     row.winner === "A" ? "text-ink font-semibold" : "text-graphite"

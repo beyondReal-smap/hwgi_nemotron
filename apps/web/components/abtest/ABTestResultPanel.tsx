@@ -74,6 +74,7 @@ export function ABTestResultPanel({ result }: Props) {
         labelA={variant_a.label}
         labelB={variant_b.label}
         comparison={comparison}
+        inputMode={input_mode}
       />
 
       {/* 당사 관점 장단점 */}
@@ -347,8 +348,8 @@ function VariantSummaryCard({
       </header>
 
       <div className="px-4 py-3 sm:px-5 sm:py-4 space-y-4">
-        {/* 핵심 혜택 */}
-        {selling_points.key_benefits.length > 0 && (
+        {/* 핵심 혜택 — 카피 모드에서는 옛 이력에 추론값이 남아 있어도 무조건 숨김 */}
+        {!isMarketing && selling_points.key_benefits.length > 0 && (
           <div>
             <p className="text-overline text-graphite mb-1.5">핵심 혜택</p>
             <ul className="space-y-1 text-body-sm text-graphite">
