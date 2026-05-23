@@ -927,25 +927,161 @@ function SourceCard({ meta }: { meta: DatasetOverview["meta"] }) {
 // Loading / Error
 // ============================================================
 
+/**
+ * 첫 방문 시 데이터셋 통계 fetch 동안 노출되는 스켈레톤.
+ *
+ * 설계:
+ * - 실제 Dashboard와 동일한 섹션 구조·그리드·높이를 placeholder로 재현 → CLS(layout shift) 최소화
+ * - SectionCard wrapper를 그대로 재사용해 헤더 톤·간격을 실제와 일치시킴(헤더 텍스트는 실제 라벨 사용)
+ * - animate-pulse + motion-reduce:animate-none 으로 접근성 대응
+ * - 페이지 하단에 진행 안내 한 줄
+ */
 function LoadingState() {
   return (
-    <div className="flex flex-col gap-8 animate-pulse">
-      <div className="h-16 bg-snow border border-parchment rounded-[9.6px]" />
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
-        {[1, 2, 3, 4, 5].map((i) => (
-          <div
-            key={i}
-            className="h-20 bg-snow border border-parchment rounded-[9.6px]"
-          />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-7 h-[480px] bg-snow border border-parchment rounded-[9.6px]" />
-        <div className="xl:col-span-5 h-[480px] bg-snow border border-parchment rounded-[9.6px]" />
-      </div>
+    <div className="flex flex-col gap-8 animate-pulse motion-reduce:animate-none">
+      {/* 1. 페이지 헤더 — text-display + 부제 */}
+      <header className="flex flex-col gap-2.5">
+        <div className="h-3 w-24 rounded bg-snow border border-parchment" />
+        <div className="h-10 w-3/4 sm:w-1/2 rounded-[7px] bg-snow border border-parchment" />
+        <div className="h-4 w-2/3 sm:w-1/3 rounded bg-snow border border-parchment" />
+      </header>
+
+      {/* 2. AnchorNav 자리 */}
+      <div className="h-10 rounded-[9.6px] bg-snow border border-parchment" />
+
+      {/* 3. 핵심 지표 — KPI 5장 */}
+      <SectionCard title="핵심 지표" sub="데이터셋 메타 요약 · 100만 행 기준">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonMetaCard key={i} />
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* 4. 지역 — 지도(7) + 시도 막대(5) */}
+      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <div className="xl:col-span-7">
+          <SectionCard
+            title="시군구 인원 분포"
+            sub="252개 시군구 · 인원 내림차순"
+            noBodyPadding
+          >
+            <div className="h-[480px] bg-snow flex items-center justify-center">
+              <div className="w-2/3 h-2/3 rounded-[9.6px] bg-vellum border border-parchment" />
+            </div>
+          </SectionCard>
+        </div>
+        <div className="xl:col-span-5">
+          <SectionCard
+            title="시도별 인원"
+            sub="17개 시도 · 인원 내림차순"
+            noBodyPadding
+          >
+            <div className="h-[480px] bg-snow p-4 flex flex-col gap-3">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <SkeletonBarRow key={i} width={`${95 - i * 7}%`} />
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+      </section>
+
+      {/* 5. 인구통계 — 8개 카드 (4-col) */}
+      <SectionCard title="인구통계 분포" sub="8개 카테고리 · 1,000,000명 기준">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <SkeletonDemographicCard key={i} />
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* 6. 직업군 분포 — 좌 그룹 / 우 Top 5 */}
+      <SectionCard
+        title="직업군 분포"
+        sub="KSCO 대분류 기반 17개 그룹"
+        noBodyPadding
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 bg-snow">
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <SkeletonBarRow key={i} width={`${90 - i * 7}%`} />
+            ))}
+          </div>
+          <div className="flex flex-col gap-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-10 rounded-[7px] bg-vellum border border-parchment"
+              />
+            ))}
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* 7. 페르소나 텍스트 — 7개 행 */}
+      <SectionCard
+        title="페르소나 텍스트 길이"
+        sub="7개 카테고리 · 카드 클릭 시 샘플 펼침"
+        noBodyPadding
+      >
+        <div className="p-4 flex flex-col gap-2">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-12 rounded-[7px] bg-snow border border-parchment"
+            />
+          ))}
+        </div>
+      </SectionCard>
+
+      {/* 8. 출처 */}
+      <SectionCard title="데이터 출처">
+        <div className="space-y-2">
+          <div className="h-4 w-1/2 rounded bg-snow border border-parchment" />
+          <div className="h-4 w-1/3 rounded bg-snow border border-parchment" />
+        </div>
+      </SectionCard>
+
       <p className="text-center text-caption text-dusty">
-        100만 행 데이터셋 통계를 집계하고 있습니다...
+        100만 행 데이터셋 통계를 집계하고 있습니다…
       </p>
+    </div>
+  );
+}
+
+// ============================================================
+// 스켈레톤 하위 부품 — 한화 톤(snow/vellum/parchment) 만 사용
+// ============================================================
+
+function SkeletonMetaCard() {
+  return (
+    <div className="h-24 rounded-[9.6px] bg-snow border border-parchment p-3 flex flex-col gap-2">
+      <div className="h-3 w-12 rounded bg-vellum border border-parchment" />
+      <div className="h-6 w-20 rounded bg-vellum border border-parchment" />
+      <div className="h-3 w-16 rounded bg-vellum border border-parchment mt-auto" />
+    </div>
+  );
+}
+
+function SkeletonDemographicCard() {
+  return (
+    <div className="h-48 rounded-[9.6px] bg-snow border border-parchment p-3 flex flex-col gap-2">
+      <div className="h-3 w-16 rounded bg-vellum border border-parchment" />
+      <div className="h-3 w-24 rounded bg-vellum border border-parchment" />
+      <div className="flex-1 rounded bg-vellum border border-parchment" />
+    </div>
+  );
+}
+
+/** 가로 막대 1줄 — 라벨(고정) + 막대(가변 너비). */
+function SkeletonBarRow({ width }: { width: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-3 w-16 rounded bg-vellum border border-parchment shrink-0" />
+      <div
+        className="h-3 rounded bg-vellum border border-parchment"
+        style={{ width }}
+      />
     </div>
   );
 }
