@@ -82,9 +82,17 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
 
   if (loading) {
     return (
-      <div className="text-center py-12 text-dusty text-body-sm">
-        이력을 불러오는 중…
-      </div>
+      <ul className="space-y-2.5" aria-busy="true" aria-live="polite">
+        {[0, 1, 2].map((i) => (
+          <li
+            key={i}
+            className="h-[120px] rounded-[9.6px] border border-parchment bg-vellum animate-pulse"
+          />
+        ))}
+        <li className="text-center text-body-sm text-dusty pt-1">
+          이력을 불러오는 중…
+        </li>
+      </ul>
     );
   }
 
@@ -92,9 +100,10 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
     return (
       <div
         role="alert"
-        className="rounded-[9.6px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+        className="rounded-[9.6px] border border-terra/30 bg-terra/10 px-4 py-3 text-body-sm text-ink"
       >
-        {error}
+        <span className="font-semibold text-terra">목록 로드 실패</span>
+        <span className="text-graphite"> · {error}</span>
       </div>
     );
   }
@@ -188,7 +197,7 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
                     requestDelete(it.id, e as unknown as React.MouseEvent);
                   }
                 }}
-                className={`text-caption text-dusty hover:text-rose-600 hover:underline cursor-pointer
+                className={`text-caption text-dusty hover:text-terra hover:underline cursor-pointer
                             ${deletingId === it.id ? "opacity-50 cursor-wait" : ""}`}
               >
                 {deletingId === it.id ? "삭제 중…" : "삭제"}

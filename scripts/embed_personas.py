@@ -37,6 +37,8 @@ EMBED_MODE = os.environ.get("EMBED_MODE", "single").lower()  # single | combined
 INPUT_PATH = Path(os.environ.get("PERSONAS_PARQUET", "data/personas_100k.parquet"))
 OUTPUT_PATH = Path(os.environ.get("EMBEDDINGS_NPY", "data/embeddings_100k.npy"))
 MODEL = "text-embedding-3-small"
+# 금융·소비 프로파일 섹션 포함 여부 (AI Hub 통합 fin_ 컬럼 필요). 기본 off → 기존 동작 불변.
+EMBED_FINANCE = os.environ.get("EMBED_FINANCE", "0") == "1"
 DIM = 1536
 BATCH_SIZE = 100  # OpenAI 한 번에 최대 ~2048건 가능, 안정성 위해 100
 CHECKPOINT_EVERY = 10_000  # 매 10000건마다 .npy 저장
@@ -60,6 +62,37 @@ COMBINED_SECTIONS: list[tuple[str, str]] = [
 COMBINED_MAX_CHARS = 14_000
 
 
+_SPEND_LABELS = [
+    ("fin_spend_food", "외식"), ("fin_spend_mart", "마트"), ("fin_spend_travel", "여행"),
+    ("fin_spend_med", "의료"), ("fin_spend_edu", "교육"), ("fin_spend_car", "자동차"),
+    ("fin_spend_culture", "문화"), ("fin_spend_delivery", "배달"),
+]
+_INTEREST_LABELS = [
+    ("fin_interest_insurance", "보험"), ("fin_interest_health", "건강·의료"),
+    ("fin_interest_kids", "자녀·키즈"), ("fin_interest_travel", "여행·레저"),
+]
+
+
+def build_finance_text(row: pd.Series) -> str:
+    """금융·소비 프로파일을 정성 텍스트로 (소비성향+관심사+생애주기, 숫자 제외)."""
+    parts: list[str] = []
+    spend = [(lbl, row.get(c)) for c, lbl in _SPEND_LABELS]
+    top = sorted(((lbl, v) for lbl, v in spend if v and float(v) > 0), key=lambda x: -float(x[1]))[:3]
+    if top:
+        parts.append("주요 소비: " + "·".join(lbl for lbl, _ in top) + " 중심")
+    ints = [lbl for c, lbl in _INTEREST_LABELS if row.get(c)]
+    if ints:
+        parts.append("관심사: " + "·".join(ints))
+    ls = row.get("fin_life_stage")
+    if ls is not None and str(ls).strip() and str(ls).lower() != "nan":
+        parts.append(f"생애주기: {ls}")
+    if row.get("fin_highend_income"):
+        parts.append("소득 상위층")
+    if not parts:
+        return ""
+    return "## 금융·소비 프로파일\n" + ". ".join(parts) + "."
+
+
 def build_combined_text(row: pd.Series) -> str:
     """7종 페르소나 + 3종 속성 텍스트를 라벨 + 줄바꿈 구조로 통합.
 
@@ -74,6 +107,10 @@ def build_combined_text(row: pd.Series) -> str:
         if not s or s.lower() == "nan":
             continue
         parts.append(f"## {label}\n{s}")
+    if EMBED_FINANCE:
+        ft = build_finance_text(row)
+        if ft:
+            parts.append(ft)
     text = "\n\n".join(parts)
     if len(text) > COMBINED_MAX_CHARS:
         text = text[:COMBINED_MAX_CHARS]

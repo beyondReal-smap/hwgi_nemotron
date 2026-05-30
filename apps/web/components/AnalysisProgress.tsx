@@ -37,8 +37,8 @@ const DEFAULT_STAGES: Stage[] = [
     endAt: 14,
   },
   {
-    label: "페르소나 의견 생성 (상·하위 대표 각 20명 병렬)",
-    hint: "상·하위 100명 매칭 및 대표 각 20명 대상 의견 생성",
+    label: "페르소나 의견 생성 (상·중·하 각 30명 병렬)",
+    hint: "상위 30 + 중위 30 + 하위 30명 매칭 및 각 30명 대상 의견 생성",
     endAt: 60,
   },
   {
@@ -76,12 +76,7 @@ export function AnalysisProgress({
       className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden"
     >
       <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
-        <div className="flex items-baseline justify-between gap-3 flex-wrap">
-          <h2 className="text-title text-ink">⏳ {title}</h2>
-          <p className="text-body-sm text-dusty num-tabular">
-            {elapsed.toFixed(1)}초 / 약 {eta}초
-          </p>
-        </div>
+        <h2 className="text-title text-ink">⏳ {title}</h2>
         <p className="text-body-sm text-dusty mt-1">
           100만 명 합성 페르소나 전체에 대한 인구통계 분석을 진행합니다
         </p>

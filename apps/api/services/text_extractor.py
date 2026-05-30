@@ -25,7 +25,7 @@ import docx
 from pypdf import PdfReader
 
 # 파일 크기·텍스트 길이 제한
-MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
+MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB (한화 약관 PDF 최대 12.6MB 수용)
 MAX_OUTPUT_CHARS = 20_000          # AnalyzeRequest와 동일
 
 ALLOWED_EXTENSIONS = {".txt", ".pdf", ".docx", ".hwp", ".hwpx"}
@@ -104,7 +104,7 @@ def _extract_pdf(content: bytes) -> str:
         raise TextExtractionError(f"PDF 파싱 실패: {e}") from e
 
     pages: list[str] = []
-    for i, page in enumerate(reader.pages):
+    for _i, page in enumerate(reader.pages):
         try:
             page_text = page.extract_text() or ""
         except Exception:

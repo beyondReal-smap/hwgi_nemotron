@@ -1,31 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  LabelList,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { KoreaMap } from "@/components/KoreaMap";
+import { DemographicCard, ProvinceBar } from "@/components/DistributionCharts";
 import {
   getDatasetOverview,
   getPersonaSamples,
   type DatasetOverview,
-  type DemographicColumn,
-  type DistributionBin,
   type OccupationGroup,
   type PersonaSample,
   type PersonaTextColumn,
-  type ProvinceRow,
   type RegionStat,
 } from "@/lib/api";
 
@@ -46,7 +31,6 @@ import {
  *  5. 인구통계 — 7개 카테고리 (4 col grid)
  *  6. 직업군 분포 (좌 그룹 / 우 Top 5)
  *  7. 페르소나 텍스트 — 길이 표 + 카테고리 클릭 시 샘플 펼침
- *  8. 데이터 출처
  */
 export default function OverviewPage() {
   const [data, setData] = useState<DatasetOverview | null>(null);
@@ -63,7 +47,6 @@ export default function OverviewPage() {
 
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
       <main className="flex-1 max-w-[1440px] w-full mx-auto p-4 lg:p-8">
         {loading && <LoadingState />}
         {error && <ErrorState message={error} />}
@@ -72,23 +55,6 @@ export default function OverviewPage() {
       <SiteFooter />
     </div>
   );
-}
-
-// ============================================================
-// 공통 헬퍼 — 차트 수치 라벨 포맷
-// ============================================================
-
-/** 큰 수치는 k 단위로 압축 (예: 123,456 → 123k, 1,234 → 1,234). 차트 라벨 가독성용. */
-function formatCompact(v: number): string {
-  if (v >= 10000) return `${Math.round(v / 1000).toLocaleString()}k`;
-  if (v >= 1000) return `${(v / 1000).toFixed(1)}k`;
-  return v.toLocaleString();
-}
-
-/** 비율 표시 (예: 32.4%). 도넛/막대의 비율 라벨용. */
-function formatPercent(count: number, total: number): string {
-  if (!total) return "0%";
-  return `${((count / total) * 100).toFixed(1)}%`;
 }
 
 // ============================================================
@@ -186,7 +152,6 @@ function Dashboard({ data }: { data: DatasetOverview }) {
           { id: "demo", label: "인구통계" },
           { id: "occupation", label: "직업군" },
           { id: "persona-text", label: "페르소나 텍스트" },
-          { id: "source", label: "출처" },
         ]}
       />
 
@@ -269,9 +234,6 @@ function Dashboard({ data }: { data: DatasetOverview }) {
       <div id="persona-text" className="scroll-mt-24">
         <PersonaTextPanel stats={data.persona_text_stats} />
       </div>
-
-      {/* 8. 출처 */}
-      <SourceCard meta={data.meta} />
     </div>
   );
 }
@@ -332,228 +294,6 @@ function MetaCard({
         )}
       </p>
       {sub && <p className="text-caption text-stone">{sub}</p>}
-    </div>
-  );
-}
-
-// ============================================================
-// 지도 옆 패널들 — SectionCard로 래핑되어 헤더 통일
-// ============================================================
-
-function ProvinceBar({ rows }: { rows: ProvinceRow[] }) {
-  return (
-    <div className="p-3">
-      <ResponsiveContainer width="100%" height={480}>
-        <BarChart
-          data={rows}
-          layout="vertical"
-          margin={{ top: 4, right: 48, bottom: 4, left: 0 }}
-        >
-          <CartesianGrid strokeDasharray="3 3" stroke="#dedcd1" />
-          <XAxis
-            type="number"
-            tick={{ fontSize: 11, fill: "#73726c", fontFamily: "SUITE" }}
-            stroke="#dedcd1"
-            tickFormatter={(v) => (v / 1000).toFixed(0) + "k"}
-          />
-          <YAxis
-            type="category"
-            dataKey="province"
-            tick={{ fontSize: 11, fill: "#3d3d3a", fontFamily: "SUITE" }}
-            stroke="#dedcd1"
-            width={60}
-          />
-          <Tooltip
-            cursor={{ fill: "rgba(217, 119, 87, 0.08)" }}
-            content={({ active, payload }) => {
-              if (!active || !payload?.[0]) return null;
-              const d = payload[0].payload as ProvinceRow;
-              return (
-                <div className="bg-snow border border-parchment rounded-[9.6px] p-2.5 text-caption">
-                  <p className="font-medium text-ink mb-1">{d.province}</p>
-                  <p className="text-graphite">
-                    인원:{" "}
-                    <span className="font-medium text-terra">
-                      {d.count.toLocaleString()}명
-                    </span>
-                  </p>
-                  <p className="text-graphite">시군구: {d.district_count}개</p>
-                  <p className="text-graphite">
-                    평균 {d.avg_age.toFixed(1)}세 · 여성{" "}
-                    {(d.female_ratio * 100).toFixed(1)}%
-                  </p>
-                </div>
-              );
-            }}
-          />
-          <Bar dataKey="count" fill="#d97757" radius={[0, 4, 4, 0]}>
-            <LabelList
-              dataKey="count"
-              position="right"
-              fill="#3d3d3a"
-              fontSize={11}
-              fontFamily="SUITE"
-              formatter={(v) => formatCompact(Number(v ?? 0))}
-            />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  );
-}
-
-// ============================================================
-// 인구통계 카드 — SectionCard와 별도 (작은 카드 다수)
-// ============================================================
-
-// 한화 토큰 기반 차트 팔레트.
-// 1순위 terra(악센트) → 2순위 azure(보조 블루) → 그 이후 graphite→stone 단조 회색계로 강·약 그라데이션.
-// 첫 두 자리에 채도 있는 색을 두어 4개 이상 항목에서도 1·2위가 즉시 구분되도록 함.
-const DONUT_COLORS = ["#d97757", "#ccdbe8", "#3d3d3a", "#73726c", "#9c9a92", "#dedcd1", "#1f1e1d"];
-
-function DemographicCard({
-  dem,
-  ageData,
-}: {
-  dem: DemographicColumn;
-  ageData?: { mean: number; median: number };
-}) {
-  const useDonut = dem.bins.length <= 4;
-  const total = dem.bins.reduce((s, b) => s + b.count, 0);
-
-  const isAge = dem.column === "age";
-  const subText = isAge && ageData
-    ? `10년 단위 · 평균 ${ageData.mean}세 · 중위 ${ageData.median}세`
-    : `${dem.bins.length}개 항목 · ${total.toLocaleString()}명`;
-
-  return (
-    <div className="bg-snow border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
-      <header className="px-3.5 py-2.5 border-b border-parchment">
-        <h3 className="text-body font-medium text-ink truncate">{dem.label}</h3>
-        <p className="text-caption text-dusty mt-0.5">
-          {subText}
-        </p>
-      </header>
-      <div className="p-3 flex-1">
-        <ResponsiveContainer width="100%" height={useDonut ? 220 : 260}>
-          {useDonut ? (
-            <PieChart>
-              <Pie
-                data={dem.bins}
-                dataKey="count"
-                nameKey="label"
-                innerRadius={42}
-                outerRadius={74}
-                paddingAngle={2}
-                label={(entry) => {
-                  const pct = (entry.percent ?? 0) * 100;
-                  // 너무 작은 조각(<5%)은 라벨 생략해 시각 혼잡 방지
-                  return pct < 5 ? "" : `${pct.toFixed(0)}%`;
-                }}
-                labelLine={false}
-              >
-                {dem.bins.map((_, i) => (
-                  <Cell
-                    key={i}
-                    fill={DONUT_COLORS[i % DONUT_COLORS.length]}
-                    stroke="#faf9f5"
-                    strokeWidth={2}
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                content={({ active, payload }) => {
-                  if (!active || !payload?.[0]) return null;
-                  const d = payload[0].payload as DistributionBin;
-                  const pct =
-                    total > 0 ? ((d.count / total) * 100).toFixed(1) : "0";
-                  return (
-                    <div className="bg-snow border border-parchment rounded-[9.6px] p-2 text-caption">
-                      <p className="font-medium text-ink">{d.label}</p>
-                      <p className="text-graphite">
-                        {d.count.toLocaleString()}명 · {pct}%
-                      </p>
-                    </div>
-                  );
-                }}
-              />
-            </PieChart>
-          ) : (
-            <BarChart
-              data={dem.bins}
-              layout="vertical"
-              margin={{ top: 4, right: 56, bottom: 4, left: 0 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#dedcd1" />
-              <XAxis
-                type="number"
-                tick={{ fontSize: 10, fill: "#73726c", fontFamily: "SUITE" }}
-                stroke="#dedcd1"
-                tickFormatter={(v) => (v / 1000).toFixed(0) + "k"}
-              />
-              <YAxis
-                type="category"
-                dataKey="label"
-                tick={{ fontSize: 10, fill: "#3d3d3a", fontFamily: "SUITE" }}
-                stroke="#dedcd1"
-                width={110}
-                interval={0}
-              />
-              <Tooltip
-                cursor={{ fill: "rgba(217, 119, 87, 0.08)" }}
-                content={({ active, payload }) => {
-                  if (!active || !payload?.[0]) return null;
-                  const d = payload[0].payload as DistributionBin;
-                  const pct =
-                    total > 0 ? ((d.count / total) * 100).toFixed(1) : "0";
-                  return (
-                    <div className="bg-snow border border-parchment rounded-[9.6px] p-2 text-caption">
-                      <p className="font-medium text-ink">{d.label}</p>
-                      <p className="text-graphite">
-                        {d.count.toLocaleString()} · {pct}%
-                      </p>
-                    </div>
-                  );
-                }}
-              />
-              <Bar dataKey="count" fill="#d97757" radius={[0, 3, 3, 0]}>
-                <LabelList
-                  dataKey="count"
-                  position="right"
-                  fill="#3d3d3a"
-                  fontSize={10}
-                  fontFamily="SUITE"
-                  formatter={(v) => {
-                    const n = Number(v ?? 0);
-                    return `${formatCompact(n)} · ${formatPercent(n, total)}`;
-                  }}
-                />
-              </Bar>
-            </BarChart>
-          )}
-        </ResponsiveContainer>
-
-        {useDonut && (
-          <ul className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-caption">
-            {dem.bins.map((b, i) => {
-              const pct =
-                total > 0 ? ((b.count / total) * 100).toFixed(1) : "0";
-              return (
-                <li key={b.label} className="flex items-center gap-2">
-                  <span
-                    className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
-                    style={{
-                      background: DONUT_COLORS[i % DONUT_COLORS.length],
-                    }}
-                  />
-                  <span className="text-graphite truncate">{b.label}</span>
-                  <span className="text-dusty ml-auto">{pct}%</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
     </div>
   );
 }
@@ -840,9 +580,10 @@ function PersonaTextPanel({
           </table>
         </div>
 
-        {/* 우측: 샘플 */}
-        <div className="border-t lg:border-t-0 lg:border-l border-parchment bg-snow/60">
-          <div className="px-4 py-3 border-b border-parchment">
+        {/* 우측: 샘플 — 카테고리 전환(loading/ul/error 토글)에서 grid row가
+            흔들리지 않도록 본문 영역에 고정 height 적용. 내부 overflow-y-auto로 길이 차이 흡수. */}
+        <div className="border-t lg:border-t-0 lg:border-l border-parchment bg-snow/60 flex flex-col">
+          <div className="px-4 py-3 border-b border-parchment shrink-0">
             <p className="text-caption text-dusty uppercase">선택 카테고리</p>
             <p className="text-base font-medium text-ink mt-0.5">
               {stats.find((s) => s.column === selected)?.label ?? selected} ·
@@ -852,71 +593,42 @@ function PersonaTextPanel({
               </span>
             </p>
           </div>
-          {loading && (
-            <div className="p-4 space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-16 bg-parchment/40 rounded animate-pulse"
-                />
-              ))}
-            </div>
-          )}
-          {error && (
-            <p className="p-4 text-caption text-terra">{error}</p>
-          )}
-          {!loading && !error && samples.length > 0 && (
-            <ul className="divide-y divide-parchment max-h-[440px] overflow-auto">
-              {samples.map((s) => (
-                <li key={s.uuid} className="p-3">
-                  <div className="flex items-baseline justify-between gap-2 mb-1">
-                    <span className="text-caption text-graphite">
-                      {s.sex} {s.age}세 · {s.province} {s.district}
-                      <span className="text-dusty"> · {s.occupation}</span>
-                    </span>
-                    <span className="text-caption font-mono text-dusty shrink-0">
-                      {s.length}자
-                    </span>
-                  </div>
-                  <p className="text-body-sm text-ink leading-relaxed">
-                    {s.text}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="h-[440px] overflow-y-auto">
+            {loading && (
+              <div className="p-4 space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div
+                    key={i}
+                    className="h-16 bg-parchment/40 rounded animate-pulse"
+                  />
+                ))}
+              </div>
+            )}
+            {error && (
+              <p className="p-4 text-caption text-terra">{error}</p>
+            )}
+            {!loading && !error && samples.length > 0 && (
+              <ul className="divide-y divide-parchment">
+                {samples.map((s) => (
+                  <li key={s.uuid} className="p-3">
+                    <div className="flex items-baseline justify-between gap-2 mb-1">
+                      <span className="text-caption text-graphite">
+                        {s.sex} {s.age}세 · {s.province} {s.district}
+                        <span className="text-dusty"> · {s.occupation}</span>
+                      </span>
+                      <span className="text-caption font-mono text-dusty shrink-0">
+                        {s.length}자
+                      </span>
+                    </div>
+                    <p className="text-body-sm text-ink leading-relaxed">
+                      {s.text}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-// ============================================================
-// 출처
-// ============================================================
-
-function SourceCard({ meta }: { meta: DatasetOverview["meta"] }) {
-  return (
-    <SectionCard
-      id="source"
-      title="데이터 출처 · 라이선스"
-      sub="합성 데이터 — 실제 인물·가입자와 무관"
-    >
-      <div className="text-body-sm text-graphite space-y-1.5">
-        <p>
-          <a
-            href={`https://huggingface.co/datasets/${meta.source}`}
-            target="_blank"
-            rel="noreferrer"
-            className="text-ink underline underline-offset-2 hover:text-terra"
-          >
-            {meta.source}
-          </a>{" "}
-          — {meta.license} (상업적 이용 가능, 출처 명시 필수)
-        </p>
-        <p className="text-caption text-dusty">
-          NVIDIA NeMo Data Designer · KOSIS / 대법원 / 국민건강보험공단 / KREI 통계 기반 합성.
-        </p>
       </div>
     </SectionCard>
   );
@@ -1030,14 +742,6 @@ function LoadingState() {
               className="h-12 rounded-[7px] bg-snow border border-parchment"
             />
           ))}
-        </div>
-      </SectionCard>
-
-      {/* 8. 출처 */}
-      <SectionCard title="데이터 출처">
-        <div className="space-y-2">
-          <div className="h-4 w-1/2 rounded bg-snow border border-parchment" />
-          <div className="h-4 w-1/3 rounded bg-snow border border-parchment" />
         </div>
       </SectionCard>
 

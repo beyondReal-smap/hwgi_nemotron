@@ -21,10 +21,10 @@ from models.schemas import PersonaHit, PersonaResponse
 from services.llm import (
     CLAUDE_HAIKU,
     DEFAULT_PROVIDER,
-    SLLM_MODEL,
     LLMProvider,
     _anthropic_to_openai_tool,
     anthropic_client,
+    resolve_sllm_model,
     sllm_client,
 )
 
@@ -115,6 +115,7 @@ def _call_llm_sync(prompt: str, provider: LLMProvider) -> dict:
 
     asyncio.to_thread로 호출되어 이벤트 루프 블로킹 없음.
     """
+    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
     if provider == "anthropic":
         client: Anthropic = anthropic_client()
         msg = client.messages.create(
@@ -133,7 +134,7 @@ def _call_llm_sync(prompt: str, provider: LLMProvider) -> dict:
     # sLLM
     import json as _json
     completion = sllm_client().chat.completions.create(
-        model=SLLM_MODEL,
+        model=resolve_sllm_model(),
         max_tokens=600,
         temperature=0.7,  # 빙의 다양성을 위해 약간 높임
         messages=[

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { SiteHeader } from "@/components/SiteHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -41,6 +42,8 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className="font-sans antialiased min-h-[100dvh] [padding-left:env(safe-area-inset-left)] [padding-right:env(safe-area-inset-right)]">
+        {/* 헤더는 template 바깥에 위치 — 페이지 슬라이드 애니메이션 영향을 받지 않도록 호이스팅. */}
+        <SiteHeader />
         {children}
       </body>
     </html>

@@ -9,8 +9,8 @@ import { getPersonaDetail, type PersonaDetail } from "@/lib/api";
  * 구성:
  *  - 헤더: 성별/나이/지역 + close 버튼
  *  - 인구통계 그리드: 학력/혼인/가구/직업/주거 등
- *  - 페르소나 텍스트 7종(persona + 6 카테고리) — 펼치기 가능
- *  - skills/hobbies/career_goals — 있으면 표시
+ *  - 페르소나 프로필: 좌측 카테고리 탭 + 우측 본문 (탭 전환 시 우측 영역 크기 고정,
+ *    내부 스크롤로 길이 차이 흡수해 카드 높이 흔들림 방지)
  */
 
 const TEXT_LABELS: Record<string, string> = {
@@ -26,6 +26,8 @@ const TEXT_LABELS: Record<string, string> = {
   career_goals_and_ambitions: "경력 목표",
 };
 
+const TEXT_KEYS = Object.keys(TEXT_LABELS);
+
 const META_LABELS: Record<string, string> = {
   sex: "성별",
   age: "연령",
@@ -40,6 +42,35 @@ const META_LABELS: Record<string, string> = {
   military_status: "병역",
 };
 
+// 금융·소비 프로파일 (AI Hub 통합, fin_ 컬럼). 인구통계 기반 추정치.
+const FIN_INTEREST: [string, string][] = [
+  ["보험", "fin_interest_insurance"], ["건강·의료", "fin_interest_health"],
+  ["키즈·육아 콘텐츠", "fin_interest_kids"], ["여행·레저", "fin_interest_travel"],
+];
+const FIN_SPEND: [string, string][] = [
+  ["외식", "fin_spend_food"], ["마트", "fin_spend_mart"], ["여행", "fin_spend_travel"],
+  ["의료", "fin_spend_med"], ["교육", "fin_spend_edu"], ["자동차", "fin_spend_car"],
+  ["문화", "fin_spend_culture"], ["배달", "fin_spend_delivery"],
+];
+
+/** 천원 단위 정수 → 읽기 쉬운 한글 금액 (예: 33229 → "3,323만원", 245071 → "2.5억"). */
+function fmtWon(v: string | number | null | undefined): string {
+  if (v == null || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return "0";
+  if (n >= 100000) return `${(n / 100000).toFixed(1)}억`;
+  return `${Math.round(n / 10).toLocaleString()}만원`;
+}
+
+function FinField({ label, v }: { label: string; v: string }) {
+  return (
+    <div className="flex gap-2 min-w-0">
+      <dt className="text-dusty shrink-0">{label}</dt>
+      <dd className="text-ink truncate">{v}</dd>
+    </div>
+  );
+}
+
 export function PersonaDetailModal({
   uuid,
   onClose,
@@ -50,17 +81,19 @@ export function PersonaDetailModal({
   const [detail, setDetail] = useState<PersonaDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(["persona"]));
+  // 좌측 탭에서 선택된 카테고리 키. uuid 전환 시 첫 키로 초기화.
+  const [selectedKey, setSelectedKey] = useState<string>(TEXT_KEYS[0]);
 
   useEffect(() => {
     if (!uuid) {
       setDetail(null);
-      setExpanded(new Set(["persona"]));
+      setSelectedKey(TEXT_KEYS[0]);
       return;
     }
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setSelectedKey(TEXT_KEYS[0]);
     getPersonaDetail(uuid)
       .then((d) => !cancelled && setDetail(d))
       .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)))
@@ -86,13 +119,6 @@ export function PersonaDetailModal({
   }, [uuid, onClose]);
 
   if (!uuid) return null;
-
-  function toggleExpand(key: string) {
-    const next = new Set(expanded);
-    if (next.has(key)) next.delete(key);
-    else next.add(key);
-    setExpanded(next);
-  }
 
   return (
     <div
@@ -140,8 +166,9 @@ export function PersonaDetailModal({
           </button>
         </header>
 
-        {/* 본문 — 모바일에서 safe-area-bottom 보정 */}
-        <div className="overflow-y-auto p-4 sm:p-5 flex flex-col gap-4 sm:gap-5
+        {/* 본문 — 좌측 탭+우측 본문 패턴의 영역 안정성을 위해 자체 스크롤 X.
+            내부 우측 본문(overflow-y-auto)에서만 스크롤이 발생하도록 overflow-hidden + flex-1 */}
+        <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-5 flex flex-col gap-4 sm:gap-5
                         pb-[max(1rem,env(safe-area-inset-bottom))]">
           {loading && (
             <div className="space-y-3 animate-pulse">
@@ -160,8 +187,8 @@ export function PersonaDetailModal({
 
           {detail && !loading && (
             <>
-              {/* 인구통계 그리드 */}
-              <section>
+              {/* 인구통계 그리드 — shrink-0으로 카테고리 영역과 공간 경쟁 차단 */}
+              <section className="shrink-0">
                 <p className="text-overline text-dusty mb-2">인구통계</p>
                 <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-2 text-body-sm">
                   {Object.entries(META_LABELS).map(([key, label]) => {
@@ -177,46 +204,123 @@ export function PersonaDetailModal({
                 </dl>
               </section>
 
-              {/* 페르소나 텍스트 7종 + skills/hobbies/career */}
-              <section className="flex flex-col gap-3">
-                <p className="text-overline text-dusty">페르소나 프로필</p>
-                {Object.entries(TEXT_LABELS).map(([key, label]) => {
-                  const text = detail[key];
-                  if (!text || typeof text !== "string") return null;
-                  const isOpen = expanded.has(key);
-                  return (
-                    <div
-                      key={key}
-                      className="bg-snow border border-parchment rounded-[9.6px] overflow-hidden"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(key)}
-                        className="w-full min-h-[44px] px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-snow/70
-                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azure transition-colors"
-                        aria-expanded={isOpen}
-                      >
-                        <span className="text-body-sm font-medium text-ink">{label}</span>
-                        <span className="text-caption text-dusty tabular-nums">
-                          {text.length}자
-                          <span
-                            className={`ml-2 inline-block transition-transform ${
-                              isOpen ? "rotate-180" : ""
-                            }`}
-                            aria-hidden
+              {/* 금융·소비 프로파일 (AI Hub 통합, 추정) — fin_ 데이터 있을 때만 */}
+              {detail.fin_est_income != null && (
+                <section className="shrink-0">
+                  <p className="text-overline text-dusty mb-2">
+                    금융·소비 프로파일{" "}
+                    <span className="text-stone normal-case">(인구통계 기반 추정)</span>
+                  </p>
+                  <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-3 gap-y-2 text-body-sm">
+                    <FinField label="추정 연소득" v={fmtWon(detail.fin_est_income)} />
+                    <FinField
+                      label="소득 상위"
+                      v={detail.fin_income_pct != null ? `상위 ${detail.fin_income_pct}%` : "—"}
+                    />
+                    <FinField label="총자산" v={fmtWon(detail.fin_total_asset)} />
+                    <FinField
+                      label="주택 보유"
+                      v={detail.fin_house_count != null ? `${detail.fin_house_count}채` : "—"}
+                    />
+                    <FinField
+                      label="생애주기"
+                      v={detail.fin_life_stage ? String(detail.fin_life_stage) : "—"}
+                    />
+                    <FinField label="카드소비(3M)" v={fmtWon(detail.fin_card_spend)} />
+                  </dl>
+                  {(() => {
+                    const ints = FIN_INTEREST.filter(([, k]) => detail[k]);
+                    const spends = FIN_SPEND.filter(([, k]) => Number(detail[k]) > 0)
+                      .sort((a, b) => Number(detail[b[1]]) - Number(detail[a[1]]))
+                      .slice(0, 3);
+                    return (
+                      <>
+                        {ints.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            <span className="text-caption text-dusty">관심사</span>
+                            {ints.map(([lbl, k]) => (
+                              <span
+                                key={k}
+                                className="inline-flex items-center px-2 py-0.5 rounded-[5px] text-overline font-medium bg-terra/15 text-terra border border-terra/30"
+                              >
+                                {lbl}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {spends.length > 0 && (
+                          <p className="text-caption text-graphite mt-1.5">
+                            주요 소비: {spends.map(([lbl]) => lbl).join(" · ")}
+                          </p>
+                        )}
+                      </>
+                    );
+                  })()}
+                </section>
+              )}
+
+              {/* 페르소나 프로필 — 좌측 카테고리 탭 + 우측 본문.
+                  카테고리 전환 시 우측 영역 크기 고정, 내부에서만 스크롤 → 모달/카드 흔들림 차단. */}
+              <section className="flex-1 min-h-0 flex flex-col">
+                <p className="text-overline text-dusty mb-2 shrink-0">페르소나 프로필</p>
+                <div
+                  className="flex-1 min-h-0 grid grid-cols-[120px_minmax(0,1fr)] sm:grid-cols-[180px_minmax(0,1fr)]
+                             border border-parchment rounded-[9.6px] overflow-hidden bg-snow"
+                >
+                  {/* 좌측 탭 리스트 */}
+                  <ul
+                    role="tablist"
+                    aria-label="페르소나 카테고리"
+                    className="border-r border-parchment overflow-y-auto bg-vellum"
+                  >
+                    {TEXT_KEYS.map((key) => {
+                      const text = detail[key];
+                      if (!text || typeof text !== "string") return null;
+                      const isActive = selectedKey === key;
+                      return (
+                        <li key={key} role="presentation">
+                          <button
+                            type="button"
+                            role="tab"
+                            aria-selected={isActive}
+                            aria-controls="persona-detail-body"
+                            onClick={() => setSelectedKey(key)}
+                            className={`w-full text-left px-3 py-2.5 border-l-4 transition-colors
+                                        focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azure
+                                        ${
+                                          isActive
+                                            ? "border-l-terra bg-snow text-ink"
+                                            : "border-l-transparent text-graphite hover:bg-snow/70 hover:text-ink"
+                                        }`}
                           >
-                            ▾
-                          </span>
-                        </span>
-                      </button>
-                      {isOpen && (
-                        <div className="px-4 py-3 border-t border-parchment text-body-sm text-graphite leading-relaxed whitespace-pre-wrap">
-                          {text}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                            <span
+                              className={`block text-body-sm ${
+                                isActive ? "font-semibold" : "font-medium"
+                              }`}
+                            >
+                              {TEXT_LABELS[key]}
+                            </span>
+                            <span className="block text-caption text-dusty tabular-nums mt-0.5">
+                              {text.length}자
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {/* 우측 본문 — flex 자식의 overflow를 위해 min-w-0, 자체 스크롤. */}
+                  <div
+                    id="persona-detail-body"
+                    role="tabpanel"
+                    aria-labelledby={selectedKey}
+                    className="min-w-0 overflow-y-auto px-4 py-3 text-body-sm text-graphite leading-relaxed whitespace-pre-wrap"
+                  >
+                    {typeof detail[selectedKey] === "string" && detail[selectedKey]
+                      ? (detail[selectedKey] as string)
+                      : "(이 카테고리는 비어 있습니다)"}
+                  </div>
+                </div>
               </section>
             </>
           )}

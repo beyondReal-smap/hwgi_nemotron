@@ -1,7 +1,7 @@
-"""분석 이력 영속화 — Phase 5 전에는 로컬 JSON Lines, 이후 Supabase 교체.
+"""분석 이력 영속화 — 로컬 JSON Lines.
 
 JSONL은 append-only이므로 read 시 전체 파일 스캔.
-이력 수천 건까지는 무난, 그 이상은 SQLite/Supabase 전환 권장.
+이력 수천 건까지는 무난, 그 이상은 SQLite 전환 권장.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -33,7 +33,7 @@ def persist_analysis(payload: dict) -> str:
     analysis_id = str(uuid.uuid4())
     record = {
         "id": analysis_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         **payload,
     }
     with path.open("a", encoding="utf-8") as f:
@@ -190,7 +190,7 @@ def append_simulation(payload: dict) -> str:
     simulation_id = str(uuid.uuid4())
     record = {
         "id": simulation_id,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         **payload,
     }
     with path.open("a", encoding="utf-8") as f:

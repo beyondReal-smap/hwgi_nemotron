@@ -22,7 +22,7 @@ import type { WizardState } from "./types";
 // 사내 sLLM(Qwen)을 기본·우선. 첫 항목이 각 provider의 기본 선택.
 const MODELS: Record<LLMProvider, { value: string; label: string; input_per_mtok: number; output_per_mtok: number }[]> = {
   sllm: [
-    { value: "Qwen3.6-27B-FP8", label: "Qwen3.6-27B-FP8 (사내 vLLM · 무료 · 기본)", input_per_mtok: 0, output_per_mtok: 0 },
+    { value: "Qwen3.6-27B-FP8", label: "사내 sLLM (무료 · 기본)", input_per_mtok: 0, output_per_mtok: 0 },
   ],
   anthropic: [
     { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 (빠름·저렴)", input_per_mtok: 0.8, output_per_mtok: 4.0 },
@@ -64,29 +64,12 @@ export function StepExecution({
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
       {/* 좌측: 실행 설정 */}
       <div className="flex flex-col gap-4">
-        {/* Provider */}
+        {/* Provider — Anthropic 비활성. 사내 sLLM 단일 사용 안내. */}
         <SubCard title="LLM Provider">
-          <fieldset className="flex flex-col gap-2">
-            {(["sllm", "anthropic"] as LLMProvider[]).map((p) => (
-              <label key={p} className="flex items-center gap-2 cursor-pointer text-body-sm">
-                <input
-                  type="radio"
-                  name="provider"
-                  checked={state.execution.llm_provider === p}
-                  onChange={() =>
-                    patch({
-                      llm_provider: p,
-                      model: MODELS[p][0].value,
-                    })
-                  }
-                  className="accent-terra"
-                />
-                <span className={state.execution.llm_provider === p ? "text-ink font-medium" : "text-graphite"}>
-                  {p === "sllm" ? "사내 sLLM (Qwen) · 기본" : "Anthropic Claude"}
-                </span>
-              </label>
-            ))}
-          </fieldset>
+          <p className="text-body-sm text-graphite">
+            <span className="text-ink font-medium">사내 sLLM</span>
+            <span className="text-dusty"> · 무료 · 사내 엔드포인트</span>
+          </p>
         </SubCard>
 
         {/* 모델 select */}

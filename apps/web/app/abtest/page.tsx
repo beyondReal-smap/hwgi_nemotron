@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { ABTestInputForm } from "@/components/abtest/ABTestInputForm";
 import { ABTestResultPanel } from "@/components/abtest/ABTestResultPanel";
 import { ABTestHistoryList } from "@/components/abtest/ABTestHistoryList";
@@ -124,7 +124,6 @@ function ABTestContent() {
 export default function ABTestPage() {
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
       <Suspense fallback={<div className="flex-1" />}>
         <ABTestContent />
       </Suspense>
@@ -219,9 +218,10 @@ function NewMode({
       {error && (
         <div
           role="alert"
-          className="mt-4 rounded-[9.6px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+          className="mt-4 rounded-[9.6px] border border-terra/30 bg-terra/10 px-4 py-3 text-body-sm text-ink"
         >
-          {error}
+          <span className="font-semibold text-terra">분석 중 문제</span>
+          <span className="text-graphite"> · {error}</span>
         </div>
       )}
 
@@ -268,17 +268,23 @@ function HistoryMode({
         </button>
 
         {loading && (
-          <div className="text-center py-12 text-dusty text-body-sm">
-            상세 리포트를 불러오는 중…
+          <div
+            className="flex flex-col items-center gap-3 py-14 text-graphite"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <span className="inline-flex h-7 w-7 rounded-full border-2 border-parchment border-t-terra animate-spin" aria-hidden />
+            <p className="text-body-sm">상세 리포트를 불러오는 중…</p>
           </div>
         )}
 
         {error && (
           <div
             role="alert"
-            className="rounded-[9.6px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+            className="rounded-[9.6px] border border-terra/30 bg-terra/10 px-4 py-3 text-body-sm text-ink"
           >
-            {error}
+            <span className="font-semibold text-terra">불러오기 실패</span>
+            <span className="text-graphite"> · {error}</span>
           </div>
         )}
 

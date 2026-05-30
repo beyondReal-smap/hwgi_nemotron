@@ -11,8 +11,10 @@ from pydantic import BaseModel, Field
 
 from services.dataset_stats import (
     PERSONA_TEXT_COLS,
+    count_by,
     get_dataset_overview,
     get_persona_samples,
+    occupations_grouped,
 )
 from services.persona_search import search_personas
 from services.store import FilterParams, get_store
@@ -123,6 +125,10 @@ class PersonaFilterRequest(BaseModel):
     family_types: list[str] = Field(default_factory=list)
     education_levels: list[str] = Field(default_factory=list)
     occupations: list[str] = Field(default_factory=list)
+    # 금융 속성 필터 (AI Hub 통신카드CB 통합)
+    insurance_interest: bool = False                          # 보험 관심자만
+    life_stages: list[str] = Field(default_factory=list)     # 생애주기 (싱글/신혼/영유아자녀/청소년자녀/성인자녀/실버)
+    income_top: bool = False                                  # 소득 상위자만
     query: str | None = Field(None, max_length=500)
     page: int = Field(1, ge=1)
     page_size: int = Field(24, ge=1, le=10000)
@@ -146,6 +152,11 @@ class PersonaFilterDistribution(BaseModel):
     sex: dict[str, int]
     age_bins: list[dict]  # [{label: "0-9", count: N}, ...]
     province: dict[str, int]
+    # 현황(overview)과 동일 그룹핑/집계로 매칭 결과 전체를 분포 표시.
+    # 하위 호환을 위해 default 부여 — 빈 결과 분기는 기본값([])으로 자동 직렬화된다.
+    occupations_grouped: list[dict] = Field(default_factory=list)  # [{group, count, ratio, top_jobs}, ...]
+    family_type: list[dict] = Field(default_factory=list)          # [{label, count}, ...]
+    housing_type: list[dict] = Field(default_factory=list)         # [{label, count}, ...]
 
 
 class ExtractedFilter(BaseModel):
@@ -161,7 +172,8 @@ class ExtractedFilter(BaseModel):
     occupations: list[str] = Field(default_factory=list)
     education_levels: list[str] = Field(default_factory=list)
     family_types: list[str] = Field(default_factory=list)  # has_children 적용 후 자동 매핑된 family_type
-    additional_filters: dict[str, list[str]] = Field(default_factory=dict)  # housing_type/bachelors_field/military_status/district
+    # housing_type/bachelors_field/military_status/district
+    additional_filters: dict[str, list[str]] = Field(default_factory=dict)
     remaining_query: str = ""
 
 
@@ -175,6 +187,11 @@ class PersonaFilterResponse(BaseModel):
     page_personas: list[PersonaCard]
     distribution: PersonaFilterDistribution
     has_query: bool
+    # LLM 메타 추출이 너무 좁아 0명이 나왔을 때 자동으로 한 단계 더 시도한 결과.
+    # - applied=True면 결과는 폴백 검색 결과 (사용자에게 안내 노출)
+    # - reason은 어떤 단계의 폴백이 적용됐는지 (UI 안내용)
+    fallback_applied: bool = False
+    fallback_reason: str | None = None
     elapsed_ms: dict[str, int]
 
 
@@ -249,6 +266,13 @@ def personas_filter(req: PersonaFilterRequest) -> PersonaFilterResponse:
 
     t_total = time.perf_counter()
     store = get_store()
+
+    # 폴백/임베딩 단계에서 공통으로 갱신되는 상태. 진입 시 한 번만 초기화하고,
+    # 폴백이 먼저 채우면 이후 임베딩 단계는 스킵된다.
+    similarities: dict[int, float] = {}
+    used_threshold: float | None = None
+    fallback_applied: bool = False
+    fallback_reason: str | None = None
 
     # 0) 자연어 쿼리 → 메타 조건 자동 추출 (LLM)
     #    실패해도 graceful: extracted_filter=None으로 두고 임베딩만 적용.
@@ -327,26 +351,124 @@ def personas_filter(req: PersonaFilterRequest) -> PersonaFilterResponse:
         occupations=merged_occupations,
         employment=merged_employment,
         additional_filters=merged_additional or None,
+        # 금융 필터는 사용자 명시 조건 — 자연어 추출 대상 아니므로 req에서 직접 전달
+        insurance_interest=req.insurance_interest or None,
+        life_stages=req.life_stages or None,
+        income_top=req.income_top or None,
     ))
     t_filter = int((time.perf_counter() - t0) * 1000)
 
     meta_filter_total = int(len(candidate_idx))
+
+    # 폴백 헬퍼 — LLM이 좁은 라벨(직업·전공)을 너무 공격적으로 추출해 매칭이 0명일 때,
+    # 한 단계 또는 두 단계 더 시도해 사용자가 무조건 0명을 보지 않게 한다.
+    #
+    # 1단계: 좁은 라벨(occupations + bachelors_field)만 제거하고 그 키워드를 임베딩
+    #        텍스트에 합쳐, LLM의 나머지 메타(연령·지역·고용 등)는 유지한 채 시멘틱 검색.
+    # 2단계: 1단계도 0이면 LLM 추출 메타 전체를 해제하고 사용자가 사이드바에 직접
+    #        입력한 명시 필터만 유지한 채 원문 query를 임베딩으로 검색 (관대한 임계값).
+    # 두 단계 모두 사용자 명시 필터는 항상 보존된다.
+    def _try_keyword_fallback() -> tuple[np.ndarray, dict[int, float], float | None, str] | None:
+        if not req.query or extracted is None:
+            return None
+        from services.llm import embed_text as _embed
+
+        def _emb_search(
+            cand_idx: np.ndarray, text_in: str, threshold: float,
+        ) -> tuple[np.ndarray, np.ndarray, float | None] | None:
+            if len(cand_idx) == 0 or not text_in.strip():
+                return None
+            vec = np.array(_embed(text_in), dtype=np.float32)
+            norm = float(np.linalg.norm(vec))
+            if norm == 0:
+                return None
+            q = (vec / norm).astype(np.float32)
+            sims = store.embeddings[cand_idx] @ q
+            order = np.argsort(-sims)
+            sorted_idx = cand_idx[order]
+            sorted_sims = sims[order]
+            keep = sorted_sims >= threshold
+            if keep.any():
+                return sorted_idx[keep], sorted_sims[keep], threshold
+            return None
+
+        # 1단계: 좁은 라벨(직업·전공) 제거 + 키워드를 임베딩 텍스트에 합쳐 재검색
+        narrowed_additional = dict(extracted.additional_filters or {})
+        keyword_frags: list[str] = list(extracted.occupations or [])
+        bf_vals = narrowed_additional.pop("bachelors_field", None)
+        if bf_vals:
+            keyword_frags.extend(bf_vals)
+        has_narrow_label = bool(extracted.occupations) or bool(bf_vals)
+
+        if has_narrow_label:
+            c1 = store.filter_indices(FilterParams(
+                age_min=merged_age_min, age_max=merged_age_max,
+                sex=merged_sex, provinces=merged_provinces,
+                marital_statuses=merged_marital, family_types=merged_family,
+                education_levels=merged_education,
+                occupations=req.occupations or None,  # LLM 추출 occupations는 폴백에서 제거
+                employment=merged_employment,
+                additional_filters=narrowed_additional or None,
+            ))
+            embed_text_in = " ".join([req.query.strip(), *keyword_frags]).strip()
+            r = _emb_search(c1, embed_text_in, 0.25)
+            if r is not None:
+                idx, sims, thr = r
+                kw_disp = ", ".join(keyword_frags) if keyword_frags else "키워드"
+                return (
+                    idx,
+                    {int(i): float(s) for i, s in zip(idx, sims, strict=False)},
+                    thr,
+                    f"직업·전공 라벨 매칭 0명 → '{kw_disp}' 키워드를 시멘틱 검색으로 보완",
+                )
+
+        # 2단계: LLM 추출 메타 전부 해제, 사용자 명시 메타만 유지 + 원문 임베딩
+        c2 = store.filter_indices(FilterParams(
+            age_min=req.age_min, age_max=req.age_max,
+            sex=req.sex or None, provinces=req.provinces or None,
+            family_types=req.family_types or None,
+            education_levels=req.education_levels or None,
+            occupations=req.occupations or None,
+        ))
+        r = _emb_search(c2, req.query, 0.20)
+        if r is not None:
+            idx, sims, thr = r
+            return (
+                idx,
+                {int(i): float(s) for i, s in zip(idx, sims, strict=False)},
+                thr,
+                "메타 조건 매칭 0명 → 자동 추출 메타 해제 후 원문 시멘틱 검색",
+            )
+        return None
+
     if meta_filter_total == 0:
-        return PersonaFilterResponse(
-            total=0, meta_filter_total=0, match_threshold=None,
-            extracted_filter=extracted,
-            page=req.page, page_size=req.page_size,
-            page_personas=[],
-            distribution=PersonaFilterDistribution(sex={}, age_bins=[], province={}),
-            has_query=bool(req.query),
-            elapsed_ms={"extract": t_extract, "filter": t_filter, "search": 0, "total": int((time.perf_counter() - t_total) * 1000)},
-        )
+        fb = _try_keyword_fallback()
+        if fb is not None:
+            candidate_idx, similarities, used_threshold, fallback_reason = fb
+            fallback_applied = True
+            # meta_filter_total은 '메타로는 0이었음'을 보존하기 위해 0 유지.
+            # 임베딩 분기 진입은 fallback_applied로 차단된다.
+        else:
+            return PersonaFilterResponse(
+                total=0, meta_filter_total=0, match_threshold=None,
+                extracted_filter=extracted,
+                page=req.page, page_size=req.page_size,
+                page_personas=[],
+                distribution=PersonaFilterDistribution(sex={}, age_bins=[], province={}),
+                has_query=bool(req.query),
+                fallback_applied=False,
+                fallback_reason=None,
+                elapsed_ms={
+                    "extract": t_extract,
+                    "filter": t_filter,
+                    "search": 0,
+                    "total": int((time.perf_counter() - t_total) * 1000),
+                },
+            )
 
     # 3) 자연어 쿼리 시 임베딩 정렬 (정렬 후 임계값 컷은 자동 추출 메타가 비었을 때만 fallback)
-    similarities: dict[int, float] = {}
     t_search = 0
-    used_threshold: float | None = None
-    if req.query and embed_query_text:
+    if not fallback_applied and req.query and embed_query_text:
         from services.llm import embed_text
 
         t0 = time.perf_counter()
@@ -408,21 +530,39 @@ def personas_filter(req: PersonaFilterRequest) -> PersonaFilterResponse:
                 candidate_idx = candidate_idx[keep_mask]
                 sorted_sims = sorted_sims[keep_mask]
 
-            similarities = {int(i): float(s) for i, s in zip(candidate_idx, sorted_sims)}
+            similarities = {int(i): float(s) for i, s in zip(candidate_idx, sorted_sims, strict=False)}
         t_search = int((time.perf_counter() - t0) * 1000)
 
     # 최종 매칭 수
     total = int(len(candidate_idx))
     if total == 0:
-        return PersonaFilterResponse(
-            total=0, meta_filter_total=meta_filter_total, match_threshold=used_threshold,
-            extracted_filter=extracted,
-            page=req.page, page_size=req.page_size,
-            page_personas=[],
-            distribution=PersonaFilterDistribution(sex={}, age_bins=[], province={}),
-            has_query=bool(req.query),
-            elapsed_ms={"extract": t_extract, "filter": t_filter, "search": t_search, "total": int((time.perf_counter() - t_total) * 1000)},
-        )
+        # 메타는 0보다 컸으나 임베딩 컷에서 0이 된 경우 → 폴백 한 번 더 시도.
+        # (이미 fallback_applied=True인 경우는 1단계 폴백 결과가 0건이 되는 코너 케이스인데,
+        #  이때는 재호출하면 동일 결과만 반환하므로 빈 응답으로 종료한다.)
+        if not fallback_applied:
+            fb = _try_keyword_fallback()
+            if fb is not None:
+                candidate_idx, similarities, used_threshold, fallback_reason = fb
+                fallback_applied = True
+                total = int(len(candidate_idx))
+
+        if total == 0:
+            return PersonaFilterResponse(
+                total=0, meta_filter_total=meta_filter_total, match_threshold=used_threshold,
+                extracted_filter=extracted,
+                page=req.page, page_size=req.page_size,
+                page_personas=[],
+                distribution=PersonaFilterDistribution(sex={}, age_bins=[], province={}),
+                has_query=bool(req.query),
+                fallback_applied=fallback_applied,
+                fallback_reason=fallback_reason,
+                elapsed_ms={
+                    "extract": t_extract,
+                    "filter": t_filter,
+                    "search": t_search,
+                    "total": int((time.perf_counter() - t_total) * 1000),
+                },
+            )
 
     # 3) 페이지 슬라이스
     start = (req.page - 1) * req.page_size
@@ -456,7 +596,7 @@ def personas_filter(req: PersonaFilterRequest) -> PersonaFilterResponse:
     bin_labels = [f"{age_bin_edges[i]}-{age_bin_edges[i+1]-1}" for i in range(len(age_bin_edges) - 1)]
     bin_indices = np.clip(full_rows["age"].to_numpy() // 10, 0, len(bin_labels) - 1).astype(int)
     bin_counts = np.bincount(bin_indices, minlength=len(bin_labels))
-    age_bins = [{"label": lbl, "count": int(c)} for lbl, c in zip(bin_labels, bin_counts) if c > 0]
+    age_bins = [{"label": lbl, "count": int(c)} for lbl, c in zip(bin_labels, bin_counts, strict=False) if c > 0]
 
     return PersonaFilterResponse(
         total=total,
@@ -470,8 +610,14 @@ def personas_filter(req: PersonaFilterRequest) -> PersonaFilterResponse:
             sex={k: int(v) for k, v in sex_counts.items()},
             age_bins=age_bins,
             province={k: int(v) for k, v in province_counts.items()},
+            # 현황과 동일한 직업군 그룹핑 + 가구 형태 Top 15(+기타) + 주거 형태 집계. full_rows = 매칭 결과 전체.
+            occupations_grouped=occupations_grouped(full_rows),
+            family_type=count_by(full_rows, "family_type", top_n=15, include_others=True),
+            housing_type=count_by(full_rows, "housing_type"),
         ),
         has_query=bool(req.query),
+        fallback_applied=fallback_applied,
+        fallback_reason=fallback_reason,
         elapsed_ms={
             "extract": t_extract,
             "filter": t_filter,

@@ -13,7 +13,7 @@ type Props = {
   description?: React.ReactNode;
   /** 확인 버튼 라벨. */
   confirmLabel?: string;
-  /** 색상 톤. danger=terra(에러), warning=amber(경고), default=ink(정보). */
+  /** 색상 톤. danger=terra 진한(에러), warning=terra 옅은(경고), default=azure(정보). */
   tone?: Tone;
   /** 닫기 콜백 — backdrop·Esc·확인 버튼 모두 동일 호출. */
   onClose: () => void;
@@ -74,7 +74,8 @@ export function AlertModal({
         }
       : tone === "warning"
         ? {
-            icon: "bg-amber-100 border-amber-300 text-amber-700",
+            // danger(terra/15)보다 옅게 차별화. 같은 terra 패밀리로 한화 톤 통일.
+            icon: "bg-terra/8 border-terra/25 text-terra",
             button: "bg-ink text-snow hover:bg-onyx active:bg-graphite",
           }
         : {

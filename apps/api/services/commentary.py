@@ -114,7 +114,7 @@ def build_commentary_stats(survey: Survey, sessions: list[ResponseSession]) -> d
             idx = np.clip(rows["age"].to_numpy() // 10, 0, len(labels) - 1).astype(int)
             counts = np.bincount(idx, minlength=len(labels))
             age_bins = [
-                {"label": lbl, "count": int(c)} for lbl, c in zip(labels, counts) if c > 0
+                {"label": lbl, "count": int(c)} for lbl, c in zip(labels, counts, strict=False) if c > 0
             ]
             prov = rows["province"].value_counts().head(5)
             province_top = [(str(k), int(v)) for k, v in prov.to_dict().items()]
@@ -202,6 +202,7 @@ def generate_and_persist(
     best-effort 호출용 — 예외를 swallow하고 로그만 남긴다. 호출자는 reload 시점에
     survey_repo.load_commentary로 결과를 읽으면 된다.
     """
+    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
     try:
         survey = survey_repo.get_survey(survey_id)
         if survey is None:

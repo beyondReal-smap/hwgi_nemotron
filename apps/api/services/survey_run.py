@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from models.survey import Answer, ResponseSession, Survey
 from services import survey_repo
@@ -26,7 +26,7 @@ BACKOFF_BASE: float = 1.0              # 지수 백오프: 1, 2, 4초
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 async def _retry(coro_fn, *, attempts: int = MAX_RETRIES):

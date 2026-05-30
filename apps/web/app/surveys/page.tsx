@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { WizardContainer } from "@/components/wizard/WizardContainer";
 import { SurveyHistoryList } from "@/components/SurveyHistoryList";
 
@@ -76,7 +76,6 @@ function SurveysContent() {
 export default function SurveysPage() {
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
       <Suspense fallback={<div className="flex-1" />}>
         <SurveysContent />
       </Suspense>

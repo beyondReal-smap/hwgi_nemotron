@@ -23,10 +23,9 @@ import io
 import re
 from typing import Literal
 
-from openpyxl import load_workbook
 from docx import Document
+from openpyxl import load_workbook
 from pydantic import BaseModel, Field
-
 
 QuestionType = Literal["single_choice", "multi_choice", "scale", "open_ended", "nps"]
 
@@ -313,7 +312,12 @@ def parse_docx(file_bytes: bytes) -> list[ParsedQuestion]:
         else:
             # 질문 이어가기 또는 선택지
             style_name = (p.style.name or "").lower() if p.style else ""
-            is_list = style_name.startswith("list") or line.startswith("-") or line.startswith("•") or line.startswith("·")
+            is_list = (
+                style_name.startswith("list")
+                or line.startswith("-")
+                or line.startswith("•")
+                or line.startswith("·")
+            )
             if current_text is not None:
                 if is_list:
                     # 불릿 마커 제거
@@ -389,7 +393,7 @@ EXCEL_TYPE_NOTE = (
 def build_excel_template() -> bytes:
     """xlsx 표준 템플릿 바이트 반환."""
     from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment
+    from openpyxl.styles import Alignment, Font, PatternFill
 
     wb = Workbook()
     ws = wb.active

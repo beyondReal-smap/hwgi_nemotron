@@ -1,16 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  loadLLMProvider,
   runABTest,
-  saveLLMProvider,
   type ABChallengerKind,
   type ABTestInputMode,
   type ABTestResponse,
-  type LLMProvider,
 } from "@/lib/api";
-import { LLMProviderToggle } from "@/components/LLMProviderToggle";
 
 type Props = {
   onResult: (r: ABTestResponse) => void;
@@ -91,16 +87,6 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
   const [textB, setTextB] = useState("");
   const [baseline, setBaseline] = useState<"A" | "B">("A");
   const [challengerKind, setChallengerKind] = useState<ABChallengerKind>("internal");
-  const [provider, setProvider] = useState<LLMProvider>("sllm");
-
-  useEffect(() => {
-    setProvider(loadLLMProvider());
-  }, []);
-
-  function handleProviderChange(p: LLMProvider) {
-    setProvider(p);
-    saveLLMProvider(p);
-  }
 
   const companyLen = companyContext.trim().length;
   const aLen = textA.trim().length;
@@ -131,7 +117,6 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
         variant_b: { label: labelB.trim(), text: textB.trim() },
         baseline_variant: baseline,
         challenger_kind: challengerKind,
-        llm_provider: provider,
         top_k: 50,
       });
       onResult(r);
@@ -153,11 +138,11 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
             당사 정보 (장단점·전략의 기준)
           </label>
           <span
-            className={`text-caption ${
+            className={`text-caption num-tabular ${
               companyLen > MAX_COMPANY
-                ? "text-rose-600"
+                ? "text-terra font-medium"
                 : companyOk
-                  ? "text-emerald-700"
+                  ? "text-ink"
                   : "text-dusty"
             }`}
           >
@@ -247,18 +232,13 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
 
       {/* 라벨 중복 안내 */}
       {!labelsOk && labelA.trim() && labelB.trim() && labelA.trim() === labelB.trim() && (
-        <p className="text-caption text-rose-600">
+        <p className="text-caption text-terra font-medium">
           A와 B의 별명을 다르게 지정해 주세요.
         </p>
       )}
 
-      {/* Provider + 제출 */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-2">
-        <LLMProviderToggle
-          value={provider}
-          onChange={handleProviderChange}
-          disabled={loading}
-        />
+      {/* 제출 */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-end gap-3 pt-2">
         <button
           type="submit"
           disabled={!canSubmit}
@@ -344,8 +324,8 @@ function VariantInputCard({
           />
         </div>
         <span
-          className={`text-caption shrink-0 ${
-            tooLong ? "text-rose-600" : tooShort ? "text-amber-700" : "text-dusty"
+          className={`text-caption shrink-0 num-tabular ${
+            tooLong ? "text-terra font-medium" : tooShort ? "text-dusty font-medium" : "text-dusty"
           }`}
         >
           {len.toLocaleString()} / {MAX_TEXT.toLocaleString()}자
@@ -410,8 +390,8 @@ function VariantInputCard({
         maxLength={MAX_TEXT + 200}
       />
       {tooShort && (
-        <p className="text-caption text-amber-700">
-          최소 {MIN_TEXT}자 이상 입력해 주세요.
+        <p className="text-caption text-graphite">
+          <span className="text-terra font-medium">!</span> 최소 {MIN_TEXT}자 이상 입력해 주세요.
         </p>
       )}
     </div>

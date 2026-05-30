@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
@@ -58,7 +58,7 @@ def trigger_run(
     if not survey.questions:
         raise HTTPException(status_code=400, detail="질문이 1개 이상 필요합니다")
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # 세션 정리:
     #   - 없으면 → pending 신규 생성

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { listAnalyses, type AnalysisSummary } from "@/lib/api";
 
 export default function SurveyIndexPage() {
@@ -23,8 +23,6 @@ export default function SurveyIndexPage() {
 
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
-
       <main className="flex-1 max-w-[1100px] w-full mx-auto p-4 lg:p-8">
         <header className="mb-6">
           <h1 className="text-title text-ink">📋 설문 시뮬레이션</h1>

@@ -1,15 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  loadLLMProvider,
-  saveLLMProvider,
   simulateSurvey,
-  type LLMProvider,
   type PersonaResponse,
   type SimulateResponse,
 } from "@/lib/api";
-import { LLMProviderToggle } from "@/components/LLMProviderToggle";
 
 type Props = {
   analysisId: string;
@@ -27,19 +23,9 @@ const PRESET_QUESTIONS = [
 export function SurveyPanel({ analysisId, onSubmitted }: Props) {
   const [question, setQuestion] = useState("");
   const [nRespondents, setNRespondents] = useState<RespondentCount>(5);
-  const [provider, setProvider] = useState<LLMProvider>("anthropic");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SimulateResponse | null>(null);
-
-  useEffect(() => {
-    setProvider(loadLLMProvider());
-  }, []);
-
-  function handleProviderChange(p: LLMProvider) {
-    setProvider(p);
-    saveLLMProvider(p);
-  }
 
   const trimmed = question.trim();
   const isValidN = typeof nRespondents === "number" && nRespondents >= 1 && nRespondents <= 100;
@@ -57,7 +43,6 @@ export function SurveyPanel({ analysisId, onSubmitted }: Props) {
         analysisId,
         trimmed,
         nRespondents as number,
-        provider,
       );
       setResult(res);
       onSubmitted?.();
@@ -181,17 +166,6 @@ export function SurveyPanel({ analysisId, onSubmitted }: Props) {
               </div>
             </div>
 
-            <div>
-              <span className="block text-body-sm font-medium text-ink mb-2">
-                LLM
-              </span>
-              <LLMProviderToggle
-                value={provider}
-                onChange={handleProviderChange}
-                disabled={loading}
-                compact
-              />
-            </div>
           </div>
 
           <button

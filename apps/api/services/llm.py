@@ -1,26 +1,27 @@
-"""LLM 추상화 — Anthropic Claude 또는 OpenAI 호환 sLLM(vLLM Qwen).
+"""LLM 추상화 — Anthropic Claude 또는 OpenAI 호환 sLLM(vLLM).
 
 provider 인자로 두 경로를 선택:
 - "anthropic": Sonnet(소구점) + Haiku(리포트·시뮬레이션)
-- "sllm":      OpenAI 호환 엔드포인트의 단일 모델 (현재 Qwen3.6-27B-FP8)
+- "sllm":      OpenAI 호환 엔드포인트의 단일 모델 (런타임에 /v1/models로 자동 감지)
                 tool_use는 OpenAI function calling으로, system은 messages[0]으로 변환.
 
 설계 원칙:
 - 클라이언트는 앱 수명주기 싱글톤
 - tenacity로 3회 재시도
 - 임베딩은 항상 OpenAI (sLLM 무관)
+- 모델명은 SLLM_MODEL env가 있으면 그대로, 없으면 /v1/models 자동 감지 (lazy + 캐싱)
 """
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 import json
 import os
 import threading
 import weakref
+from abc import ABC, abstractmethod
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
 import numpy as np
 from anthropic import Anthropic
@@ -30,7 +31,6 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from models.schemas import (
     PersonaHit,
     PopulationStats,
-    RegionStat,
     SellingPoints,
 )
 from services import embed_cache
@@ -53,9 +53,8 @@ CLAUDE_HAIKU = "claude-haiku-4-5"
 EMBED_MODEL = "text-embedding-3-small"
 EMBED_DIM = 1536
 
-# sLLM (OpenAI 호환 vLLM) — 환경변수로 오버라이드 가능
-SLLM_BASE_URL = os.environ.get("SLLM_BASE_URL", "http://3.38.195.121:5016/v1")
-SLLM_MODEL = os.environ.get("SLLM_MODEL", "Qwen3.6-27B-FP8")
+# sLLM (OpenAI 호환 vLLM) — base URL은 env override, 모델명은 resolve_sllm_model()로 lazy 결정.
+SLLM_BASE_URL = os.environ.get("SLLM_BASE_URL", "http://3.38.195.121:5015/v1")
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 SELLING_POINTS_PROMPT = (PROMPTS_DIR / "selling_points.md").read_text(encoding="utf-8")
@@ -82,6 +81,37 @@ def anthropic_client() -> Anthropic:
 def sllm_client() -> OpenAI:
     """sLLM(OpenAI 호환) 싱글톤. vLLM은 api_key 미사용이지만 SDK 요구로 dummy 전달."""
     return OpenAI(base_url=SLLM_BASE_URL, api_key="dummy-sllm-no-auth")
+
+
+@lru_cache(maxsize=1)
+def resolve_sllm_model() -> str:
+    """sLLM 모델명 결정 — env > /v1/models 자동 감지.
+
+    우선순위:
+    1. SLLM_MODEL 환경변수 (운영자 명시 override)
+    2. /v1/models 응답의 첫 번째 모델 id (게이트웨이가 hosting 중인 실제 모델명)
+
+    lru_cache로 1회만 resolve — 같은 프로세스 내에서 모델이 바뀌지 않는다고 가정.
+    조회 실패 시 RuntimeError로 fail-fast (default 추측 금지: 잘못된 모델명은
+    400/404를 유발하고 디버깅이 어려움).
+    """
+    env_model = os.environ.get("SLLM_MODEL")
+    if env_model:
+        return env_model
+    try:
+        models = sllm_client().models.list()
+    except Exception as e:
+        raise RuntimeError(
+            f"sLLM 모델 자동 감지 실패: {SLLM_BASE_URL}/models 호출 중 오류 ({e}). "
+            "SLLM_MODEL 환경변수로 모델명을 명시하거나 백엔드 상태를 확인하세요."
+        ) from e
+    data = list(getattr(models, "data", []) or [])
+    if not data:
+        raise RuntimeError(
+            f"sLLM 모델 자동 감지 실패: {SLLM_BASE_URL}/models 응답에 모델이 없습니다 "
+            "(백엔드 미기동 가능성). SLLM_MODEL 환경변수로 모델명을 명시하세요."
+        )
+    return data[0].id
 
 
 @lru_cache(maxsize=1)
@@ -220,7 +250,7 @@ def _embed_text_uncached(text: str) -> np.ndarray:
 
 # per-key lock — 동일 query 동시 miss 시 OpenAI 중복 호출 방지.
 # WeakValueDictionary로 미사용 lock은 자동 GC → 무한 증가 없음.
-_embed_key_locks: "weakref.WeakValueDictionary[str, threading.Lock]" = (
+_embed_key_locks: weakref.WeakValueDictionary[str, threading.Lock] = (
     weakref.WeakValueDictionary()
 )
 _embed_keys_guard = threading.Lock()
@@ -356,9 +386,12 @@ _QUERY_FILTER_EXTRACT_TOOL = {
                     "데이터셋의 실제 occupation은 KSCO 표준 명칭 — 예: '중식 조리사', '한식 조리사', "
                     "'경리 사무원', '건물 경비원', '마케팅 전문가', '보육교사', '회계 사무원', '온라인 쇼핑 판매원'. "
                     "중요 규칙:\n"
-                    "1) 복합어는 단어 단위로 분리해 모두 포함: '중식조리' → ['중식','조리'], 'IT 개발자' → ['개발자','IT']\n"
-                    "2) '조리원'이 아닌 '조리사'가 데이터에 흔함 — 짧고 일반적인 어근('조리','의사','교사')을 우선 선택\n"
-                    "3) '직장인/회사원/샐러리맨' 같은 추상 단어는 occupations에 넣지 말고 employment_status='employed'\n"
+                    "1) 복합어는 단어 단위로 분리해 모두 포함: "
+                    "'중식조리' → ['중식','조리'], 'IT 개발자' → ['개발자','IT']\n"
+                    "2) '조리원'이 아닌 '조리사'가 데이터에 흔함 — "
+                    "짧고 일반적인 어근('조리','의사','교사')을 우선 선택\n"
+                    "3) '직장인/회사원/샐러리맨' 같은 추상 단어는 occupations에 넣지 말고 "
+                    "employment_status='employed'\n"
                     "4) '한식/중식/일식/양식' 같은 음식 종류는 직업과 결합되므로 occupations에 포함 OK"
                 ),
             },
@@ -396,13 +429,17 @@ _QUERY_FILTER_EXTRACT_TOOL = {
                 "type": "string",
                 "description": (
                     "메타 조건으로 추출되지 **않은** 잔여 의미·라이프스타일 텍스트 (임베딩 매칭용). "
-                    "**중요**: 메타 필드(sex/age/marital/has_children/employment/occupations/education_levels/provinces/additional_filters)로 "
-                    "이미 흡수된 단어는 **반드시 제외**. 같은 의미를 메타+임베딩에서 이중 적용하면 매칭 0이 발생함. "
+                    "**중요**: 메타 필드("
+                    "sex/age/marital/has_children/employment/occupations/education_levels/provinces/additional_filters"
+                    ")로 이미 흡수된 단어는 **반드시 제외**. "
+                    "같은 의미를 메타+임베딩에서 이중 적용하면 매칭 0이 발생함. "
                     "흡수 판정 예시: "
                     "'워킹맘' → sex=여자 + has_children=true + employment=employed로 완전 흡수 → 빈 문자열. "
                     "'30대 서울 직장인' → age+province+employment로 완전 흡수 → 빈 문자열. "
-                    "'은퇴 후 독서를 즐기는 60대' → age는 흡수, employment는 부분 흡수, '독서' 의미는 잔여 → '독서'. "
-                    "메타에 들어가지 않은 라이프스타일/취향/가치관 단어만 남길 것. 흡수 후 남는 의미가 없으면 빈 문자열."
+                    "'은퇴 후 독서를 즐기는 60대' → age는 흡수, employment는 부분 흡수, "
+                    "'독서' 의미는 잔여 → '독서'. "
+                    "메타에 들어가지 않은 라이프스타일/취향/가치관 단어만 남길 것. "
+                    "흡수 후 남는 의미가 없으면 빈 문자열."
                 ),
             },
         },
@@ -854,15 +891,28 @@ def _format_context_for_report(
     인구통계 분포를 기반으로 LLM이 인사이트를 쓰게 한다. 카드 상위 페르소나는
     참고용 정성 샘플로만 5명 제공.
     """
-    # cohort 요약
+    # cohort 요약 — mode에 따라 라벨을 분기해 LLM에 정확한 컷 의미 전달
+    # absolute: 점수 컷이 의미 있게 적중 (예: 점수 ≥75인 인원이 525명)
+    # percentile: 컷 인원이 부족하거나 과다해 모집단 분포 기반 폴백 (의미 약화)
     core = next(c for c in population.cohorts if c.name == "core")
     target = next(c for c in population.cohorts if c.name == "target")
     interest = next(c for c in population.cohorts if c.name == "interest")
+
+    def _ck(label_base: str, c) -> str:
+        if c.mode == "absolute":
+            cut_label = f"점수 ≥{c.threshold_absolute:.0f} 절대 컷"
+        else:
+            cut_label = f"상위 {c.percentile}% 폴백(절대 컷 결과가 적절치 않아 분위수로 재산정)"
+        return (
+            f"- {label_base}: {c.size:,}명 "
+            f"({cut_label}, min={c.min_score:.1f}, 평균={c.avg_score:.1f})"
+        )
+
     cohort_block = (
         f"- 전체 스코어링 인구: {population.total_scored:,}명\n"
-        f"- 핵심 타겟(상위 0.5%): {core.size:,}명 (점수 ≥ {core.min_score:.1f}, 평균 {core.avg_score:.1f})\n"
-        f"- 타겟층(상위 5%): {target.size:,}명 (점수 ≥ {target.min_score:.1f}, 평균 {target.avg_score:.1f})\n"
-        f"- 관심층(상위 20%): {interest.size:,}명 (점수 ≥ {interest.min_score:.1f}, 평균 {interest.avg_score:.1f})"
+        f"{_ck('핵심 타겟', core)}\n"
+        f"{_ck('타겟층', target)}\n"
+        f"{_ck('관심층', interest)}"
     )
 
     # demographics — 컬럼별로 라벨·카운트·점유율 (타겟층 5만 명 기준)
@@ -1246,7 +1296,7 @@ class SLLMService(BaseLLMService):
         truncated = product_text[:MAX_PRODUCT_TEXT_CHARS]
         user_content = _input_mode_prefix(input_mode) + truncated
         completion = sllm_client().chat.completions.create(
-            model=SLLM_MODEL,
+            model=resolve_sllm_model(),
             max_tokens=1500,
             temperature=0.2,
             messages=[
@@ -1268,7 +1318,7 @@ class SLLMService(BaseLLMService):
 
     def extract_filter_from_query(self, query: str) -> dict:
         completion = sllm_client().chat.completions.create(
-            model=SLLM_MODEL,
+            model=resolve_sllm_model(),
             max_tokens=400,
             temperature=0.2,
             messages=[
@@ -1349,7 +1399,7 @@ class SLLMService(BaseLLMService):
             existing_question_texts=existing_question_texts,
         )
         completion = sllm_client().chat.completions.create(
-            model=SLLM_MODEL,
+            model=resolve_sllm_model(),
             max_tokens=1500,
             temperature=0.4,
             messages=[
@@ -1374,7 +1424,7 @@ class SLLMService(BaseLLMService):
     ) -> str:
         context = _format_context_for_report(sp, top_personas, population)
         completion = sllm_client().chat.completions.create(
-            model=SLLM_MODEL,
+            model=resolve_sllm_model(),
             max_tokens=1600,
             temperature=0.4,
             messages=[
@@ -1387,7 +1437,7 @@ class SLLMService(BaseLLMService):
     def generate_overall_commentary(self, stats: dict) -> str:
         context = _format_context_for_commentary(stats)
         completion = sllm_client().chat.completions.create(
-            model=SLLM_MODEL,
+            model=resolve_sllm_model(),
             max_tokens=900,
             temperature=0.4,
             messages=[
@@ -1406,7 +1456,12 @@ _SERVICES: dict[LLMProvider, BaseLLMService] = {
 
 
 def get_llm_service(provider: LLMProvider = DEFAULT_PROVIDER) -> BaseLLMService:
-    """LLM 프로바이더별 객체 인스턴스 팩토리."""
+    """LLM 프로바이더별 객체 인스턴스 팩토리.
+
+    ⚠️ 현재 Anthropic 호출은 비활성 — 모든 provider 인자를 'sllm'으로 강제.
+    AnthropicLLMService 코드는 SDK·향후 복귀를 위해 보존만. 활성화 시 아래 줄 제거.
+    """
+    provider = "sllm"  # ENFORCE: Anthropic 호출 차단
     if provider not in _SERVICES:
         raise ValueError(f"지원하지 않는 LLM 프로바이더: {provider}")
     return _SERVICES[provider]

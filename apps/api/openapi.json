@@ -77,6 +77,215 @@
         }
       }
     },
+    "/api/abtest": {
+      "post": {
+        "tags": [
+          "abtest"
+        ],
+        "summary": "Abtest",
+        "description": "A/B 두 안 동시 분석 + 비교 표 + (Phase 3) LLM 리포트.",
+        "operationId": "abtest_api_abtest_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ABTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ABTestResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/abtests": {
+      "get": {
+        "tags": [
+          "abtests"
+        ],
+        "summary": "List Endpoint",
+        "description": "A/B 테스트 이력 요약 리스트 (최신순).",
+        "operationId": "list_endpoint_api_abtests_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ABTestsListResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "abtests"
+        ],
+        "summary": "Delete All Endpoint",
+        "description": "전체 삭제.",
+        "operationId": "delete_all_endpoint_api_abtests_delete",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete All Endpoint Api Abtests Delete"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/abtests/{abtest_id}": {
+      "get": {
+        "tags": [
+          "abtests"
+        ],
+        "summary": "Detail Endpoint",
+        "description": "A/B 테스트 단건 — ABTestResponse 호환 dict 반환.\n\n옛 레코드의 누락 필드는 abtest_persistence.get_abtest에서 기본값으로 채워짐.",
+        "operationId": "detail_endpoint_api_abtests__abtest_id__get",
+        "parameters": [
+          {
+            "name": "abtest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Abtest Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Detail Endpoint Api Abtests  Abtest Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "abtests"
+        ],
+        "summary": "Delete Endpoint",
+        "description": "단건 삭제.",
+        "operationId": "delete_endpoint_api_abtests__abtest_id__delete",
+        "parameters": [
+          {
+            "name": "abtest_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Abtest Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Endpoint Api Abtests  Abtest Id  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/extract-text": {
       "post": {
         "tags": [
@@ -136,6 +345,71 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Supported Formats Api Extract Text Supported Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "tags": [
+          "products"
+        ],
+        "summary": "List Products",
+        "description": "30개 상품 메타 + 각 상품의 약관 본문 가용 여부.",
+        "operationId": "list_products_api_products_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductCatalog"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/products/{product_id}/body": {
+      "get": {
+        "tags": [
+          "products"
+        ],
+        "summary": "Get Product Body",
+        "description": "특정 상품의 약관 본문 텍스트.\n\nPDF가 data/products/pdfs/<id>.pdf 로 업로드되어 있어야 한다.\n텍스트 캐시(bodies/<id>.txt)가 PDF보다 최신이면 캐시를 그대로 반환.",
+        "operationId": "get_product_body_api_products__product_id__body_get",
+        "parameters": [
+          {
+            "name": "product_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Product Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1515,6 +1789,388 @@
   },
   "components": {
     "schemas": {
+      "ABComparison": {
+        "properties": {
+          "summary_table": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonRow"
+            },
+            "type": "array",
+            "title": "Summary Table"
+          },
+          "category_diff": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "number"
+              },
+              "type": "object"
+            },
+            "type": "object",
+            "title": "Category Diff",
+            "description": "페르소나 카테고리별 가중치 diff. {'family': {'a': 0.55, 'b': 0.20, 'delta': -0.35}, ...}"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary_table"
+        ],
+        "title": "ABComparison",
+        "description": "A vs B 정형 비교 데이터 (LLM 미사용, 순수 계산)."
+      },
+      "ABTestRequest": {
+        "properties": {
+          "company_context": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 10,
+            "title": "Company Context",
+            "description": "당사 정보 (브랜드/포지셔닝/KPI/차별점). 장단점·FP 전략 LLM의 핵심 컨텍스트."
+          },
+          "input_mode": {
+            "type": "string",
+            "enum": [
+              "terms",
+              "marketing",
+              "concept"
+            ],
+            "title": "Input Mode",
+            "description": "입력 형태 — terms(약관/설명서) / marketing(카피·광고) / concept(컨셉+보장 요약). 프롬프트 톤 힌트.",
+            "default": "terms"
+          },
+          "variant_a": {
+            "$ref": "#/components/schemas/ABTestVariantInput"
+          },
+          "variant_b": {
+            "$ref": "#/components/schemas/ABTestVariantInput"
+          },
+          "baseline_variant": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B"
+            ],
+            "title": "Baseline Variant",
+            "description": "당사 안(기준안)으로 간주할 쪽. 다른 쪽은 비교·검토 대상. LLM의 장단점·전략 분석에서 '당사 안 vs 도전안' 관점 차이를 만든다.",
+            "default": "A"
+          },
+          "challenger_kind": {
+            "type": "string",
+            "enum": [
+              "internal",
+              "external"
+            ],
+            "title": "Challenger Kind",
+            "description": "도전안(기준이 아닌 쪽)의 성격. internal=당사 다른 상품(내부 비교), external=타사 상품(경쟁 분석). LLM이 외부 위협/벤치마크 관점을 적용할지, 내부 포트폴리오 관점을 적용할지 결정.",
+            "default": "internal"
+          },
+          "llm_provider": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "sllm"
+            ],
+            "title": "Llm Provider",
+            "description": "사용 LLM provider",
+            "default": "sllm"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 5.0,
+            "title": "Top K",
+            "description": "각 안에서 반환할 상위 페르소나 수 (A·B 동일)",
+            "default": 50
+          }
+        },
+        "type": "object",
+        "required": [
+          "company_context",
+          "variant_a",
+          "variant_b"
+        ],
+        "title": "ABTestRequest",
+        "description": "POST /api/abtest 요청."
+      },
+      "ABTestResponse": {
+        "properties": {
+          "abtest_id": {
+            "type": "string",
+            "title": "Abtest Id"
+          },
+          "input_mode": {
+            "type": "string",
+            "enum": [
+              "terms",
+              "marketing",
+              "concept"
+            ],
+            "title": "Input Mode"
+          },
+          "company_context": {
+            "type": "string",
+            "title": "Company Context",
+            "description": "요청 시 입력된 당사 정보 (영속화·재표시용)"
+          },
+          "baseline_variant": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B"
+            ],
+            "title": "Baseline Variant",
+            "description": "당사 안(기준안)으로 지정된 쪽",
+            "default": "A"
+          },
+          "challenger_kind": {
+            "type": "string",
+            "enum": [
+              "internal",
+              "external"
+            ],
+            "title": "Challenger Kind",
+            "description": "도전안의 성격 (internal=당사 다른 상품, external=타사 상품)",
+            "default": "internal"
+          },
+          "variant_a": {
+            "$ref": "#/components/schemas/ABVariantResult"
+          },
+          "variant_b": {
+            "$ref": "#/components/schemas/ABVariantResult"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/ABComparison"
+          },
+          "company_insights_md": {
+            "type": "string",
+            "title": "Company Insights Md",
+            "description": "당사 정보 중심 A/B 장단점 마크다운 (LLM 생성)"
+          },
+          "fp_strategy_md": {
+            "type": "string",
+            "title": "Fp Strategy Md",
+            "description": "FP 판매전략 마크다운 — 타겟별 어프로치 스크립트 + 채널 추천 (LLM 생성)"
+          },
+          "recommended_variant": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "split"
+            ],
+            "title": "Recommended Variant",
+            "description": "추천안. 'split'은 타겟별 분기 운영 권장."
+          },
+          "elapsed_ms": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Elapsed Ms",
+            "description": "단계별 ms: extract_a, extract_b, embed_a, embed_b, score_a, score_b, opinions_a, opinions_b, compare, insights, strategy, total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "abtest_id",
+          "input_mode",
+          "company_context",
+          "variant_a",
+          "variant_b",
+          "comparison",
+          "company_insights_md",
+          "fp_strategy_md",
+          "recommended_variant",
+          "elapsed_ms"
+        ],
+        "title": "ABTestResponse",
+        "description": "POST /api/abtest 응답."
+      },
+      "ABTestSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "title": "Created At"
+          },
+          "input_mode": {
+            "type": "string",
+            "enum": [
+              "terms",
+              "marketing",
+              "concept"
+            ],
+            "title": "Input Mode"
+          },
+          "baseline_variant": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B"
+            ],
+            "title": "Baseline Variant"
+          },
+          "challenger_kind": {
+            "type": "string",
+            "enum": [
+              "internal",
+              "external"
+            ],
+            "title": "Challenger Kind"
+          },
+          "label_a": {
+            "type": "string",
+            "title": "Label A"
+          },
+          "label_b": {
+            "type": "string",
+            "title": "Label B"
+          },
+          "baseline_label": {
+            "type": "string",
+            "title": "Baseline Label"
+          },
+          "challenger_label": {
+            "type": "string",
+            "title": "Challenger Label"
+          },
+          "recommended_variant": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "split"
+            ],
+            "title": "Recommended Variant"
+          },
+          "recommended_label": {
+            "type": "string",
+            "title": "Recommended Label"
+          },
+          "total_ms": {
+            "type": "integer",
+            "title": "Total Ms"
+          },
+          "llm_provider": {
+            "type": "string",
+            "enum": [
+              "anthropic",
+              "sllm"
+            ],
+            "title": "Llm Provider"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "input_mode",
+          "baseline_variant",
+          "challenger_kind",
+          "label_a",
+          "label_b",
+          "baseline_label",
+          "challenger_label",
+          "recommended_variant",
+          "recommended_label",
+          "total_ms",
+          "llm_provider"
+        ],
+        "title": "ABTestSummary"
+      },
+      "ABTestVariantInput": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Label",
+            "description": "안의 별명 (예: \"현재안\", \"리뉴얼안\"). 결과 표·리포트에 그대로 노출."
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 20,
+            "title": "Text",
+            "description": "해당 안의 본문 (약관/카피/컨셉 요약 등 — input_mode와 무관하게 같은 분석 파이프라인 통과)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "text"
+        ],
+        "title": "ABTestVariantInput",
+        "description": "A/B 테스트 한 안의 입력."
+      },
+      "ABTestsListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ABTestSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "items"
+        ],
+        "title": "ABTestsListResponse"
+      },
+      "ABVariantResult": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "입력 시 지정한 별명 (UI 표시 기준)"
+          },
+          "selling_points": {
+            "$ref": "#/components/schemas/SellingPoints"
+          },
+          "top_personas": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaHit"
+            },
+            "type": "array",
+            "title": "Top Personas"
+          },
+          "province_stats": {
+            "items": {
+              "$ref": "#/components/schemas/RegionStat"
+            },
+            "type": "array",
+            "title": "Province Stats"
+          },
+          "population_stats": {
+            "$ref": "#/components/schemas/PopulationStats"
+          },
+          "top_opinions": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaOpinion"
+            },
+            "type": "array",
+            "title": "Top Opinions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "selling_points",
+          "top_personas",
+          "population_stats"
+        ],
+        "title": "ABVariantResult",
+        "description": "A 또는 B 한 안의 분석 결과 (단일 /api/analyze 응답의 축약형)."
+      },
       "AnalysesListResponse": {
         "properties": {
           "total": {
@@ -1627,7 +2283,7 @@
               "sllm"
             ],
             "title": "Llm Provider",
-            "description": "사용할 LLM provider. anthropic=Claude Sonnet+Haiku, sllm=OpenAI 호환 vLLM (Qwen3.6-27B-FP8)",
+            "description": "사용할 LLM provider. anthropic=Claude Sonnet+Haiku, sllm=OpenAI 호환 sLLM (모델명은 SLLM_MODEL env 또는 /v1/models 자동 감지)",
             "default": "sllm"
           }
         },
@@ -1654,6 +2310,14 @@
             "type": "array",
             "title": "Top Personas"
           },
+          "mid_personas": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaHit"
+            },
+            "type": "array",
+            "title": "Mid Personas",
+            "description": "전체 점수 중위 N명 (median 근처 ±N/2 — 평균 시장 반응)"
+          },
           "bottom_personas": {
             "items": {
               "$ref": "#/components/schemas/PersonaHit"
@@ -1668,7 +2332,7 @@
             },
             "type": "array",
             "title": "Province Stats",
-            "description": "상위 50명 기준 시도 집계 (카드용)"
+            "description": "상위 N명 기준 시도 집계 (카드용)"
           },
           "district_stats": {
             "items": {
@@ -1689,6 +2353,14 @@
             "type": "array",
             "title": "Top Opinions",
             "description": "top_personas와 같은 순서로 매칭된 의견 (uuid join도 가능)"
+          },
+          "mid_opinions": {
+            "items": {
+              "$ref": "#/components/schemas/PersonaOpinion"
+            },
+            "type": "array",
+            "title": "Mid Opinions",
+            "description": "mid_personas와 같은 순서로 매칭된 의견"
           },
           "bottom_opinions": {
             "items": {
@@ -1814,7 +2486,7 @@
           "percentile": {
             "type": "number",
             "title": "Percentile",
-            "description": "상위 X% (0~100)"
+            "description": "참조용 percentile 표기 (옛 분석 이력 호환). 절대 컷에서는 미사용."
           },
           "size": {
             "type": "integer",
@@ -1830,6 +2502,17 @@
             "type": "number",
             "title": "Avg Score",
             "description": "평균 점수"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "description": "컷 방식. 현재는 항상 'absolute'. 'percentile'은 옛 이력 호환용.",
+            "default": "absolute"
+          },
+          "threshold_absolute": {
+            "type": "number",
+            "title": "Threshold Absolute",
+            "description": "이 cohort의 절대 점수 임계값. mode와 무관하게 항상 노출."
           }
         },
         "type": "object",
@@ -1839,10 +2522,61 @@
           "percentile",
           "size",
           "min_score",
-          "avg_score"
+          "avg_score",
+          "threshold_absolute"
         ],
         "title": "CohortStat",
-        "description": "percentile 기반 cohort 1개."
+        "description": "절대 점수 컷 기반 cohort 1개.\n\nraw 점수 분포 의미를 카드에 그대로 노출하기 위해 절대 점수 컷(85/75/65)만\n적용한다. 과거에는 인원 부족/과다 시 percentile 폴백을 적용했으나,\n\"≥85 인원이 폴백으로 5,001명에 캡되어 분포 정보가 가려지는\" 문제가 있어 제거."
+      },
+      "ComparisonRow": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "description": "식별자 (예: 'avg_score', 'core_size')"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label",
+            "description": "표시 라벨 (예: '평균 반응도 점수')"
+          },
+          "a_value": {
+            "type": "string",
+            "title": "A Value",
+            "description": "A 값을 포매팅한 문자열"
+          },
+          "b_value": {
+            "type": "string",
+            "title": "B Value",
+            "description": "B 값을 포매팅한 문자열"
+          },
+          "delta": {
+            "type": "string",
+            "title": "Delta",
+            "description": "차이를 포매팅한 문자열 (예: '+4.5 (B 우위)' 또는 '분기')"
+          },
+          "winner": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "tie"
+            ],
+            "title": "Winner",
+            "description": "이 지표 한정 승자. 수치 비교 불가(분기 등)면 'tie'.",
+            "default": "tie"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "a_value",
+          "b_value",
+          "delta"
+        ],
+        "title": "ComparisonRow",
+        "description": "A vs B 비교 표 한 행."
       },
       "DemographicGroup": {
         "properties": {
@@ -2420,6 +3154,30 @@
             },
             "type": "object",
             "title": "Province"
+          },
+          "occupations_grouped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Occupations Grouped"
+          },
+          "family_type": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Family Type"
+          },
+          "housing_type": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Housing Type"
           }
         },
         "type": "object",
@@ -2496,6 +3254,23 @@
             },
             "type": "array",
             "title": "Occupations"
+          },
+          "insurance_interest": {
+            "type": "boolean",
+            "title": "Insurance Interest",
+            "default": false
+          },
+          "life_stages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Life Stages"
+          },
+          "income_top": {
+            "type": "boolean",
+            "title": "Income Top",
+            "default": false
           },
           "query": {
             "anyOf": [
@@ -2580,6 +3355,22 @@
             "type": "boolean",
             "title": "Has Query"
           },
+          "fallback_applied": {
+            "type": "boolean",
+            "title": "Fallback Applied",
+            "default": false
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fallback Reason"
+          },
           "elapsed_ms": {
             "additionalProperties": {
               "type": "integer"
@@ -2612,7 +3403,21 @@
           "score": {
             "type": "number",
             "title": "Score",
-            "description": "0-100 정규화 반응도 점수"
+            "description": "0-100 정규화 반응도 점수 (raw, LLM 톤·UI 색상의 기준)"
+          },
+          "percentile_score": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percentile Score",
+            "description": "모집단 내 백분위 (100=최상위 1명, 50=중위). 옛 분석은 None"
           },
           "persona": {
             "type": "string",
@@ -2936,6 +3741,140 @@
             "type": "array",
             "title": "Districts Full",
             "description": "타겟 cohort(상위 5%, ≈5만명) 기준 전국 시군구별 집계. name 형식: '시도-시군구' (예: '경기-광명시'). 지도 choropleth와 Top N 표용. count 내림차순."
+          },
+          "raw_mean": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Mean",
+            "description": "모집단 전체 raw score 평균"
+          },
+          "raw_std": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Std",
+            "description": "모집단 전체 raw score 표준편차"
+          },
+          "raw_p50": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw P50",
+            "description": "raw score 중위값"
+          },
+          "raw_p95": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw P95",
+            "description": "raw score 상위 5% 컷"
+          },
+          "raw_p99": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw P99",
+            "description": "raw score 상위 1% 컷"
+          },
+          "raw_max": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Raw Max",
+            "description": "raw score 최대값"
+          },
+          "n_above_80": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Above 80",
+            "description": "raw ≥80 인원 (UI/LLM이 '매우 높음'으로 해석하는 컷)"
+          },
+          "n_above_65": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Above 65",
+            "description": "raw ≥65 인원 ('높음' 컷)"
+          },
+          "core_lift": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Core Lift",
+            "description": "core cohort 평균 점수 − 모집단 평균. core가 모집단 대비 얼마나 높은지"
+          },
+          "target_lift": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Lift",
+            "description": "target cohort 평균 점수 − 모집단 평균"
+          },
+          "quality_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Quality Flags",
+            "description": "분포·cohort 품질 경고 플래그. 비어 있으면 정상. 예) 'distribution_narrow', 'core_low_lift', 'mode_inconsistent'"
+          },
+          "scoring_version": {
+            "type": "string",
+            "title": "Scoring Version",
+            "description": "점수 산출 체계 버전. 'v2_hybrid'=분석내 z-score+제품 오프셋(2026-05-29~). 옛 레코드는 이 필드 부재 → 읽는 쪽에서 'v1'(percentile-rank 균등매핑)로 간주.",
+            "default": "v2_hybrid"
           }
         },
         "type": "object",
@@ -2947,6 +3886,123 @@
         ],
         "title": "PopulationStats",
         "description": "100만 행 전체 스코어링 결과 + 모집단 통계.\n\ncohort 정의:\n  - core: 상위 0.5% (≈5,000명) — 카드·리포트 컨텍스트로 이미 노출됨\n  - target: 상위 5% (≈50,000명) — demographics 집계의 주 모집단\n  - interest: 상위 20% (≈200,000명) — 점수 분포 차트 베이스"
+      },
+      "ProductBody": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "chars": {
+            "type": "integer",
+            "title": "Chars"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "txt"
+            ],
+            "title": "Source"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "text",
+          "chars",
+          "source"
+        ],
+        "title": "ProductBody"
+      },
+      "ProductCatalog": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "fetched_at": {
+            "type": "string",
+            "title": "Fetched At"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "products": {
+            "items": {
+              "$ref": "#/components/schemas/ProductSummary"
+            },
+            "type": "array",
+            "title": "Products"
+          }
+        },
+        "type": "object",
+        "required": [
+          "source",
+          "fetched_at",
+          "count",
+          "products"
+        ],
+        "title": "ProductCatalog"
+      },
+      "ProductSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "official_name": {
+            "type": "string",
+            "title": "Official Name"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "page_url": {
+            "type": "string",
+            "title": "Page Url"
+          },
+          "body_available": {
+            "type": "boolean",
+            "title": "Body Available"
+          },
+          "body_chars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Body Chars"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "official_name",
+          "category",
+          "page_url",
+          "body_available"
+        ],
+        "title": "ProductSummary"
       },
       "Question": {
         "properties": {
@@ -3746,13 +4802,10 @@
           },
           "n_respondents": {
             "type": "integer",
-            "enum": [
-              3,
-              5,
-              10
-            ],
+            "maximum": 100.0,
+            "minimum": 1.0,
             "title": "N Respondents",
-            "description": "응답자 수 (top_personas 상위 N명)",
+            "description": "응답자 수 (top_personas 상위 N명, 최대 100명)",
             "default": 5
           },
           "llm_provider": {

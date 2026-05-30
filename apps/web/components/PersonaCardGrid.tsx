@@ -187,7 +187,7 @@ function PersonaCardItem({
             <dd className="text-graphite truncate">{p.family_type || "—"}</dd>
           </div>
         </dl>
-        <p className="text-body-sm text-graphite leading-relaxed line-clamp-4">
+        <p className="text-body-sm text-graphite leading-relaxed whitespace-pre-wrap">
           {p.persona}
         </p>
       </div>

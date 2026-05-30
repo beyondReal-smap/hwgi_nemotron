@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { SurveyProgress } from "@/components/SurveyProgress";
 import {
   getSurvey,
@@ -96,7 +96,6 @@ export default function ProgressPage() {
 
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
       <main className="flex-1 max-w-[1100px] w-full mx-auto p-4 lg:p-8">
         {/* 페이지 헤더 */}
         <header className="flex flex-col gap-1.5 mb-6">

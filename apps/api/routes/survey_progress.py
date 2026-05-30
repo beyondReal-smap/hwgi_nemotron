@@ -11,7 +11,7 @@ from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
 
-from models.survey import ResponseSession, SurveyStatus
+from models.survey import SurveyStatus
 from services import survey_repo
 from services.survey_run import run_survey
 

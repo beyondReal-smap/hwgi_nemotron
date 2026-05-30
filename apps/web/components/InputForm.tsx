@@ -1,17 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   analyzeProduct,
   extractTextFromFile,
-  loadLLMProvider,
   MAX_FILE_SIZE_MB,
-  saveLLMProvider,
   SUPPORTED_EXTENSIONS,
   type AnalyzeResponse,
-  type LLMProvider,
 } from "@/lib/api";
-import { LLMProviderToggle } from "@/components/LLMProviderToggle";
+import { HwgiProductPicker } from "@/components/HwgiProductPicker";
 
 type Props = {
   onResult: (r: AnalyzeResponse) => void;
@@ -29,18 +26,7 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploadedName, setUploadedName] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [provider, setProvider] = useState<LLMProvider>("anthropic");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // 마운트 시 localStorage에서 사용자 선택 복원
-  useEffect(() => {
-    setProvider(loadLLMProvider());
-  }, []);
-
-  function handleProviderChange(p: LLMProvider) {
-    setProvider(p);
-    saveLLMProvider(p);
-  }
 
   const length = text.length;
   const tooShort = length > 0 && length < MIN_LEN;
@@ -116,7 +102,7 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
     onError(null);
 
     try {
-      const r = await analyzeProduct(text, 100, provider);
+      const r = await analyzeProduct(text, 100);
       onResult(r);
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
@@ -136,9 +122,19 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
       <header>
         <h2 className="text-title text-ink">상품 분석</h2>
         <p className="text-body-sm text-dusty mt-1.5">
-          약관 파일을 업로드하거나 본문을 붙여넣으세요.
+          한화 상품을 선택하거나, 약관 파일을 업로드하거나, 본문을 붙여넣으세요.
         </p>
       </header>
+
+      {/* 한화일반보험 카탈로그에서 불러오기 */}
+      <HwgiProductPicker
+        disabled={submitting || uploading}
+        onError={onError}
+        onPick={({ text: body, label }) => {
+          setText(body);
+          setUploadedName(label);
+        }}
+      />
 
       {/* 파일 업로드 영역 */}
       <div
@@ -231,12 +227,6 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
           </span>
         )}
       </div>
-
-      <LLMProviderToggle
-        value={provider}
-        onChange={handleProviderChange}
-        disabled={submitting || uploading}
-      />
 
       <button
         type="submit"

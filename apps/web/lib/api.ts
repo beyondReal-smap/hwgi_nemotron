@@ -21,6 +21,12 @@ export type SellingPoints = {
 export type PersonaHit = {
   uuid: string;
   score: number;
+  /**
+   * 모집단 100만 명 내에서의 이 페르소나의 백분위 (0~100, 100=최상위).
+   * raw score(0~100)와 함께 카드에 보조 라벨로 노출 — 'score 78점 + 상위 0.1%'.
+   * 옛 분석 이력에는 없음(null).
+   */
+  percentile_score?: number | null;
   persona: string;
   province: string;
   district: string;
@@ -43,10 +49,19 @@ export type RegionStat = {
 export type CohortStat = {
   name: string;          // "core" | "target" | "interest"
   label: string;         // 표시용
-  percentile: number;
+  percentile: number;    // 폴백 percentile 임계값 (mode=percentile일 때만 실제 적용)
   size: number;
   min_score: number;
   avg_score: number;
+  /**
+   * 컷 방식. absolute=절대 점수 컷 적용, percentile=인원 부족으로 폴백.
+   * 옛 분석 이력에는 없을 수 있어 옵셔널.
+   */
+  mode?: "absolute" | "percentile";
+  /**
+   * 절대 점수 임계값 (참조용). 새 분석은 항상 채워지지만 옛 이력에는 없을 수 있어 옵셔널.
+   */
+  threshold_absolute?: number;
 };
 
 export type DistributionBin = {
@@ -69,6 +84,23 @@ export type PopulationStats = {
   demographics: DemographicGroup[];
   /** 타겟 cohort 기준 전국 시군구 집계 (지도/Top10 표용). name 형식: "시도-시군구". */
   districts_full: RegionStat[];
+  /**
+   * raw 분포 통계 (PR-1 신설). 모두 옵셔널 — 옛 분석 이력에는 없음.
+   * 분포가 [52,78]로 좁아 cohort 인원만으로 안 간 차이가 안 보이는 문제 보완.
+   */
+  raw_mean?: number | null;
+  raw_std?: number | null;
+  raw_p50?: number | null;
+  raw_p95?: number | null;
+  raw_p99?: number | null;
+  raw_max?: number | null;
+  n_above_80?: number | null;
+  n_above_65?: number | null;
+  core_lift?: number | null;
+  target_lift?: number | null;
+  quality_flags?: string[];
+  /** 점수 산출 체계. "v2_hybrid"=z-score+제품오프셋. 옛 분석은 undefined → 구(균등매핑). */
+  scoring_version?: string;
 };
 
 export type PersonaOpinion = {
@@ -83,11 +115,15 @@ export type AnalyzeResponse = {
   analysis_id: string;
   selling_points: SellingPoints;
   top_personas: PersonaHit[];
+  /** 전체 점수 median 근처 N명 — 평균 시장 반응. 옛 이력은 빈 배열. */
+  mid_personas?: PersonaHit[];
   bottom_personas: PersonaHit[];
   province_stats: RegionStat[];
   district_stats: RegionStat[];
   population_stats: PopulationStats;
   top_opinions: PersonaOpinion[];
+  /** mid_personas와 같은 순서 매칭. 옛 이력은 빈 배열. */
+  mid_opinions?: PersonaOpinion[];
   bottom_opinions: PersonaOpinion[];
   report_md: string;
   elapsed_ms: Record<string, number>;
@@ -109,7 +145,7 @@ export const LLM_PROVIDER_OPTIONS: Array<{
   label: string;
   sub: string;
 }> = [
-  { value: "sllm", label: "sLLM", sub: "vLLM Qwen3.6-27B-FP8 (사내·무료)" },
+  { value: "sllm", label: "sLLM", sub: "사내·무료" },
   { value: "anthropic", label: "Claude", sub: "Anthropic Sonnet · Haiku" },
 ];
 
@@ -516,6 +552,10 @@ export type PersonaFilterRequest = {
   family_types?: string[];
   education_levels?: string[];
   occupations?: string[];
+  /** 금융 속성 필터 (AI Hub 통신카드CB 통합) */
+  insurance_interest?: boolean;
+  life_stages?: string[];
+  income_top?: boolean;
   query?: string | null;
   page?: number;
   page_size?: number;
@@ -525,6 +565,10 @@ export type PersonaFilterDistribution = {
   sex: Record<string, number>;
   age_bins: { label: string; count: number }[];
   province: Record<string, number>;
+  // 현황(overview)과 동일 구조 — 매칭 결과 전체 기준 직업군·가구·주거 분포.
+  occupations_grouped: OccupationGroup[];
+  family_type: DistributionBin[];
+  housing_type: DistributionBin[];
 };
 
 export type ExtractedFilter = {
@@ -567,6 +611,14 @@ export type PersonaFilterResponse = {
   page_personas: PersonaCard[];
   distribution: PersonaFilterDistribution;
   has_query: boolean;
+  /**
+   * LLM 메타 추출이 너무 좁아 매칭 0명이 나왔을 때 백엔드가 자동으로
+   * 한 단계(좁은 라벨 제거+키워드 임베딩) 또는 두 단계(메타 전체 해제+원문 임베딩)
+   * 폴백 검색을 수행했는지 여부.
+   */
+  fallback_applied: boolean;
+  /** 폴백이 적용된 경우 어떤 폴백이 적용됐는지 사용자에게 보여줄 안내 문구. */
+  fallback_reason: string | null;
   elapsed_ms: { extract?: number; filter: number; search: number; total: number };
 };
 
@@ -1164,7 +1216,8 @@ export type ABTestRequest = {
   baseline_variant: "A" | "B";
   /** 도전안의 성격 (internal=당사 다른 상품 / external=타사 상품). */
   challenger_kind: ABChallengerKind;
-  llm_provider: LLMProvider;
+  /** @deprecated Anthropic 호출 비활성. 옵셔널 — 미전송 시 backend default(sllm) 적용. */
+  llm_provider?: LLMProvider;
   top_k?: number;
 };
 
@@ -1284,6 +1337,67 @@ export async function runABTest(req: ABTestRequest): Promise<ABTestResponse> {
       // JSON 아닐 수 있음
     }
     throw new Error(`A/B 분석 실패: ${detail}`);
+  }
+  return res.json();
+}
+
+// ============================================================
+// 한화일반보험 상품 카탈로그
+// ============================================================
+
+export type ProductSummary = {
+  id: string;
+  name: string;
+  official_name: string;
+  category: string;
+  page_url: string;
+  body_available: boolean;
+  body_chars: number | null;
+};
+
+export type ProductCatalog = {
+  source: string;
+  fetched_at: string;
+  count: number;
+  products: ProductSummary[];
+};
+
+export type ProductBody = {
+  id: string;
+  name: string;
+  text: string;
+  chars: number;
+  source: "pdf" | "txt";
+};
+
+export async function listProducts(): Promise<ProductCatalog> {
+  const res = await fetch(`${BASE_URL}/api/products`);
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+export async function getProductBody(productId: string): Promise<ProductBody> {
+  const res = await fetch(
+    `${BASE_URL}/api/products/${encodeURIComponent(productId)}/body`,
+  );
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.detail) detail = body.detail;
+    } catch {
+      // ignore
+    }
+    throw new Error(detail);
   }
   return res.json();
 }

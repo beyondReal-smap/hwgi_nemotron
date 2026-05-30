@@ -20,7 +20,7 @@ from collections import Counter
 import numpy as np
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from models.survey import Question, QuestionType, Survey
 from services import survey_repo
@@ -185,7 +185,7 @@ def _respondent_distribution(
     bin_labels = [f"{age_bin_edges[i]}-{age_bin_edges[i+1]-1}" for i in range(len(age_bin_edges) - 1)]
     bin_indices = np.clip(rows["age"].to_numpy() // 10, 0, len(bin_labels) - 1).astype(int)
     bin_counts = np.bincount(bin_indices, minlength=len(bin_labels))
-    age_bins = [{"label": lbl, "count": int(c)} for lbl, c in zip(bin_labels, bin_counts) if c > 0]
+    age_bins = [{"label": lbl, "count": int(c)} for lbl, c in zip(bin_labels, bin_counts, strict=False) if c > 0]
 
     return RespondentDistribution(sex=sex_counts, age_bins=age_bins, province=province_counts)
 

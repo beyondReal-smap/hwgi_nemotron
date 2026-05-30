@@ -48,7 +48,10 @@ async def parse_file(file: UploadFile = File(...)) -> ParseResult:
     if not content:
         raise HTTPException(status_code=400, detail="빈 파일입니다")
     if len(content) > MAX_FILE_SIZE_BYTES:
-        raise HTTPException(status_code=413, detail=f"파일이 너무 큽니다 (최대 {MAX_FILE_SIZE_BYTES // 1024 // 1024}MB)")
+        raise HTTPException(
+            status_code=413,
+            detail=f"파일이 너무 큽니다 (최대 {MAX_FILE_SIZE_BYTES // 1024 // 1024}MB)",
+        )
 
     try:
         return parse_question_file(file.filename, content)

@@ -164,6 +164,32 @@ export function PersonaFilterPanel({
           />
           <p className="text-caption text-dusty mt-1">콤마로 구분, 직업명 일부만 입력해도 매칭</p>
         </FilterGroup>
+
+        {/* 금융 속성 — AI Hub 통신카드CB 통합 (hot-deck 추정 속성) */}
+        <FilterGroup label="금융 속성" collapsible defaultOpen={false}>
+          <CheckboxGroup
+            options={["보험 관심자만"]}
+            value={value.insurance_interest ? ["보험 관심자만"] : []}
+            onChange={(arr) => patch({ insurance_interest: arr.length > 0 })}
+          />
+          <CheckboxGroup
+            options={["소득 상위자만"]}
+            value={value.income_top ? ["소득 상위자만"] : []}
+            onChange={(arr) => patch({ income_top: arr.length > 0 })}
+          />
+          <div className="mt-2">
+            <p className="text-caption text-dusty mb-1">생애주기</p>
+            <CheckboxGroup
+              cols={2}
+              options={["싱글", "신혼", "영유아자녀", "청소년자녀", "성인자녀", "실버"]}
+              value={value.life_stages ?? []}
+              onChange={(arr) => patch({ life_stages: arr })}
+            />
+          </div>
+          <p className="text-caption text-stone mt-2">
+            인구통계 기반 추정 속성입니다 (실측 아님)
+          </p>
+        </FilterGroup>
       </div>
     </aside>
   );

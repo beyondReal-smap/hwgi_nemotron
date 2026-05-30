@@ -10,6 +10,7 @@ import type {
   PersonaOpinion,
 } from "@/lib/api";
 import { ComparisonTable } from "./ComparisonTable";
+import { DemographicCard } from "@/components/DistributionCharts";
 
 type Props = {
   result: ABTestResponse;
@@ -77,6 +78,9 @@ export function ABTestResultPanel({ result }: Props) {
         inputMode={input_mode}
       />
 
+      {/* 인구통계 분포 비교 — 각 안의 타겟층 기준 (현황·분석과 동일한 차트 카드) */}
+      <DemographicComparisonSection a={variant_a} b={variant_b} />
+
       {/* 당사 관점 장단점 */}
       <MarkdownSection
         title="당사 관점 장단점"
@@ -91,6 +95,65 @@ export function ABTestResultPanel({ result }: Props) {
         markdown={fp_strategy_md}
         accent="terra"
       />
+    </div>
+  );
+}
+
+// ============================================================
+// 인구통계 분포 비교 — A·B 좌우 배치, 각 안의 타겟층 기준 demographics
+// ============================================================
+
+function DemographicComparisonSection({
+  a,
+  b,
+}: {
+  a: ABVariantResult;
+  b: ABVariantResult;
+}) {
+  return (
+    <section className="border border-parchment border-l-4 border-l-terra rounded-[9.6px] bg-vellum overflow-hidden">
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
+        <h2 className="text-title text-ink">인구통계 분포 비교</h2>
+        <p className="text-body-sm text-dusty mt-1">
+          각 안의 타겟층 기준 인구통계 분포 (Nemotron 카테고리)
+        </p>
+      </header>
+      <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-parchment">
+        <VariantDemographics variant={a} accent="A" />
+        <VariantDemographics variant={b} accent="B" />
+      </div>
+    </section>
+  );
+}
+
+function VariantDemographics({
+  variant,
+  accent,
+}: {
+  variant: ABVariantResult;
+  accent: "A" | "B";
+}) {
+  return (
+    <div className="p-4">
+      <h3 className="flex items-center gap-2 text-heading text-ink mb-3">
+        <span
+          className={`inline-flex items-center justify-center w-5 h-5 rounded-[5px] text-overline font-semibold
+            ${accent === "A" ? "bg-azure/30 text-ink" : "bg-terra/20 text-terra"}`}
+        >
+          {accent}
+        </span>
+        <span className="truncate" title={variant.label}>
+          {variant.label}
+        </span>
+      </h3>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {variant.population_stats.demographics.map((g) => (
+          <DemographicCard
+            key={g.column}
+            dem={{ column: g.column, label: g.label, bins: g.bins }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -265,18 +328,87 @@ function MiniStatCard({
       <p className="text-caption text-dusty mb-1.5 line-clamp-2">{selling_points.summary}</p>
       <div className="grid grid-cols-3 gap-2 text-center mt-2">
         <Stat label="평균 점수" value={avgScore.toFixed(1)} />
-        <Stat label="핵심 타겟" value={core ? formatN(core.size) : "—"} />
-        <Stat label="타겟층" value={target ? formatN(target.size) : "—"} />
+        <Stat
+          label="핵심 타겟"
+          value={core ? formatN(core.size) : "—"}
+          hint={cohortModeHint(core)}
+          isFallback={core?.mode === "percentile"}
+        />
+        <Stat
+          label="타겟층"
+          value={target ? formatN(target.size) : "—"}
+          hint={cohortModeHint(target)}
+          isFallback={target?.mode === "percentile"}
+        />
       </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+/** cohort cut mode를 짧은 라벨로 변환. 옛 이력(mode 필드 없음)은 표시 안 함. */
+function cohortModeHint(
+  c: { mode?: string; percentile?: number; threshold_absolute?: number } | undefined,
+): { text: string; tone: "absolute" | "percentile" } | undefined {
+  if (!c || c.mode === undefined) return undefined;
+  if (c.mode === "absolute" && c.threshold_absolute !== undefined) {
+    return { text: `점수 ≥${c.threshold_absolute.toFixed(0)}`, tone: "absolute" };
+  }
+  if (c.mode === "percentile" && c.percentile !== undefined) {
+    return { text: `상위 ${c.percentile}% 폴백`, tone: "percentile" };
+  }
+  return undefined;
+}
+
+function Stat({
+  label,
+  value,
+  hint,
+  isFallback = false,
+}: {
+  label: string;
+  value: string;
+  hint?: { text: string; tone: "absolute" | "percentile" };
+  /** percentile 폴백 cohort일 때 인원 숫자 대신 "기준 다름" 표기.
+   * 절대 컷이 인원 부족으로 모집단 percentile로 떨어진 케이스는 A·B 간 직접 비교가
+   * 부적합하므로(컷 기준이 달라짐) 큰 숫자를 보여주면 오인할 수 있다. */
+  isFallback?: boolean;
+}) {
+  // 숫자+단위 분리 — "8.7만" → ["8.7", "만"], "1,234" → ["1,234", ""], "67.3" → ["67.3", ""]
+  const { num, unit } = splitNumberUnit(value);
   return (
     <div>
       <p className="text-overline text-dusty leading-tight">{label}</p>
-      <p className="text-body-sm font-semibold text-ink mt-0.5">{value}</p>
+      {isFallback ? (
+        <p
+          className="mt-0.5 text-body-sm text-dusty italic"
+          title="컷 기준이 달라 A·B 인원 직접 비교 부적합"
+        >
+          기준 다름
+        </p>
+      ) : (
+        <p className="mt-0.5 leading-none flex items-baseline justify-center gap-0.5 truncate">
+          <span className="text-heading font-semibold text-ink num-tabular tracking-tight">
+            {num}
+          </span>
+          {unit && (
+            <span className="text-caption text-dusty font-normal">{unit}</span>
+          )}
+        </p>
+      )}
+      {hint && (
+        <p
+          className={`text-overline mt-1 leading-tight num-tabular ${
+            hint.tone === "absolute" ? "text-terra font-medium" : "text-dusty"
+          }`}
+          title={
+            hint.tone === "percentile"
+              ? "절대 컷(임계 점수↑) 인원이 부족해 모집단 상위 percentile로 폴백된 cohort"
+              : "절대 점수 컷이 그대로 적용된 cohort"
+          }
+        >
+          {hint.text}
+        </p>
+      )}
     </div>
   );
 }
@@ -284,6 +416,13 @@ function Stat({ label, value }: { label: string; value: string }) {
 function formatN(n: number): string {
   if (n >= 10_000) return `${(n / 10_000).toFixed(1)}만`;
   return n.toLocaleString();
+}
+
+/** "8.7만" → {num:"8.7", unit:"만"}, "1,234" → {num:"1,234", unit:""}, "—" → {num:"—", unit:""} */
+function splitNumberUnit(value: string): { num: string; unit: string } {
+  const match = value.match(/^([0-9.,]+)([^0-9.,]+)$/);
+  if (match) return { num: match[1], unit: match[2] };
+  return { num: value, unit: "" };
 }
 
 // ============================================================
@@ -400,7 +539,9 @@ function VariantSummaryCard({
                   className="inline-flex items-center gap-1 rounded-[7px] bg-snow border border-parchment px-2 py-1 text-caption text-graphite"
                 >
                   <span className="text-ink font-medium">{r.name}</span>
-                  <span className="text-dusty">· {r.count}명</span>
+                  <span className="text-dusty">
+                    · {Math.round((r.count / province_stats.reduce((s, x) => s + x.count, 0)) * 100)}%
+                  </span>
                 </li>
               ))}
             </ul>
@@ -434,11 +575,13 @@ function OpinionRow({
   o: PersonaOpinion;
   inputMode: ABTestInputMode;
 }) {
+  // 한화 톤 매핑 — 긍정=azure(보조 강조), 부정=terra(주의 액센트), 중립=parchment.
+  // ChallengerKindBadge/RecommendationBadge의 internal=azure / external=terra 패턴과 일관.
   const sentimentColor =
     o.sentiment === "긍정"
-      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+      ? "text-ink bg-azure/25 border-azure/40"
       : o.sentiment === "부정"
-        ? "text-rose-700 bg-rose-50 border-rose-200"
+        ? "text-terra bg-terra/10 border-terra/30"
         : "text-graphite bg-snow border-parchment";
   // 카피 입력일 때는 가입의향 → 관심도(이 카피를 본 후 알아볼 의향). 약관·컨셉은 그대로.
   const intentLabel = inputMode === "marketing" ? "관심도" : "가입의향";

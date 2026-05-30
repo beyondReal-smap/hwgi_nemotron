@@ -14,7 +14,7 @@ import {
 } from "@/components/PastSimulationsPanel";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { HistoryList } from "@/components/HistoryList";
-import { SiteHeader, SiteFooter } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import {
   getAnalysis,
   type AnalysisDetail,
@@ -86,9 +86,14 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
-
       <main className="flex-1 max-w-[1440px] w-full mx-auto p-3 sm:p-4 lg:p-8">
+        <header className="flex flex-col gap-1.5 mb-6">
+          <p className="text-overline text-dusty">타겟 페르소나 분석</p>
+          <h1 className="text-display text-ink tracking-tight">어떤 타겟에 반응할까</h1>
+          <p className="text-body text-graphite">
+            상품 설명서나 마케팅 카피로 반응할 타겟과 공략 지역을 찾고, 이전 분석을 다시 열어볼 수 있습니다.
+          </p>
+        </header>
         <div className="grid grid-cols-1 lg:grid-cols-[440px_minmax(0,1fr)] gap-4 sm:gap-5 lg:gap-8">
           {/* 좌측: 모드 탭 + InputForm 또는 HistoryList */}
           <aside className="lg:sticky lg:top-24 lg:self-start lg:h-[calc(100vh-7rem)]">
@@ -158,6 +163,13 @@ export default function Page() {
                   opinions={result.top_opinions ?? []}
                   variant="top"
                 />
+                {result.mid_personas && result.mid_personas.length > 0 && (
+                  <PersonaList
+                    personas={result.mid_personas}
+                    opinions={result.mid_opinions ?? []}
+                    variant="mid"
+                  />
+                )}
                 {result.bottom_personas &&
                   result.bottom_personas.length > 0 && (
                     <PersonaList

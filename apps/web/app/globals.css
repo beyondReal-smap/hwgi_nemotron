@@ -259,6 +259,18 @@ textarea {
   100% { transform: scaleX(1); opacity: 1; }
 }
 
+/* 페이지 전환 — 헤더 탭 순서 기준 forward(우→) / backward(←좌) 방향.
+   fill-mode: backwards → 시작 전엔 from 상태 유지, 종료 후엔 transform 자동 해제.
+   해제가 중요한 이유: 부모에 transform이 남아있으면 자식의 position:sticky가 깨짐(SiteHeader). */
+@keyframes hw-page-enter-right {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes hw-page-enter-left {
+  from { opacity: 0; transform: translateX(-24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 @layer utilities {
   .anim-fade-in {
     animation: hw-fade-in 200ms ease-out both;
@@ -278,6 +290,12 @@ textarea {
   .anim-indicator-pop {
     animation: hw-indicator-pop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
     transform-origin: center;
+  }
+  .anim-page-enter-right {
+    animation: hw-page-enter-right 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+  .anim-page-enter-left {
+    animation: hw-page-enter-left 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
   }
 
   /* 헤더 NavLink 하단 막대 — active일 때 X축으로 펼쳐지는 효과 */
@@ -306,7 +324,9 @@ textarea {
   .anim-fade-slide-left,
   .anim-fade-slide-up,
   .anim-scale-in,
-  .anim-indicator-pop {
+  .anim-indicator-pop,
+  .anim-page-enter-right,
+  .anim-page-enter-left {
     animation: none !important;
   }
   .nav-indicator,

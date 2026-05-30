@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { ReportChartChoice } from "@/components/ReportChartChoice";
 import { ReportChartScale } from "@/components/ReportChartScale";
 import { ReportOpenEnded } from "@/components/ReportOpenEnded";
+import { DemographicCard, recordToBins } from "@/components/DistributionCharts";
 import {
   getSurveyReport,
   getSurveyReportCsvUrl,
@@ -47,7 +48,6 @@ export default function ReportPage() {
 
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
       <main className="flex-1 max-w-[1440px] w-full mx-auto p-4 lg:p-8">
         {/* 페이지 헤더 */}
         <header className="flex flex-col gap-1.5 mb-6">
@@ -205,66 +205,19 @@ function RespondentDistributionCard({ report }: { report: ReportResponse }) {
           {total.toLocaleString()}명 완료 기준
         </p>
       </header>
+      {/* 현황·분석과 동일한 차트 카드(DemographicCard)로 통일 */}
       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <DistMiniCard label="성별" counts={dist.sex} total={total} />
-        <DistMiniCard
-          label="연령대"
-          counts={Object.fromEntries(dist.age_bins.map((b) => [b.label, b.count]))}
-          total={total}
-          maxRows={6}
+        <DemographicCard
+          dem={{ column: "sex", label: "성별", bins: recordToBins(dist.sex) }}
         />
-        <DistMiniCard
-          label="시도 Top 5"
-          counts={Object.fromEntries(
-            Object.entries(dist.province).sort((a, b) => b[1] - a[1]).slice(0, 5),
-          )}
-          total={total}
+        <DemographicCard
+          dem={{ column: "age_dist", label: "연령대", bins: dist.age_bins }}
+        />
+        <DemographicCard
+          dem={{ column: "province", label: "시도", bins: recordToBins(dist.province, 12) }}
         />
       </div>
     </section>
-  );
-}
-
-function DistMiniCard({
-  label,
-  counts,
-  total,
-  maxRows = 6,
-}: {
-  label: string;
-  counts: Record<string, number>;
-  total: number;
-  maxRows?: number;
-}) {
-  const entries = Object.entries(counts).slice(0, maxRows);
-  const max = entries.reduce((m, [, v]) => Math.max(m, v), 0);
-  return (
-    <div className="bg-snow border border-parchment rounded-[9.6px] px-3 py-2">
-      <p className="text-overline text-dusty mb-1.5">{label}</p>
-      <ul className="space-y-1">
-        {entries.length === 0 && (
-          <li className="text-caption text-stone">데이터 없음</li>
-        )}
-        {entries.map(([k, v]) => {
-          const pct = total ? (v / total) * 100 : 0;
-          const bar = max ? (v / max) * 100 : 0;
-          return (
-            <li key={k}>
-              <div className="flex items-baseline justify-between gap-2 text-caption mb-0.5">
-                <span className="text-graphite truncate">{k}</span>
-                <span className="text-ink font-mono tabular-nums shrink-0">
-                  {v.toLocaleString()}
-                  <span className="text-dusty ml-1">({pct.toFixed(1)}%)</span>
-                </span>
-              </div>
-              <div className="h-1 bg-parchment rounded-full overflow-hidden">
-                <div className="h-full bg-terra/80" style={{ width: `${bar}%` }} />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
   );
 }
 

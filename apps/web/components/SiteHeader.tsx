@@ -39,9 +39,9 @@ export function SiteHeader() {
       <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-8 h-14 sm:h-16 lg:h-20 flex items-center justify-between gap-2 sm:gap-4">
         {/* 브랜드 — 모바일에서는 마크만 표시(좁은 화면 폭 절약) */}
         <Link
-          href="/"
+          href="/overview"
           className="flex items-center gap-1 sm:gap-1.5 group rounded-[9.6px] focus:outline-none focus-visible:ring-2 focus-visible:ring-azure shrink-0"
-          aria-label="PersonaFit 홈으로 이동"
+          aria-label="PersonaFit 현황으로 이동"
         >
           <BrandMark />
           <div className="leading-tight hidden sm:block">
@@ -309,7 +309,7 @@ export function SiteFooter() {
           (CC BY 4.0) · 합성 페르소나 기반, 실제 인물과 무관
         </div>
         <div>
-          분석 엔진: Claude Sonnet/Haiku · vLLM Qwen3.6 · OpenAI 임베딩
+          분석 엔진: Claude Sonnet/Haiku · sLLM · OpenAI 임베딩
         </div>
       </div>
     </footer>

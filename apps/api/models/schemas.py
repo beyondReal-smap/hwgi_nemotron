@@ -9,7 +9,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================
 # 요청
 # ============================================================
@@ -28,7 +27,7 @@ class AnalyzeRequest(BaseModel):
         "sllm",
         description=(
             "사용할 LLM provider. anthropic=Claude Sonnet+Haiku, "
-            "sllm=OpenAI 호환 vLLM (Qwen3.6-27B-FP8)"
+            "sllm=OpenAI 호환 sLLM (모델명은 SLLM_MODEL env 또는 /v1/models 자동 감지)"
         ),
     )
 
@@ -101,7 +100,16 @@ class PersonaHit(BaseModel):
     """매칭된 페르소나 1명 (상위/하위 모두 동일 스키마)."""
 
     uuid: str
-    score: float = Field(..., description="0-100 정규화 반응도 점수")
+    score: float = Field(..., description="0-100 정규화 반응도 점수 (raw, LLM 톤·UI 색상의 기준)")
+    # 모집단 100만 명 안에서의 이 페르소나의 순위 백분위 (0~100, 100=최상위).
+    # raw score는 cosine 분포 특성상 [52,78]로 좁아 사용자 직관과 어긋남 →
+    # 사용자 친화적 보조 라벨('상위 0.1%' 등)용. 옛 분석은 None.
+    percentile_score: float | None = Field(
+        None,
+        ge=0,
+        le=100,
+        description="모집단 내 백분위 (100=최상위 1명, 50=중위). 옛 분석은 None",
+    )
     persona: str
     province: str
     district: str
@@ -144,14 +152,30 @@ class RegionStat(BaseModel):
 # ============================================================
 
 class CohortStat(BaseModel):
-    """percentile 기반 cohort 1개."""
+    """절대 점수 컷 기반 cohort 1개.
+
+    raw 점수 분포 의미를 카드에 그대로 노출하기 위해 절대 점수 컷(85/75/65)만
+    적용한다. 과거에는 인원 부족/과다 시 percentile 폴백을 적용했으나,
+    "≥85 인원이 폴백으로 5,001명에 캡되어 분포 정보가 가려지는" 문제가 있어 제거.
+    """
 
     name: str = Field(..., description="cohort 식별자 (core/target/interest)")
     label: str = Field(..., description="표시용 라벨 (예: '핵심 타겟')")
-    percentile: float = Field(..., description="상위 X% (0~100)")
+    percentile: float = Field(
+        ...,
+        description="참조용 percentile 표기 (옛 분석 이력 호환). 절대 컷에서는 미사용.",
+    )
     size: int = Field(..., description="해당 cohort 인원 수")
     min_score: float = Field(..., description="이 cohort에 포함되는 최소 점수")
     avg_score: float = Field(..., description="평균 점수")
+    mode: str = Field(
+        "absolute",
+        description="컷 방식. 현재는 항상 'absolute'. 'percentile'은 옛 이력 호환용.",
+    )
+    threshold_absolute: float = Field(
+        ...,
+        description="이 cohort의 절대 점수 임계값. mode와 무관하게 항상 노출.",
+    )
 
 
 class DistributionBin(BaseModel):
@@ -211,6 +235,50 @@ class PopulationStats(BaseModel):
         ),
     )
 
+    # ------------------------------------------------------------
+    # raw 점수 분포 통계 (PR-1 신설, 옛 jsonl 호환 위해 모두 옵셔널)
+    # ------------------------------------------------------------
+    # 신설 배경: raw score 분포가 [52,78]에 좁게 몰려 100점 척도 의미가 약함.
+    # cohort 인원만으로는 안 간 매력도 차이가 보이지 않아, 모집단 전체의 분포·
+    # 절대 임계값 통과 인원·core lift 등 raw 메타를 함께 노출한다.
+    raw_mean: float | None = Field(
+        None, description="모집단 전체 raw score 평균"
+    )
+    raw_std: float | None = Field(
+        None, description="모집단 전체 raw score 표준편차"
+    )
+    raw_p50: float | None = Field(None, description="raw score 중위값")
+    raw_p95: float | None = Field(None, description="raw score 상위 5% 컷")
+    raw_p99: float | None = Field(None, description="raw score 상위 1% 컷")
+    raw_max: float | None = Field(None, description="raw score 최대값")
+    n_above_80: int | None = Field(
+        None, description="raw ≥80 인원 (UI/LLM이 '매우 높음'으로 해석하는 컷)"
+    )
+    n_above_65: int | None = Field(
+        None, description="raw ≥65 인원 ('높음' 컷)"
+    )
+    core_lift: float | None = Field(
+        None,
+        description="core cohort 평균 점수 − 모집단 평균. core가 모집단 대비 얼마나 높은지",
+    )
+    target_lift: float | None = Field(
+        None, description="target cohort 평균 점수 − 모집단 평균"
+    )
+    quality_flags: list[str] = Field(
+        default_factory=list,
+        description=(
+            "분포·cohort 품질 경고 플래그. 비어 있으면 정상. "
+            "예) 'distribution_narrow', 'core_low_lift', 'mode_inconsistent'"
+        ),
+    )
+    scoring_version: str = Field(
+        "v2_hybrid",
+        description=(
+            "점수 산출 체계 버전. 'v2_hybrid'=분석내 z-score+제품 오프셋(2026-05-29~). "
+            "옛 레코드는 이 필드 부재 → 읽는 쪽에서 'v1'(percentile-rank 균등매핑)로 간주."
+        ),
+    )
+
 
 # ============================================================
 # 최종 응답
@@ -222,11 +290,15 @@ class AnalyzeResponse(BaseModel):
     analysis_id: str
     selling_points: SellingPoints
     top_personas: list[PersonaHit]
+    mid_personas: list[PersonaHit] = Field(
+        default_factory=list,
+        description="전체 점수 중위 N명 (median 근처 ±N/2 — 평균 시장 반응)",
+    )
     bottom_personas: list[PersonaHit] = Field(
         default_factory=list,
         description="전체 점수 하위 N명 (반대 반응 비교용)",
     )
-    province_stats: list[RegionStat] = Field(..., description="상위 50명 기준 시도 집계 (카드용)")
+    province_stats: list[RegionStat] = Field(..., description="상위 N명 기준 시도 집계 (카드용)")
     district_stats: list[RegionStat] = Field(
         ..., description="상위 시도의 시군구 집계 (drill-down용)"
     )
@@ -236,6 +308,10 @@ class AnalyzeResponse(BaseModel):
     top_opinions: list[PersonaOpinion] = Field(
         default_factory=list,
         description="top_personas와 같은 순서로 매칭된 의견 (uuid join도 가능)",
+    )
+    mid_opinions: list[PersonaOpinion] = Field(
+        default_factory=list,
+        description="mid_personas와 같은 순서로 매칭된 의견",
     )
     bottom_opinions: list[PersonaOpinion] = Field(
         default_factory=list,
@@ -340,7 +416,10 @@ class ABTestRequest(BaseModel):
     )
     input_mode: ABTestInputMode = Field(
         "terms",
-        description="입력 형태 — terms(약관/설명서) / marketing(카피·광고) / concept(컨셉+보장 요약). 프롬프트 톤 힌트.",
+        description=(
+            "입력 형태 — terms(약관/설명서) / marketing(카피·광고) / concept(컨셉+보장 요약). "
+            "프롬프트 톤 힌트."
+        ),
     )
     variant_a: ABTestVariantInput
     variant_b: ABTestVariantInput

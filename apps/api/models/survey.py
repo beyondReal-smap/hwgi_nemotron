@@ -48,7 +48,7 @@ class Question(BaseModel):
     required: bool = True
 
     @model_validator(mode="after")
-    def _validate_by_type(self) -> "Question":
+    def _validate_by_type(self) -> Question:
         if self.type in ("single_choice", "multi_choice"):
             if len(self.options) < 2:
                 raise ValueError(f"{self.type}은 최소 2개의 옵션이 필요합니다")
@@ -166,6 +166,6 @@ class Segment(BaseModel):
     created_at: datetime
 
     @model_validator(mode="after")
-    def _ensure_size(self) -> "Segment":
+    def _ensure_size(self) -> Segment:
         self.size = len(self.persona_uuids)
         return self

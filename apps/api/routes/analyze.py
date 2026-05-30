@@ -60,28 +60,35 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
             detail=f"페르소나 데이터 미적재: {e}. scripts/sample_personas.py와 embed_personas.py 실행 필요.",
         ) from e
 
-    top_personas, bottom_personas, province_stats, district_stats, population_stats = (
-        await asyncio.to_thread(score_personas, sp, query_vec, store)
-    )
+    (
+        top_personas,
+        mid_personas,
+        bottom_personas,
+        province_stats,
+        district_stats,
+        population_stats,
+    ) = await asyncio.to_thread(score_personas, sp, query_vec, store)
     elapsed["score"] = int((perf_counter() - t0) * 1000)
 
     if not top_personas:
         raise HTTPException(status_code=422, detail="매칭된 페르소나가 없습니다. 입력 조건이 너무 좁습니다.")
 
-    # 4) 페르소나 의견 생성 (비용 및 API Rate Limit 방지를 위해 상/하위 각각 최대 20명만 의견 생성)
+    # 4) 페르소나 의견 생성 — 상/중/하 각 30명 병렬 (asyncio.gather로 3개 태스크 동시 실행).
+    # top_k 슬라이스는 응답 표시용. 의견은 스코어링 결과 전체 30명에 대해 생성한다.
     sliced_top = top_personas[: req.top_k]
-    opinion_top_subset = sliced_top[:20]
-    opinion_bottom_subset = bottom_personas[:20]
     t0 = perf_counter()
     try:
         top_opinions_task = generate_persona_opinions(
-            opinion_top_subset, sp, provider=req.llm_provider
+            top_personas, sp, provider=req.llm_provider
+        )
+        mid_opinions_task = generate_persona_opinions(
+            mid_personas, sp, provider=req.llm_provider
         )
         bottom_opinions_task = generate_persona_opinions(
-            opinion_bottom_subset, sp, provider=req.llm_provider
+            bottom_personas, sp, provider=req.llm_provider
         )
-        top_opinions, bottom_opinions = await asyncio.gather(
-            top_opinions_task, bottom_opinions_task
+        top_opinions, mid_opinions, bottom_opinions = await asyncio.gather(
+            top_opinions_task, mid_opinions_task, bottom_opinions_task
         )
     except Exception as e:
         logger.exception("의견 생성 실패")
@@ -106,11 +113,13 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         analysis_id="pending",
         selling_points=sp,
         top_personas=sliced_top,
+        mid_personas=mid_personas,
         bottom_personas=bottom_personas,
         province_stats=province_stats,
         district_stats=district_stats,
         population_stats=population_stats,
         top_opinions=top_opinions,
+        mid_opinions=mid_opinions,
         bottom_opinions=bottom_opinions,
         report_md=report_md,
         elapsed_ms=elapsed,
@@ -120,11 +129,13 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         "product_text": req.product_text[:500],  # 본문 일부만 (로그 비대화 방지)
         "selling_points": sp.model_dump(),
         "top_personas": [p.model_dump() for p in response.top_personas],
+        "mid_personas": [p.model_dump() for p in response.mid_personas],
         "bottom_personas": [p.model_dump() for p in response.bottom_personas],
         "province_stats": [r.model_dump() for r in province_stats],
         "district_stats": [r.model_dump() for r in district_stats],
         "population_stats": population_stats.model_dump(),
         "top_opinions": [o.model_dump() for o in top_opinions],
+        "mid_opinions": [o.model_dump() for o in mid_opinions],
         "bottom_opinions": [o.model_dump() for o in bottom_opinions],
         "report_md": report_md,
         "elapsed_ms": elapsed,

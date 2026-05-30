@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { PersonaFilterPanel } from "@/components/PersonaFilterPanel";
 import { PersonaCardGrid } from "@/components/PersonaCardGrid";
 import { PersonaDetailModal } from "@/components/PersonaDetailModal";
 import { SaveSegmentModal } from "@/components/SaveSegmentModal";
+import { DemographicCard, recordToBins } from "@/components/DistributionCharts";
 import {
   ADDITIONAL_FILTER_LABELS,
   filterPersonas,
@@ -57,6 +58,10 @@ export default function PersonasPage() {
   const [result, setResult] = useState<PersonaFilterResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 자연어 검색은 cold 시 수십 초 걸릴 수 있어 경과 시간을 노출 — 사용자가
+  // 멈춘 줄 오해하지 않도록 진행 상태를 가시화.
+  const [loadingElapsedMs, setLoadingElapsedMs] = useState(0);
+  const loadingStartRef = useRef<number | null>(null);
   const [view, setView] = useState<"card" | "table">("card");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detailUuid, setDetailUuid] = useState<string | null>(null);
@@ -79,6 +84,8 @@ export default function PersonasPage() {
     const token = ++filterTokenRef.current;
     setLoading(true);
     setError(null);
+    loadingStartRef.current = Date.now();
+    setLoadingElapsedMs(0);
     try {
       const r = await filterPersonas(req);
       if (token !== filterTokenRef.current) return; // stale 무시
@@ -89,9 +96,22 @@ export default function PersonasPage() {
     } finally {
       if (token === filterTokenRef.current) {
         setLoading(false);
+        loadingStartRef.current = null;
       }
     }
   }, []);
+
+  // 로딩 중 경과 시간 갱신 (0.5초 tick) — 자연어 검색이 cold 시 길어질 때
+  // 사용자에게 진행 중임을 보여주기 위함.
+  useEffect(() => {
+    if (!loading) return;
+    const id = setInterval(() => {
+      if (loadingStartRef.current !== null) {
+        setLoadingElapsedMs(Date.now() - loadingStartRef.current);
+      }
+    }, 500);
+    return () => clearInterval(id);
+  }, [loading]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -130,8 +150,6 @@ export default function PersonasPage() {
 
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
-
       <main className="flex-1 max-w-[1440px] w-full mx-auto p-4 lg:p-8">
         {/* 페이지 헤더 */}
         <header className="flex flex-col gap-1.5 mb-6">
@@ -164,16 +182,45 @@ export default function PersonasPage() {
             <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
               <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
                 <h2 className="text-title text-ink">
-                  {loading
-                    ? "검색 중…"
-                    : result
-                      ? `매칭 요약 · ${result.total.toLocaleString()}명`
-                      : "매칭 요약"}
+                  {loading ? (
+                    <>
+                      검색 중
+                      <span className="text-graphite font-mono ml-2 tabular-nums">
+                        {(loadingElapsedMs / 1000).toFixed(1)}s
+                      </span>
+                      <span className="ml-1 inline-block animate-pulse">…</span>
+                    </>
+                  ) : result ? (
+                    `매칭 요약 · ${result.total.toLocaleString()}명`
+                  ) : (
+                    "매칭 요약"
+                  )}
                 </h2>
+                {loading && loadingElapsedMs >= 5000 && (
+                  <p className="text-caption text-graphite mt-1 leading-snug">
+                    {filter.query
+                      ? "자연어 임베딩 검색 진행 중 — 첫 호출은 임베딩 매트릭스 워밍업으로 최대 1분까지 걸릴 수 있습니다. 같은 조건 재검색은 1초 이내."
+                      : "데이터 적재 중 — 잠시만 기다려 주세요."}
+                  </p>
+                )}
                 <p className="text-body-sm text-dusty mt-1">
                   {result ? (
                     <>
-                      {result.has_query && result.match_threshold !== null ? (
+                      {result.fallback_applied ? (
+                        <>
+                          메타 조건 매칭{" "}
+                          <span className="font-mono text-graphite">0</span>
+                          명 →{" "}
+                          <span className="text-graphite">키워드 폴백 검색</span>으로{" "}
+                          <span className="font-mono text-graphite">
+                            {result.total.toLocaleString()}
+                          </span>
+                          명 매칭 · 결과는 유사도 내림차순 · 소요{" "}
+                          <span className="font-mono">
+                            {(result.elapsed_ms.total / 1000).toFixed(2)}초
+                          </span>
+                        </>
+                      ) : result.has_query && result.match_threshold !== null ? (
                         <>
                           메타 일치{" "}
                           <span className="font-mono text-graphite">
@@ -211,36 +258,69 @@ export default function PersonasPage() {
                   )}
                 </p>
 
+                {/* 폴백 적용 시 사유 배지 — 사용자에게 결과가 메타 기반이 아닌 폴백 결과임을 투명하게 노출 */}
+                {result?.fallback_applied && result.fallback_reason && (
+                  <div className="mt-2 inline-flex items-start gap-1.5 px-2.5 py-1.5 bg-azure/10 border border-azure/30 rounded-[7px]">
+                    <span className="text-overline text-azure shrink-0 mt-0.5">폴백</span>
+                    <span className="text-caption text-graphite leading-snug">
+                      {result.fallback_reason}
+                    </span>
+                  </div>
+                )}
+
                 {/* AI 자동 추출 메타 칩 — 자연어 쿼리가 LLM으로 분해된 결과 */}
                 {result?.extracted_filter && (
                   <ExtractedFilterChips ex={result.extracted_filter} />
                 )}
               </header>
 
-              {/* 분포 미니 카드 3종 — 빈 결과면 안내 */}
+              {/* 분포 차트 5종 — 현황(overview)과 동일한 DemographicCard 재사용.
+                  매칭 결과 전체 기준 집계(페이지 슬라이스 전). 빈 결과면 안내. */}
               {result && result.total > 0 ? (
-                <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <MiniDistribution
-                    label="성별"
-                    counts={result.distribution.sex}
-                    total={result.total}
+                <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <DemographicCard
+                    dem={{
+                      column: "sex",
+                      label: "성별",
+                      bins: recordToBins(result.distribution.sex),
+                    }}
                   />
-                  <MiniDistribution
-                    label="연령대"
-                    counts={Object.fromEntries(
-                      result.distribution.age_bins.map((b) => [b.label, b.count]),
-                    )}
-                    total={result.total}
-                    maxRows={4}
+                  <DemographicCard
+                    dem={{
+                      column: "age_dist",
+                      label: "연령대",
+                      bins: result.distribution.age_bins,
+                    }}
                   />
-                  <MiniDistribution
-                    label="시도 Top 5"
-                    counts={Object.fromEntries(
-                      Object.entries(result.distribution.province)
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 5),
-                    )}
-                    total={result.total}
+                  <DemographicCard
+                    dem={{
+                      column: "province",
+                      label: "시도",
+                      bins: recordToBins(result.distribution.province, 12),
+                    }}
+                  />
+                  <DemographicCard
+                    dem={{
+                      column: "occupation",
+                      label: "직업군",
+                      bins: result.distribution.occupations_grouped
+                        .slice(0, 12)
+                        .map((g) => ({ label: g.group, count: g.count })),
+                    }}
+                  />
+                  <DemographicCard
+                    dem={{
+                      column: "family_type",
+                      label: "가구 형태",
+                      bins: result.distribution.family_type,
+                    }}
+                  />
+                  <DemographicCard
+                    dem={{
+                      column: "housing_type",
+                      label: "주거 형태",
+                      bins: result.distribution.housing_type,
+                    }}
                   />
                 </div>
               ) : result && result.total === 0 ? (
@@ -514,53 +594,6 @@ function ExtractedFilterChips({ ex }: { ex: ExtractedFilter }) {
           <span className="text-ink">{ex.remaining_query}</span>
         </span>
       )}
-    </div>
-  );
-}
-
-function MiniDistribution({
-  label,
-  counts,
-  total,
-  maxRows = 6,
-}: {
-  label: string;
-  counts: Record<string, number>;
-  total: number;
-  maxRows?: number;
-}) {
-  const entries = Object.entries(counts).slice(0, maxRows);
-  const maxVal = entries.reduce((m, [, v]) => Math.max(m, v), 0);
-
-  return (
-    <div className="bg-snow border border-parchment rounded-[9.6px] px-3 py-2.5">
-      <p className="text-overline text-dusty mb-1.5">{label}</p>
-      <ul className="space-y-1">
-        {entries.length === 0 && (
-          <li className="text-caption text-stone">데이터 없음</li>
-        )}
-        {entries.map(([k, v]) => {
-          const pct = total > 0 ? (v / total) * 100 : 0;
-          const barPct = maxVal > 0 ? (v / maxVal) * 100 : 0;
-          return (
-            <li key={k}>
-              <div className="flex items-baseline justify-between gap-2 text-caption mb-0.5">
-                <span className="text-graphite truncate">{k}</span>
-                <span className="text-ink font-mono tabular-nums shrink-0">
-                  {v.toLocaleString()}
-                  <span className="text-dusty ml-1">({pct.toFixed(1)}%)</span>
-                </span>
-              </div>
-              <div className="h-1 bg-parchment rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-terra/80"
-                  style={{ width: `${barPct}%` }}
-                />
-              </div>
-            </li>
-          );
-        })}
-      </ul>
     </div>
   );
 }

@@ -3,8 +3,10 @@
 설계:
 - 앱 부팅 시 1회 로드 → 글로벌 싱글톤
 - 룰 필터: pandas boolean indexing (수 ms)
-- 임베딩 유사도: 정규화된 임베딩 매트릭스로 dot product (10만 행 < 50ms)
-- Phase 5에서 Supabase 백엔드로 swap 가능하도록 인터페이스 분리
+- 임베딩 유사도: 사전 정규화 매트릭스 dot product (100만 행 brute-force ~84ms)
+- npy는 부팅 시 RAM 상주 로드 (6GB). mmap은 cold page-cache 상태에서 fancy
+  indexing이 40~80초까지 늘어져 자연어 검색 UX를 망가뜨려 제거. 시스템 RAM
+  여유가 부족하면 PERSONAS_EMBED_MMAP=1 환경변수로 mmap 모드 강제 가능.
 """
 
 from __future__ import annotations
@@ -61,6 +63,10 @@ class FilterParams:
     # 동적 필터 — 위에 명시 필드 외의 컬럼에 isin 필터 적용 (예: housing_type, bachelors_field, military_status)
     # 허용 컬럼은 ALLOWED_DYNAMIC_COLUMNS 화이트리스트로 강제.
     additional_filters: dict[str, list[str]] | None = None
+    # 금융 속성 필터 (AI Hub 통신카드CB 통합, fin_ 컬럼). 컬럼 부재 시(미통합 데이터) 무시.
+    insurance_interest: bool | None = None  # True면 보험 관심자(fin_interest_insurance==1)만
+    life_stages: list[str] | None = None    # fin_life_stage isin (싱글/신혼/영유아자녀/청소년자녀/성인자녀/실버)
+    income_top: bool | None = None          # True면 소득상위자(fin_highend_income==1)만
 
 
 # 동적 필터 허용 컬럼 — 보안·정합성을 위해 명시적 허용 목록만 통과
@@ -114,6 +120,14 @@ class PersonaStore:
             mask &= df["occupation"].fillna("") != "무직"
         elif params.employment == "unemployed":
             mask &= df["occupation"].fillna("") == "무직"
+
+        # 금융 속성 필터 — fin_ 컬럼이 있을 때만 적용 (미통합 데이터셋에서 graceful)
+        if params.insurance_interest and "fin_interest_insurance" in df.columns:
+            mask &= df["fin_interest_insurance"] == 1
+        if params.life_stages and "fin_life_stage" in df.columns:
+            mask &= df["fin_life_stage"].isin(params.life_stages)
+        if params.income_top and "fin_highend_income" in df.columns:
+            mask &= df["fin_highend_income"] == 1
 
         # 동적 필터 — 허용 컬럼만, isin 정확 매칭
         if params.additional_filters:
@@ -205,6 +219,13 @@ def get_store() -> PersonaStore:
     for col in ["sex", "province", "marital_status", "family_type", "education_level"]:
         if col in df.columns:
             df[col] = df[col].astype("category")
-    # npy 매트릭스를 mmap_mode="r" 옵션으로 가볍게 로딩 (RAM 0바이트 수준 점유 유도)
-    embeddings = np.load(npy_path, mmap_mode="r")
+    # npy 매트릭스를 RAM에 적재 — mmap_mode="r"은 cold page-cache 상태에서
+    # fancy indexing이 매우 느려져 자연어 검색이 40~80초 걸리는 문제 발생.
+    # PERSONAS_EMBED_MMAP=1이면 mmap 모드로 폴백 (RAM 부족 환경 대비).
+    if os.environ.get("PERSONAS_EMBED_MMAP") == "1":
+        embeddings = np.load(npy_path, mmap_mode="r")
+    else:
+        embeddings = np.load(npy_path)
+        # 인접 메모리 + float32 보장 — fancy indexing/매트릭스 곱 안정성
+        embeddings = np.ascontiguousarray(embeddings, dtype=np.float32)
     return PersonaStore(df, embeddings)

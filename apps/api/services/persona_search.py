@@ -265,7 +265,7 @@ def search_personas(query: str, limit: int = 20) -> dict:
 
     rows = store.get_rows(top_idx)
     results = []
-    for (_, r), sim in zip(rows.iterrows(), top_sims):
+    for (_, r), sim in zip(rows.iterrows(), top_sims, strict=False):
         results.append({
             "uuid": str(r["uuid"]),
             "similarity": round(float(sim), 4),

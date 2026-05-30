@@ -20,7 +20,7 @@ import os
 import tempfile
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from models.survey import ResponseSession, Survey, SurveyStatus
@@ -43,7 +43,7 @@ def _lock(key: str) -> threading.Lock:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _atomic_write(path: Path, content: str) -> None:

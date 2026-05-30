@@ -84,7 +84,7 @@ async def _analyze_one_variant(
     top_personas: list[PersonaHit]
     province_stats: list[RegionStat]
     population_stats: PopulationStats
-    top_personas, _bottom, province_stats, _district, population_stats = (
+    top_personas, _mid, _bottom, province_stats, _district, population_stats = (
         await asyncio.to_thread(score_personas, sp, query_vec, store)
     )
     timings[f"score_{timing_suffix}"] = int((perf_counter() - t0) * 1000)

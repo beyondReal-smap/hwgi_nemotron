@@ -18,6 +18,11 @@
   1) 인메모리 LRU (4096개 ≈ 24MB) — 첫 hit
   2) 디스크 .npy — 영속, 재시작 보존
   3) miss 시 OpenAI 호출 → 양쪽 채움
+
+Retention:
+  - cleanup_old(max_age_days, max_entries)로 mtime 기반 정리
+  - get() 시 디스크 hit이면 mtime touch → 자주 쓰이는 hot 캐시 보호
+  - 기본 정책은 main.py startup에서 환경변수로 적용
 """
 
 from __future__ import annotations
@@ -60,7 +65,11 @@ def _promote(key: str, arr: np.ndarray) -> None:
 
 
 def get(key: str) -> np.ndarray | None:
-    """캐시 조회 — 메모리 → 디스크 순. miss면 None."""
+    """캐시 조회 — 메모리 → 디스크 순. miss면 None.
+
+    디스크 hit 시 mtime을 touch하여 retention(cleanup_old)에서 잘못 삭제되지
+    않도록 한다 — 자주 쓰이는 hot 캐시 보호.
+    """
     # 1) 메모리 hit
     with _lock:
         if key in _mem_cache:
@@ -76,6 +85,12 @@ def get(key: str) -> np.ndarray | None:
     except Exception:
         # 캐시 손상 시 무시 (재호출로 회복)
         return None
+
+    # mtime touch — retention 정책에서 hot 캐시 보호
+    try:
+        os.utime(p, None)
+    except OSError:
+        pass  # touch 실패는 무시 (캐시 동작에 영향 없음)
 
     # 메모리에 promote
     with _lock:
@@ -110,9 +125,13 @@ def put(key: str, arr: np.ndarray) -> None:
 
 
 def stats() -> dict:
-    """캐시 사용량 (디버그·관측용)."""
+    """캐시 사용량 + 가장 오래된/최신 파일 경과 시간 (디버그·관측용)."""
+    import time as _time
+
     file_count = 0
     size = 0
+    oldest_mtime: float | None = None
+    newest_mtime: float | None = None
     if BASE_DIR.exists():
         for shard in BASE_DIR.iterdir():
             if not shard.is_dir():
@@ -120,12 +139,100 @@ def stats() -> dict:
             for f in shard.glob("*.npy"):
                 file_count += 1
                 try:
-                    size += f.stat().st_size
+                    st = f.stat()
+                    size += st.st_size
+                    if oldest_mtime is None or st.st_mtime < oldest_mtime:
+                        oldest_mtime = st.st_mtime
+                    if newest_mtime is None or st.st_mtime > newest_mtime:
+                        newest_mtime = st.st_mtime
                 except OSError:
                     pass
+    now = _time.time()
     return {
         "disk_file_count": file_count,
         "disk_bytes": size,
         "mem_count": len(_mem_cache),
         "mem_limit": _MEM_LIMIT,
+        "oldest_age_days": round((now - oldest_mtime) / 86400.0, 2) if oldest_mtime else None,
+        "newest_age_days": round((now - newest_mtime) / 86400.0, 2) if newest_mtime else None,
+    }
+
+
+def cleanup_old(
+    max_age_days: int | None = 30,
+    max_entries: int | None = 50_000,
+) -> dict:
+    """오래된·초과 캐시 파일 정리. mtime 기준 (get() 시 touch됨).
+
+    Args:
+        max_age_days: 마지막 수정/접근 후 N일 지난 파일 삭제. None/0 이하면 미적용.
+        max_entries: 전체 파일 수가 N을 초과하면 oldest mtime부터 삭제. None/0 이하면 미적용.
+
+    Returns:
+        {scanned, deleted_age, deleted_overflow, freed_bytes, kept}
+    """
+    import time as _time
+
+    if not BASE_DIR.exists():
+        return {
+            "scanned": 0, "deleted_age": 0, "deleted_overflow": 0,
+            "freed_bytes": 0, "kept": 0,
+        }
+
+    age_seconds = (max_age_days * 86400) if max_age_days and max_age_days > 0 else None
+    cap = max_entries if max_entries and max_entries > 0 else None
+    now = _time.time()
+
+    # 1) 모든 파일 수집 (path, mtime, size)
+    files: list[tuple[Path, float, int]] = []
+    for shard in BASE_DIR.iterdir():
+        if not shard.is_dir():
+            continue
+        for f in shard.glob("*.npy"):
+            try:
+                st = f.stat()
+                files.append((f, st.st_mtime, st.st_size))
+            except OSError:
+                continue
+
+    scanned = len(files)
+    deleted_age = 0
+    deleted_overflow = 0
+    freed_bytes = 0
+
+    # 2) 나이 기준 청소
+    if age_seconds is not None:
+        threshold = now - age_seconds
+        survivors: list[tuple[Path, float, int]] = []
+        for f, mtime, size in files:
+            if mtime < threshold:
+                try:
+                    f.unlink()
+                    deleted_age += 1
+                    freed_bytes += size
+                except OSError:
+                    survivors.append((f, mtime, size))
+            else:
+                survivors.append((f, mtime, size))
+        files = survivors
+
+    # 3) 개수 기준 청소 (oldest 우선)
+    if cap is not None and len(files) > cap:
+        files.sort(key=lambda x: x[1])  # mtime 오름차순
+        overflow_count = len(files) - cap
+        for f, _, size in files[:overflow_count]:
+            try:
+                f.unlink()
+                deleted_overflow += 1
+                freed_bytes += size
+            except OSError:
+                pass
+        files = files[overflow_count:]
+
+    return {
+        "scanned": scanned,
+        "deleted_age": deleted_age,
+        "deleted_overflow": deleted_overflow,
+        "freed_bytes": freed_bytes,
+        "kept": len(files),
     }

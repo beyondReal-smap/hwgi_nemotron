@@ -11,8 +11,7 @@
 from __future__ import annotations
 
 import uuid as _uuid
-from datetime import datetime, timezone
-from typing import Literal
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -59,7 +58,7 @@ class SurveyListResponse(BaseModel):
 
 @router.post("", response_model=Survey, status_code=201)
 def create_survey(req: SurveyCreateRequest) -> Survey:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     survey = Survey(
         id="",  # repo에서 uuid 발급
         title=req.title,
@@ -118,7 +117,7 @@ def update_survey_endpoint(survey_id: str, req: SurveyCreateRequest) -> Survey:
         questions=req.questions,
         persona_uuids=req.persona_uuids,
         created_at=existing.created_at,
-        updated_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(UTC),
     )
     try:
         return survey_repo.update_survey(updated)

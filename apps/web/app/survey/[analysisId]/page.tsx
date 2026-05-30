@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { SiteFooter, SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteHeader";
 import { SurveyPanel } from "@/components/SurveyPanel";
 import { PastSimulationsPanel } from "@/components/PastSimulationsPanel";
 import { getAnalysis, type AnalysisDetail } from "@/lib/api";
@@ -28,8 +28,6 @@ export default function SurveyDetailPage({ params }: Props) {
 
   return (
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
-      <SiteHeader />
-
       <main className="flex-1 max-w-[1100px] w-full mx-auto p-4 lg:p-8">
         <nav className="text-caption text-dusty mb-4">
           <Link href="/survey" className="hover:text-ink underline">

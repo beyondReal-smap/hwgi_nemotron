@@ -6,13 +6,11 @@ PersonaStore의 df를 그대로 활용. lru_cache로 1회만 계산 (정적 데�
 
 from __future__ import annotations
 
-import re
 from functools import lru_cache
 
 import pandas as pd
 
 from services.store import get_store
-
 
 # ============================================================
 # 직업군 매핑 (KSCO 대분류 + 한국 친숙 분류)
@@ -378,14 +376,15 @@ def get_dataset_overview() -> dict:
             "median": int(df["age"].median()),
             "histogram": _age_histogram(df),
         },
+        # 컬럼명 정렬을 보존하기 위해 한 줄로 유지 (E501 의도적 무시)
         "demographics": [
-            {"column": "sex",             "label": COLUMN_LABELS["sex"],             "bins": _count_by(df, "sex")},
-            {"column": "marital_status",  "label": COLUMN_LABELS["marital_status"],  "bins": _count_by(df, "marital_status")},
-            {"column": "military_status", "label": COLUMN_LABELS["military_status"], "bins": _count_by(df, "military_status")},
-            {"column": "education_level", "label": COLUMN_LABELS["education_level"], "bins": _count_by(df, "education_level")},
-            {"column": "housing_type",    "label": COLUMN_LABELS["housing_type"],    "bins": _count_by(df, "housing_type")},
-            {"column": "family_type",     "label": COLUMN_LABELS["family_type"],     "bins": _count_by(df, "family_type", top_n=15, include_others=True)},
-            {"column": "bachelors_field", "label": COLUMN_LABELS["bachelors_field"], "bins": _count_by(df, "bachelors_field")},
+            {"column": "sex",             "label": COLUMN_LABELS["sex"],             "bins": _count_by(df, "sex")},                                       # noqa: E501
+            {"column": "marital_status",  "label": COLUMN_LABELS["marital_status"],  "bins": _count_by(df, "marital_status")},                            # noqa: E501
+            {"column": "military_status", "label": COLUMN_LABELS["military_status"], "bins": _count_by(df, "military_status")},                           # noqa: E501
+            {"column": "education_level", "label": COLUMN_LABELS["education_level"], "bins": _count_by(df, "education_level")},                           # noqa: E501
+            {"column": "housing_type",    "label": COLUMN_LABELS["housing_type"],    "bins": _count_by(df, "housing_type")},                              # noqa: E501
+            {"column": "family_type",     "label": COLUMN_LABELS["family_type"],     "bins": _count_by(df, "family_type", top_n=15, include_others=True)},  # noqa: E501
+            {"column": "bachelors_field", "label": COLUMN_LABELS["bachelors_field"], "bins": _count_by(df, "bachelors_field")},                           # noqa: E501
         ],
         "occupations_top": _count_by(df, "occupation", top_n=20),
         "occupations_grouped": _occupations_grouped(df, top_n_per_group=5),
@@ -394,3 +393,10 @@ def get_dataset_overview() -> dict:
         "districts_top": _district_distribution(df, top_n=None),
         "persona_text_stats": _persona_text_stats(df),
     }
+
+
+# 탐색(/personas/filter)에서도 동일 그룹핑·집계를 재사용하기 위한 public 별칭.
+# overview는 기존 _ prefix 함수를 그대로 사용하므로 rename 없이 별칭만 노출 (호출부 무변경).
+# (별칭은 대상 함수 정의 이후에 둬야 모듈 로드 시 NameError가 없음.)
+occupations_grouped = _occupations_grouped
+count_by = _count_by

@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, Field
@@ -42,7 +42,7 @@ def create_segment(req: SegmentCreateRequest) -> Segment:
         description=req.description,
         filter=req.filter,
         persona_uuids=req.persona_uuids,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     try:
         return segment_repo.create_segment(seg)

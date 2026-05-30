@@ -8,6 +8,7 @@ sys.path.insert(0, str(api_dir))
 
 from main import app
 
+
 def generate_openapi():
     openapi_schema = app.openapi()
     output_path = sys.argv[1] if len(sys.argv) > 1 else str(api_dir / "openapi.json")

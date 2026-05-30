@@ -32,6 +32,10 @@ data/embed_cache/
 data/answer_cache/
 data/surveys/
 *.npy
+# AI Hub 원본 데이터(대용량 zip) + 코드북(xlsx) + 상품 PDF
+/*.zip
+*.xlsx
+data/products/
 
 # IDE / OS
 .vscode/

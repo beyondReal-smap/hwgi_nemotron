@@ -31,11 +31,19 @@ module.exports = {
       // 환경변수: .env가 main.py 안에서 load_dotenv로 로드되므로 별도 지정 불필요
       env: {
         PYTHONUNBUFFERED: "1",
-        // 통합 임베딩(7종 페르소나 + 3종 속성 텍스트) — 2026-05-21 전환. store.py 기본값과 동일하므로 명시는 documentation 목적.
-        // 롤백: data/.archive/2026-05-22_v1-npy/embeddings_1m.npy를 data/로 복원 후 이 줄 → "data/embeddings_1m.npy"로 변경 + pm2 restart.
-        PERSONAS_NPY: path.join(PROJECT_ROOT, "data/embeddings_1m_v2.npy"),
+        // 통합 임베딩 v3 — 7종 페르소나 + 3종 속성 + 금융·소비 프로파일(AI Hub 통합) 2026-05-30 전환.
+        // 금융 텍스트 포함으로 보험/건강 관심층 매칭 +29~39%p 개선. parquet personas_1m.parquet(fin_ 컬럼)과 행순서 정합.
+        // 롤백: 이 줄 → "data/embeddings_1m_v2.npy" (금융 전, .archive/2026-05-29_aihub-explore/embeddings_1m_v2_pre-finance.npy 백업) + pm2 restart.
+        PERSONAS_NPY: path.join(PROJECT_ROOT, "data/embeddings_1m_v3_fin.npy"),
+        // Docker 컨테이너 메모리 한계 48GB + 다른 PM2 앱 누적 사용으로 임베딩을 RAM 상주
+        // 적재하면 OOM-killer SIGKILL 발생. mmap 모드로 페이지 캐시에 위임.
+        // 컨테이너 한계가 풀리면 이 줄 제거 → RAM 상주로 cold 40~80초 문제 해소.
+        PERSONAS_EMBED_MMAP: "1",
       },
-      max_memory_restart: "30G",  // 100만 행 인메모리: 실측 RSS ~23GB (npy 6GB + DataFrame + 정규화본)
+      // 임베딩 6GB를 mmap이 아닌 RAM에 상주 적재(2026-05-28) + 요청 처리 시 cand_emb 일시 사본 등
+      // 누적으로 RSS가 30GB 한계를 일시 초과하면 PM2가 SIGKILL → restart 폭주 발생.
+      // 호스트 RAM 372GB라 여유 충분, 한계를 60G로 상향. 추후 ANN 인덱스 도입 시 재산정.
+      max_memory_restart: "60G",
       autorestart: true,
       max_restarts: 10,
       out_file: path.join(PROJECT_ROOT, "logs/api-out.log"),

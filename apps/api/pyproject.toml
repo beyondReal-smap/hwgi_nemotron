@@ -10,7 +10,6 @@ dependencies = [
     "python-dotenv>=1.0",
     "anthropic>=0.40",
     "openai>=1.50",
-    "supabase>=2.8",
     "tenacity>=9.0",
     "httpx>=0.27",
     # 데이터 처리
@@ -33,7 +32,8 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 100
+# 한국어 주석 비중이 높아 100자 제한이 빡빡 — 120자로 완화 (modern Python 표준).
+line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]

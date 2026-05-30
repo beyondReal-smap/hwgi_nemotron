@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import json
-from collections import Counter
 
 from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -19,12 +18,11 @@ from services.llm import (
     ABTEST_STRATEGY_PROMPT,
     CLAUDE_HAIKU,
     DEFAULT_PROVIDER,
-    SLLM_MODEL,
     LLMProvider,
     anthropic_client,
+    resolve_sllm_model,
     sllm_client,
 )
-
 
 # ============================================================
 # 컨텍스트 빌더 — 두 안 + 비교 표 + 당사 정보를 LLM에 넘길 한 문자열로
@@ -50,7 +48,8 @@ INPUT_MODE_HINTS = {
 CHALLENGER_PERSPECTIVE = {
     "internal": (
         "**당사 다른 상품(내부 포트폴리오 비교)** — 도전안 역시 당사 안의 또 다른 선택지입니다. "
-        "관점: '두 안 모두 당사 자원·KPI 내에서 어느 쪽이 더 효율적인지', '두 안을 동시 운영하는 분기 전략이 가능한지'를 평가합니다. "
+        "관점: '두 안 모두 당사 자원·KPI 내에서 어느 쪽이 더 효율적인지', "
+        "'두 안을 동시 운영하는 분기 전략이 가능한지'를 평가합니다. "
         "타사·경쟁 위협 톤은 사용하지 마세요."
     ),
     "external": (
@@ -62,6 +61,36 @@ CHALLENGER_PERSPECTIVE = {
 }
 
 
+def _cohort_line(label_base: str, c) -> str:
+    """cohort 한 줄 — mode가 absolute면 점수 컷, percentile이면 폴백임을 LLM에 명시.
+
+    LLM이 'A는 525명 B는 5만명'을 단순 비교하지 않게, 컷 기준이 다르면
+    그 사실을 알고 정성적으로 해석하도록 메타 정보를 함께 전달한다.
+    """
+    if c is None:
+        return f"- {label_base}: —"
+    if getattr(c, "mode", None) == "absolute":
+        cut = f"점수 ≥{c.threshold_absolute:.0f} 절대 컷"
+    elif getattr(c, "mode", None) == "percentile":
+        cut = f"상위 {c.percentile}% 분위수 폴백(절대 컷 인원이 부적합해 분위수로 재산정)"
+    else:
+        cut = f"상위 {c.percentile}%"
+    return f"- {label_base}: {c.size:,}명 ({cut}, min={c.min_score:.1f})"
+
+
+def _demo_top(pop, column: str, n: int) -> list[tuple[str, int]]:
+    """population_stats.demographics(타겟 cohort 전체 기준)에서 컬럼별 상위 N (count 내림차순).
+
+    top_personas(상위 50명 카드 표본)로 세면 '40대 11명'처럼 표본 카운트가 나와
+    전체 타겟 규모(수만 명)와 모순돼 LLM이 잘못 서술한다. 전체 분포에서 집계한다.
+    """
+    g = next((g for g in pop.demographics if g.column == column), None)
+    if not g:
+        return []
+    ranked = sorted(g.bins, key=lambda b: b.count, reverse=True)
+    return [(b.label, b.count) for b in ranked[:n]]
+
+
 def _variant_block(v: ABVariantResult) -> str:
     """한 안의 핵심 정보를 컨텍스트용 텍스트로."""
     sp = v.selling_points
@@ -69,15 +98,11 @@ def _variant_block(v: ABVariantResult) -> str:
     core = next((c for c in pop.cohorts if c.name == "core"), None)
     target = next((c for c in pop.cohorts if c.name == "target"), None)
 
-    # 상위 페르소나에서 우세 인구통계 추출
-    prov_top = Counter(p.province for p in v.top_personas if p.province).most_common(3)
-    age_bands: Counter[str] = Counter()
-    for p in v.top_personas:
-        if p.age is not None:
-            age_bands[f"{(p.age // 10) * 10}대"] += 1
-    age_top = age_bands.most_common(3)
-    fam_top = Counter(p.family_type for p in v.top_personas if p.family_type).most_common(2)
-    occ_top = Counter(p.occupation for p in v.top_personas if p.occupation).most_common(5)
+    # 우세 인구통계 — 타겟 cohort 전체 기준(demographics). 표본(top_personas)이 아님.
+    prov_top = _demo_top(pop, "province", 3)
+    age_top = _demo_top(pop, "age", 3)
+    fam_top = _demo_top(pop, "family_type", 2)
+    occ_top = _demo_top(pop, "occupation", 5)
 
     # 의견 요약
     if v.top_opinions:
@@ -101,12 +126,12 @@ def _variant_block(v: ABVariantResult) -> str:
         f"- 핵심 혜택: {', '.join(sp.key_benefits) if sp.key_benefits else '(미상)'}",
         f"- 타겟 키워드: {', '.join(sp.target_keywords) if sp.target_keywords else '(미상)'}",
         f"- 카테고리 가중치: {json.dumps(sp.persona_category_weights, ensure_ascii=False)}",
-        f"- 핵심 타겟 규모(상위 0.5%): {core.size:,}명" if core else "- 핵심 타겟 규모: —",
-        f"- 타겟층 규모(상위 5%): {target.size:,}명" if target else "- 타겟층 규모: —",
-        f"- 1순위 시도 Top3: {', '.join(f'{n}({c}명)' for n, c in prov_top) if prov_top else '—'}",
-        f"- 우세 연령대 Top3: {', '.join(f'{n}({c}명)' for n, c in age_top) if age_top else '—'}",
-        f"- 우세 가구 유형: {', '.join(f'{n}({c}명)' for n, c in fam_top) if fam_top else '—'}",
-        f"- 주요 직업: {', '.join(f'{n}({c}명)' for n, c in occ_top) if occ_top else '—'}",
+        _cohort_line("핵심 타겟 규모", core),
+        _cohort_line("타겟층 규모", target),
+        f"- 시도 Top3 (타겟층 전체 기준): {', '.join(f'{n}({c:,}명)' for n, c in prov_top) if prov_top else '—'}",
+        f"- 우세 연령대 Top3 (타겟층 전체 기준): {', '.join(f'{n}({c:,}명)' for n, c in age_top) if age_top else '—'}",
+        f"- 우세 가구 유형 (타겟층 전체 기준): {', '.join(f'{n}({c:,}명)' for n, c in fam_top) if fam_top else '—'}",
+        f"- 주요 직업 (타겟층 전체 기준): {', '.join(f'{n}({c:,}명)' for n, c in occ_top) if occ_top else '—'}",
         f"- 의견 분포: {opinion_summary}",
         f"- 의견 샘플: {opinion_samples}",
     ]
@@ -156,6 +181,17 @@ def build_abtest_context(
     )
     challenger_perspective = CHALLENGER_PERSPECTIVE.get(challenger_kind, "")
 
+    # 점수 체계 버전 불일치(구 v1 균등 ↔ 신 v2 종형) → 점수/인원 수치 직접 비교 왜곡.
+    v_a = getattr(variant_a.population_stats, "scoring_version", None) or "v1"
+    v_b = getattr(variant_b.population_stats, "scoring_version", None) or "v1"
+    version_warning = (
+        "## ⚠️ 점수 체계 불일치 경고\n"
+        "두 안의 반응도 점수 산출 체계가 다릅니다(구 균등매핑 ↔ 신 하이브리드). "
+        "점수·cohort 인원의 직접 수치 비교는 피하고, demographics·의견 등 "
+        "점수 비의존 정보 위주로 정성 비교하세요.\n"
+        if v_a != v_b else ""
+    )
+
     parts = [
         "## 당사 정보 (사용자 입력)",
         company_context.strip(),
@@ -169,6 +205,7 @@ def build_abtest_context(
         "## 도전안의 성격과 분석 관점",
         challenger_perspective,
         "",
+        *( [version_warning, ""] if version_warning else [] ),
         "## 두 안 분석 결과",
         _variant_block(variant_a),
         "",
@@ -200,6 +237,7 @@ def generate_abtest_company_insights(
     provider: LLMProvider = DEFAULT_PROVIDER,
 ) -> str:
     """당사 정보 중심 A/B 장단점 마크다운 생성."""
+    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
     context = build_abtest_context(
         company_context=company_context,
         input_mode=input_mode,
@@ -223,7 +261,7 @@ def generate_abtest_company_insights(
 
     # sLLM
     completion = sllm_client().chat.completions.create(
-        model=SLLM_MODEL,
+        model=resolve_sllm_model(),
         max_tokens=1600,
         temperature=0.4,
         messages=[
@@ -248,6 +286,7 @@ def generate_abtest_fp_strategy(
     provider: LLMProvider = DEFAULT_PROVIDER,
 ) -> str:
     """FP 판매전략 마크다운 (타겟별 어프로치 스크립트 + 채널 추천)."""
+    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
     context = build_abtest_context(
         company_context=company_context,
         input_mode=input_mode,
@@ -271,7 +310,7 @@ def generate_abtest_fp_strategy(
 
     # sLLM
     completion = sllm_client().chat.completions.create(
-        model=SLLM_MODEL,
+        model=resolve_sllm_model(),
         max_tokens=2000,
         temperature=0.5,
         messages=[

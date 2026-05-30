@@ -53,6 +53,32 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("stale survey 자동 재개 실패 — 앱은 계속 기동")
 
+    # 임베딩 캐시 retention — get() 시 mtime touch되므로 핫 캐시는 보존됨.
+    # 환경변수 미설정 시 기본 30일/50,000개. 둘 다 0이면 정리 비활성화.
+    try:
+        from services import embed_cache
+
+        max_age = int(os.getenv("EMBED_CACHE_RETENTION_DAYS", "30") or "30")
+        max_entries = int(os.getenv("EMBED_CACHE_MAX_ENTRIES", "50000") or "50000")
+        result = embed_cache.cleanup_old(
+            max_age_days=max_age if max_age > 0 else None,
+            max_entries=max_entries if max_entries > 0 else None,
+        )
+        if result["deleted_age"] or result["deleted_overflow"]:
+            logger.info(
+                "embed_cache cleanup: scanned=%d deleted_age=%d deleted_overflow=%d "
+                "freed=%.1fMB kept=%d",
+                result["scanned"], result["deleted_age"], result["deleted_overflow"],
+                result["freed_bytes"] / 1024 / 1024, result["kept"],
+            )
+        else:
+            logger.info(
+                "embed_cache cleanup: scanned=%d kept=%d (정리 대상 없음)",
+                result["scanned"], result["kept"],
+            )
+    except Exception:
+        logger.exception("embed_cache cleanup 실패 — 앱은 계속 기동")
+
     yield
 
 
@@ -80,6 +106,7 @@ from routes.analyses import router as analyses_router  # noqa: E402
 from routes.analyze import router as analyze_router  # noqa: E402
 from routes.dataset import router as dataset_router  # noqa: E402
 from routes.extract import router as extract_router  # noqa: E402
+from routes.products import router as products_router  # noqa: E402
 from routes.segments import router as segments_router  # noqa: E402
 from routes.simulate import router as simulate_router  # noqa: E402
 from routes.survey_progress import router as survey_progress_router  # noqa: E402
@@ -93,6 +120,7 @@ app.include_router(analyze_router)
 app.include_router(abtest_router)
 app.include_router(abtests_router)
 app.include_router(extract_router)
+app.include_router(products_router)
 app.include_router(analyses_router)
 app.include_router(simulate_router)
 app.include_router(dataset_router)

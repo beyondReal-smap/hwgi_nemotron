@@ -20,10 +20,10 @@ from models.schemas import PersonaHit, PersonaOpinion, SellingPoints
 from services.llm import (
     CLAUDE_HAIKU,
     DEFAULT_PROVIDER,
-    SLLM_MODEL,
     LLMProvider,
     _anthropic_to_openai_tool,
     anthropic_client,
+    resolve_sllm_model,
     sllm_client,
 )
 
@@ -179,6 +179,7 @@ def _render_prompt(
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
 def _call_llm_sync(prompt: str, provider: LLMProvider) -> dict:
+    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
     if provider == "anthropic":
         client: Anthropic = anthropic_client()
         msg = client.messages.create(
@@ -196,7 +197,7 @@ def _call_llm_sync(prompt: str, provider: LLMProvider) -> dict:
 
     # sLLM
     completion = sllm_client().chat.completions.create(
-        model=SLLM_MODEL,
+        model=resolve_sllm_model(),
         max_tokens=400,
         temperature=0.7,
         messages=[
