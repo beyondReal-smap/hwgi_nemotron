@@ -20,6 +20,7 @@ from services.llm import (
     DEFAULT_PROVIDER,
     LLMProvider,
     anthropic_client,
+    enforce_provider,
     resolve_sllm_model,
     sllm_client,
 )
@@ -237,7 +238,7 @@ def generate_abtest_company_insights(
     provider: LLMProvider = DEFAULT_PROVIDER,
 ) -> str:
     """당사 정보 중심 A/B 장단점 마크다운 생성."""
-    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
+    provider = enforce_provider(provider)  # 단일 호출 정책 (Anthropic 차단)
     context = build_abtest_context(
         company_context=company_context,
         input_mode=input_mode,
@@ -286,7 +287,7 @@ def generate_abtest_fp_strategy(
     provider: LLMProvider = DEFAULT_PROVIDER,
 ) -> str:
     """FP 판매전략 마크다운 (타겟별 어프로치 스크립트 + 채널 추천)."""
-    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
+    provider = enforce_provider(provider)  # 단일 호출 정책 (Anthropic 차단)
     context = build_abtest_context(
         company_context=company_context,
         input_mode=input_mode,

@@ -55,9 +55,15 @@ def detail_endpoint(analysis_id: str) -> dict:
     응답은 AnalyzeResponse와 동일 구조 + 추가 메타(id, created_at, product_text 일부)
     + simulations(이 분석에 묶인 과거 시뮬레이션 전체, 최신순).
     """
-    rec = get_analysis(analysis_id)
-    if rec is None:
+    cached = get_analysis(analysis_id)
+    if cached is None:
         raise HTTPException(status_code=404, detail=f"분석 이력 없음: {analysis_id}")
+    # get_analysis는 파싱 캐시의 공유 객체를 반환하므로 in-place 변형 시 캐시가 오염된다.
+    # 아래에서 top-level 키(analysis_id/simulations)만 추가하므로 얕은 복사로 격리한다.
+    rec = {**cached}
+    # 저장 레코드는 식별 키가 'id'뿐이라 AnalyzeResponse 계약의 'analysis_id'가 빠져 있다.
+    # 프론트(SurveyCta 등)가 result.analysis_id로 /survey/{id} 링크를 만들므로 동일 값으로 채운다.
+    rec.setdefault("analysis_id", rec.get("id"))
     rec["simulations"] = list_simulations_by_analysis(analysis_id)
     return rec
 

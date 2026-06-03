@@ -64,7 +64,8 @@ def survey_status(survey_id: str) -> SurveyStatusResponse:
     if survey is None:
         raise HTTPException(status_code=404, detail="survey not found")
 
-    sessions = survey_repo.list_sessions(survey_id)
+    # polling 전용 경량 뷰 — answers 배열 전체를 full 검증하지 않고 개수만 집계(BP-6).
+    sessions = survey_repo.list_session_progress(survey_id)
 
     counts = SessionCounts()
     durations: list[float] = []
@@ -90,7 +91,7 @@ def survey_status(survey_id: str) -> SurveyStatusResponse:
             ))
         total_tokens += s.total_tokens
         # 답한 문항 누적 — running 세션도 부분 답변이 저장돼 있으면 카운트
-        answered_questions += len(s.answers or [])
+        answered_questions += s.answer_count
 
     total = len(survey.persona_uuids)
     question_count = len(survey.questions)

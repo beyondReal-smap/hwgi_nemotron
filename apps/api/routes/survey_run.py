@@ -48,15 +48,21 @@ def trigger_run(
     survey = survey_repo.get_survey(survey_id)
     if survey is None:
         raise HTTPException(status_code=404, detail="survey not found")
-    if survey.status == "running" and not force:
-        raise HTTPException(
-            status_code=409,
-            detail="이미 실행 중입니다. 강제 재시작은 ?force=true 또는 별도 액션 사용",
-        )
     if not survey.persona_uuids:
         raise HTTPException(status_code=400, detail="대상 페르소나가 비어 있습니다")
     if not survey.questions:
         raise HTTPException(status_code=400, detail="질문이 1개 이상 필요합니다")
+
+    # 동시 POST /run race 방지: 가드 통과 직후 survey_id 락 안에서 status를
+    # 'running'으로 원자적 set. 두 요청이 동시에 들어와도 한쪽만 claim에 성공한다.
+    # (이전엔 status set이 백그라운드 run_survey 내부라 둘 다 가드를 통과했다.)
+    claimed = survey_repo.try_mark_running(survey.id, force=force)
+    if claimed is None:
+        raise HTTPException(
+            status_code=409,
+            detail="이미 실행 중입니다. 강제 재시작은 ?force=true 또는 별도 액션 사용",
+        )
+    survey = claimed
 
     now = datetime.now(UTC)
 

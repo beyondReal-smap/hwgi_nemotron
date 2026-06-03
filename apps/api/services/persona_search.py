@@ -24,57 +24,12 @@ import time
 import numpy as np
 
 from services.llm import embed_text, extract_filter_from_query
+from services.query_normalization import family_types_for_has_children
 from services.store import FilterParams, get_store
 
 # 메타 추출이 비어 있을 때만 적용하는 fallback 임계값.
 # 메타가 좁혀주면 분류 컷이 이미 작동하므로 임베딩 컷을 추가하지 않음.
 QUERY_MATCH_THRESHOLD: float = 0.3
-
-# has_children=true/false → family_type 매핑 (routes/dataset.py와 동일 정의).
-# 추출된 has_children 단서를 메타 필터에 반영하기 위해 여기서도 직접 매핑.
-CHILD_FAMILY_TYPES: list[str] = [
-    "배우자·손자녀와 거주",
-    "배우자·자녀·부모와 거주",
-    "배우자·자녀·아버지와 거주",
-    "배우자·자녀·어머니와 거주",
-    "배우자·자녀·형제자매와 거주",
-    "배우자·자녀와 거주",
-    "손자녀와 거주",
-    "자녀·아버지와 거주",
-    "자녀·어머니와 거주",
-    "자녀와 거주 (배우자 별거)",
-    "자녀와 거주 (한부모)",
-]
-NO_CHILD_FAMILY_TYPES: list[str] = [
-    "4세대이상",
-    "가구주+기타친인척",
-    "기타1세대",
-    "기타2세대",
-    "기타3세대",
-    "배우자·미혼 형제자매와 거주",
-    "배우자·부모와 거주",
-    "배우자·친인척과 거주",
-    "배우자·편부모와 거주",
-    "배우자·형제자매와 거주",
-    "배우자와 거주",
-    "부 또는 모와 거주",
-    "부모·조모와 동거",
-    "부모·조부모와 동거",
-    "부모·조부와 동거",
-    "부모·친인척과 동거",
-    "부모·형제자매와 동거",
-    "부모와 동거",
-    "비친족 동거",
-    "아버지와 동거",
-    "어머니와 동거",
-    "조부 또는 조모와 동거",
-    "조부모와 동거",
-    "친인척과 거주",
-    "형제 부부 가구에 동거",
-    "형제자매와 동거 (가구주)",
-    "혼자 거주",
-    "혼자 거주 (배우자 별거)",
-]
 
 
 def _empty_extracted(query: str) -> dict:
@@ -144,12 +99,7 @@ def search_personas(query: str, limit: int = 20) -> dict:
     t_extract = int((time.perf_counter() - t0) * 1000)
 
     # has_children → family_types 매핑
-    auto_family_types: list[str] = []
-    has_children = ex.get("has_children")
-    if has_children is True:
-        auto_family_types = list(CHILD_FAMILY_TYPES)
-    elif has_children is False:
-        auto_family_types = list(NO_CHILD_FAMILY_TYPES)
+    auto_family_types = family_types_for_has_children(ex.get("has_children"), query)
 
     # 2) 메타 필터 적용
     t0 = time.perf_counter()

@@ -90,7 +90,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in _cors_origins if origin.strip()],
     allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["*"],
+    # 와일드카드 대신 실제 사용하는 요청 헤더만 명시 (JSON 본문 전송 + 콘텐츠 협상).
+    # 인증 도입 시 allow_credentials와 함께 재검토 필요.
+    allow_headers=["Content-Type", "Accept"],
 )
 
 

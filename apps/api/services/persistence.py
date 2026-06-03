@@ -2,15 +2,16 @@
 
 JSONL은 append-only이므로 read 시 전체 파일 스캔.
 이력 수천 건까지는 무난, 그 이상은 SQLite 전환 권장.
+저수준 파일 I/O(append/read/rewrite)는 services.fileio 공통 헬퍼 사용.
 """
 
 from __future__ import annotations
 
-import json
 import os
-import uuid
-from datetime import UTC, datetime
+import threading
 from pathlib import Path
+
+from services.fileio import append_jsonl, read_jsonl, rewrite_jsonl
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DEFAULT_LOG_PATH = _PROJECT_ROOT / "data" / "analyses.jsonl"
@@ -27,37 +28,58 @@ def _simulations_log_path() -> Path:
 
 def persist_analysis(payload: dict) -> str:
     """분석 1건 영속화 + analysis_id 반환."""
-    path = _log_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
+    return append_jsonl(_log_path(), payload)
 
-    analysis_id = str(uuid.uuid4())
-    record = {
-        "id": analysis_id,
-        "created_at": datetime.now(UTC).isoformat(),
-        **payload,
-    }
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return analysis_id
+
+# ============================================================
+# 파싱 캐시 (BP-7/CQ-8)
+# ============================================================
+# get_analysis/list_analyses/delete가 매 호출마다 JSONL 전체를 재파싱하던 비용을 제거.
+# 파일 stat(mtime_ns+size)을 키로 파싱 결과(records)와 id→record 인덱스를 캐시한다.
+# 모든 쓰기(append/rewrite)는 fileio를 거쳐 mtime/size를 바꾸므로 추가/삭제가 자동 반영된다.
+# 외부에서 파일을 직접 교체해도 stat이 달라지면 다음 호출에서 재파싱된다.
+_cache_lock = threading.Lock()
+# key: 절대경로 str → (stat_key, records, id_index)
+_parse_cache: dict[str, tuple[tuple[int, int], list[dict], dict[str, dict]]] = {}
+
+
+def _stat_key(path: Path) -> tuple[int, int] | None:
+    """파일 stat 기반 캐시 키 (mtime_ns, size). 파일 없으면 None."""
+    try:
+        st = path.stat()
+    except FileNotFoundError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _load_cached(path: Path) -> tuple[list[dict], dict[str, dict]]:
+    """파싱 결과(records)와 id→record 인덱스를 반환. stat이 바뀌면 재파싱.
+
+    반환되는 리스트/딕트는 캐시 공유 객체이므로 호출자가 변형하면 안 된다(읽기 전용).
+    """
+    key = str(path.resolve())
+    stat_key = _stat_key(path)
+    if stat_key is None:
+        return [], {}
+    with _cache_lock:
+        cached = _parse_cache.get(key)
+        if cached is not None and cached[0] == stat_key:
+            return cached[1], cached[2]
+    # 파싱은 락 밖에서 (I/O가 길 수 있음). 동시 미스 시 마지막 쓰기가 캐시를 덮지만
+    # 동일 stat이면 동일 결과라 무해.
+    records = read_jsonl(path)
+    index = {r["id"]: r for r in records if r.get("id")}
+    with _cache_lock:
+        _parse_cache[key] = (stat_key, records, index)
+    return records, index
 
 
 def _read_all() -> list[dict]:
-    """이력 전체를 읽어 list로 반환. 깨진 줄은 무시."""
-    path = _log_path()
-    if not path.exists():
-        return []
+    """이력 전체를 읽어 list로 반환. 깨진 줄은 무시.
 
-    records: list[dict] = []
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                # 손상된 줄은 건너뛰기 (운영 안정성)
-                continue
+    파싱 캐시를 사용한다. 반환 리스트는 캐시 공유 객체이므로 호출자가 in-place 변형 금지.
+    """
+    records, _ = _load_cached(_log_path())
     return records
 
 
@@ -69,7 +91,8 @@ def list_analyses(limit: int = 20, offset: int = 0) -> tuple[list[dict], int]:
       top_province, top_province_count, total_ms, key_benefits[3]
     """
     records = _read_all()
-    records.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+    # _read_all()은 캐시 공유 리스트를 반환하므로 in-place sort 금지 → sorted()로 새 리스트.
+    records = sorted(records, key=lambda r: r.get("created_at", ""), reverse=True)
 
     total = len(records)
     page = records[offset : offset + limit]
@@ -99,27 +122,17 @@ def list_analyses(limit: int = 20, offset: int = 0) -> tuple[list[dict], int]:
 
 
 def get_analysis(analysis_id: str) -> dict | None:
-    """단건 전체 데이터. 없으면 None."""
-    records = _read_all()
-    for r in records:
-        if r.get("id") == analysis_id:
-            return r
-    return None
+    """단건 전체 데이터. 없으면 None.
+
+    id→record 인덱스로 O(1) 조회 (이전엔 매 호출 전체 선형 스캔).
+    """
+    _, index = _load_cached(_log_path())
+    return index.get(analysis_id)
 
 
 # ============================================================
 # 삭제 (analysis 단건 / 전체 — 연관 simulations 함께 정리)
 # ============================================================
-
-def _rewrite_jsonl(path: Path, records: list[dict]) -> None:
-    """파일 전체를 records로 재작성 (atomic write)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        for r in records:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    tmp.replace(path)
-
 
 def delete_analysis(analysis_id: str) -> bool:
     """단건 삭제 + 연관 시뮬레이션 함께 정리. 1건 이상 지워지면 True."""
@@ -128,13 +141,13 @@ def delete_analysis(analysis_id: str) -> bool:
     if len(remaining) == len(analyses):
         return False  # 일치하는 id 없음
 
-    _rewrite_jsonl(_log_path(), remaining)
+    rewrite_jsonl(_log_path(), remaining)
 
     # 연관 simulations 정리
     sims = _read_all_simulations()
     sim_remaining = [s for s in sims if s.get("analysis_id") != analysis_id]
     if len(sim_remaining) != len(sims):
-        _rewrite_jsonl(_simulations_log_path(), sim_remaining)
+        rewrite_jsonl(_simulations_log_path(), sim_remaining)
 
     return True
 
@@ -149,9 +162,9 @@ def delete_all_analyses() -> dict[str, int]:
 
     # 파일이 없으면 그대로 skip, 있으면 빈 파일로 truncate
     if analyses_path.exists():
-        _rewrite_jsonl(analyses_path, [])
+        rewrite_jsonl(analyses_path, [])
     if sims_path.exists():
-        _rewrite_jsonl(sims_path, [])
+        rewrite_jsonl(sims_path, [])
 
     return {"analyses": len(analyses), "simulations": len(sims)}
 
@@ -162,21 +175,7 @@ def delete_all_analyses() -> dict[str, int]:
 
 def _read_all_simulations() -> list[dict]:
     """시뮬레이션 이력 전체 (깨진 줄 무시)."""
-    path = _simulations_log_path()
-    if not path.exists():
-        return []
-
-    records: list[dict] = []
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return records
+    return read_jsonl(_simulations_log_path())
 
 
 def append_simulation(payload: dict) -> str:
@@ -184,18 +183,7 @@ def append_simulation(payload: dict) -> str:
 
     payload는 analysis_id, question, responses, elapsed_ms 등을 포함해야 한다.
     """
-    path = _simulations_log_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    simulation_id = str(uuid.uuid4())
-    record = {
-        "id": simulation_id,
-        "created_at": datetime.now(UTC).isoformat(),
-        **payload,
-    }
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return simulation_id
+    return append_jsonl(_simulations_log_path(), payload)
 
 
 def list_simulations_by_analysis(analysis_id: str) -> list[dict]:

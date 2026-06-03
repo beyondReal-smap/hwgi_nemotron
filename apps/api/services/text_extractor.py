@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import os
 import subprocess
 import sys
@@ -23,6 +24,8 @@ from xml.etree import ElementTree as ET
 
 import docx
 from pypdf import PdfReader
+
+logger = logging.getLogger("personafit.text_extractor")
 
 # 파일 크기·텍스트 길이 제한
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB (한화 약관 PDF 최대 12.6MB 수용)
@@ -104,14 +107,25 @@ def _extract_pdf(content: bytes) -> str:
         raise TextExtractionError(f"PDF 파싱 실패: {e}") from e
 
     pages: list[str] = []
+    failed_pages = 0
+    total_pages = len(reader.pages)
     for _i, page in enumerate(reader.pages):
         try:
             page_text = page.extract_text() or ""
-        except Exception:
-            # 개별 페이지 손상 시 해당 페이지만 예외 격리
+        except Exception as e:
+            # 개별 페이지 손상 시 해당 페이지만 예외 격리하되, 무음 처리하지 않고
+            # 페이지 단위로 경고를 남겨 완전 실패(손상 PDF)와 부분 실패를 구분한다.
+            failed_pages += 1
+            logger.warning("PDF page %d 텍스트 추출 실패: %s", _i + 1, e)
             page_text = ""
         if page_text.strip():
             pages.append(page_text)
+
+    if failed_pages:
+        logger.warning(
+            "PDF 페이지 추출 실패 %d/%d (성공 %d페이지)",
+            failed_pages, total_pages, len(pages),
+        )
 
     return "\n\n".join(pages)
 

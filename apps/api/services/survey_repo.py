@@ -16,14 +16,18 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
+import logging
 import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from models.survey import ResponseSession, Survey, SurveyStatus
+from pydantic import BaseModel
+
+from models.survey import ResponseSession, SessionStatus, Survey, SurveyStatus
+from services.fileio import atomic_write_text
+
+logger = logging.getLogger("personafit.survey_repo")
 
 # 프로젝트 루트 기준 경로
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -46,20 +50,8 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _atomic_write(path: Path, content: str) -> None:
-    """tmp 파일 → fsync → rename. 부분 쓰기 방지."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp_")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(content)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp_path, path)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        raise
+# 원자적 파일 쓰기는 services.fileio로 이관. 기존 호출부 호환을 위해 별칭만 유지.
+_atomic_write = atomic_write_text
 
 
 # ============================================================
@@ -69,10 +61,13 @@ def _atomic_write(path: Path, content: str) -> None:
 def _read_index() -> dict[str, dict]:
     if not INDEX_PATH.exists():
         return {}
+    # 파일이 존재하는데 파싱 실패 = 손상. 무음 빈 목록으로 둔갑시키면 모든 설문이 사라진 것처럼
+    # 보이고 원인 추적이 막힌다 → segment_repo._read_index와 동일하게 노출(fail-fast).
     try:
         return json.loads(INDEX_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return {}
+        logger.exception("설문 인덱스 손상/읽기 실패: %s", INDEX_PATH)
+        raise
 
 
 def _write_index_entry(survey: Survey) -> None:
@@ -132,10 +127,13 @@ def get_survey(survey_id: str) -> Survey | None:
     path = _survey_path(survey_id)
     if not path.exists():
         return None
+    # 파일이 존재하는데 파싱 실패 = 손상/스키마 불일치라는 '진짜 버그'.
+    # None으로 흡수하면 호출부에서 404로 둔갑해 디버깅이 어렵다 → 예외로 노출.
     try:
         return Survey.model_validate_json(path.read_text(encoding="utf-8"))
     except Exception:
-        return None
+        logger.exception("survey.json 파싱 실패 (손상 가능): %s", path)
+        raise
 
 
 def list_surveys(
@@ -163,6 +161,33 @@ def update_survey(survey: Survey) -> Survey:
         path = _survey_path(survey.id)
         if not path.exists():
             raise ValueError(f"survey {survey.id} not found")
+        _atomic_write(path, survey.model_dump_json(indent=2))
+    _write_index_entry(survey)
+    return survey
+
+
+def try_mark_running(survey_id: str, *, force: bool = False) -> Survey | None:
+    """status='running' 으로의 원자적 check-and-set.
+
+    동시 POST /run race 방지: survey_id 락 안에서 (1) 현재 상태 재로드 →
+    (2) 이미 running이고 force=False면 None 반환(claim 실패) → (3) 아니면
+    running으로 set + 영속화 후 Survey 반환(claim 성공).
+
+    Returns:
+        claim 성공 시 갱신된 Survey, 이미 running(force=False)이면 None.
+    Raises:
+        FileNotFoundError: survey가 존재하지 않음.
+    """
+    with _lock(survey_id):
+        path = _survey_path(survey_id)
+        if not path.exists():
+            raise FileNotFoundError(survey_id)
+        # 락 안에서 디스크 최신값 재로드 (다른 요청이 막 running으로 바꿨을 수 있음)
+        survey = Survey.model_validate_json(path.read_text(encoding="utf-8"))
+        if survey.status == "running" and not force:
+            return None
+        survey.status = "running"
+        survey.updated_at = _now()
         _atomic_write(path, survey.model_dump_json(indent=2))
     _write_index_entry(survey)
     return survey
@@ -216,10 +241,13 @@ def get_session(survey_id: str, persona_uuid: str) -> ResponseSession | None:
     path = _session_path(survey_id, persona_uuid)
     if not path.exists():
         return None
+    # 파일 부재(None)와 파싱 실패(손상)를 구분: 존재하는데 깨진 세션을 None으로
+    # 흡수하면 응답이 조용히 사라진다 → 로깅 후 예외로 상위에 노출.
     try:
         return ResponseSession.model_validate_json(path.read_text(encoding="utf-8"))
     except Exception:
-        return None
+        logger.exception("session.json 파싱 실패 (손상 가능): %s", path)
+        raise
 
 
 def list_sessions(survey_id: str) -> list[ResponseSession]:
@@ -228,11 +256,16 @@ def list_sessions(survey_id: str) -> list[ResponseSession]:
     if not dir_.exists():
         return []
     sessions: list[ResponseSession] = []
+    corrupt = 0
     for p in sorted(dir_.glob("*.json")):
         try:
             sessions.append(ResponseSession.model_validate_json(p.read_text(encoding="utf-8")))
         except Exception:
-            continue
+            # 단건 손상으로 목록 전체를 깨뜨리지 않되, 무음 skip은 금지 → 건별 로깅.
+            corrupt += 1
+            logger.exception("session.json 파싱 실패 (skip): %s", p)
+    if corrupt:
+        logger.error("list_sessions: survey=%s, 손상 세션 %d건 skip", survey_id, corrupt)
     return sessions
 
 
@@ -242,6 +275,55 @@ def count_sessions(survey_id: str) -> dict[str, int]:
     for s in list_sessions(survey_id):
         counts[s.status] = counts.get(s.status, 0) + 1
     return counts
+
+
+class SessionProgress(BaseModel):
+    """진행률 polling 전용 경량 세션 뷰.
+
+    survey_status가 매 polling마다 필요로 하는 스칼라 필드만 담는다.
+    nested answers 배열 전체를 Pydantic 검증하는 대신 개수(answer_count)만 집계해
+    polling 1회당 비용을 절감한다(BP-6).
+    """
+
+    persona_uuid: str
+    status: SessionStatus
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    total_tokens: int = 0
+    error: str | None = None
+    answer_count: int = 0
+
+
+def list_session_progress(survey_id: str) -> list[SessionProgress]:
+    """진행률 집계용 경량 세션 목록.
+
+    list_sessions가 매 polling마다 모든 answers를 full 모델 검증하던 비용을 줄인다.
+    각 파일을 json.loads로 1회 파싱 후 필요한 스칼라 필드 + len(answers)만 추출한다.
+    손상 파일은 list_sessions와 동일하게 건별 로깅 후 skip(목록 전체를 깨뜨리지 않음).
+    """
+    dir_ = _sessions_dir(survey_id)
+    if not dir_.exists():
+        return []
+    out: list[SessionProgress] = []
+    corrupt = 0
+    for p in sorted(dir_.glob("*.json")):
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            out.append(SessionProgress(
+                persona_uuid=raw["persona_uuid"],
+                status=raw.get("status", "pending"),
+                started_at=raw.get("started_at"),
+                completed_at=raw.get("completed_at"),
+                total_tokens=raw.get("total_tokens", 0),
+                error=raw.get("error"),
+                answer_count=len(raw.get("answers") or []),
+            ))
+        except Exception:
+            corrupt += 1
+            logger.exception("session.json 경량 파싱 실패 (skip): %s", p)
+    if corrupt:
+        logger.error("list_session_progress: survey=%s, 손상 세션 %d건 skip", survey_id, corrupt)
+    return out
 
 
 # ============================================================

@@ -18,6 +18,7 @@ import os
 from collections import Counter
 
 import numpy as np
+import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -170,11 +171,13 @@ def _aggregate_open_ended(
 
 
 def _respondent_distribution(
-    completed_uuids: list[str],
+    rows: pd.DataFrame,
 ) -> RespondentDistribution:
-    """응답 완료자만의 인구통계 분포."""
-    store = get_store()
-    rows = store.df[store.df["uuid"].isin(completed_uuids)]
+    """응답 완료자만의 인구통계 분포.
+
+    완료자 서브셋 DataFrame을 인자로 받는다(get_report에서 1회만 생성해 공유).
+    문항마다 1M isin을 재계산하던 중복 연산 제거(BP-2).
+    """
     if rows.empty:
         return RespondentDistribution(sex={}, age_bins=[], province={})
 
@@ -193,13 +196,14 @@ def _respondent_distribution(
 def _build_question_report(
     q: Question,
     sessions: list,
-    completed_uuids: list[str],
+    rows_by_uuid: pd.DataFrame,
 ) -> QuestionReport:
-    """단일 질문 집계."""
-    # 해당 질문에 응답한 (Answer, ResponseSession, persona_row) 수집
-    store = get_store()
-    rows_by_uuid = store.df[store.df["uuid"].isin(completed_uuids)].set_index("uuid")
+    """단일 질문 집계.
 
+    rows_by_uuid(uuid 인덱스 완료자 서브셋)는 get_report에서 1회 생성해 모든
+    문항이 공유한다. 문항마다 1M isin+set_index를 재구축하던 중복 연산 제거(BP-2).
+    """
+    # 해당 질문에 응답한 (Answer, ResponseSession, persona_row) 수집
     answers_data: list = []         # list[Answer]
     confidences: list[float] = []
     answers_with_meta: list = []    # list[(Answer, Session, persona_row)]
@@ -286,10 +290,16 @@ def get_report(survey_id: str) -> ReportResponse:
         avg_response_seconds=avg_sec,
     )
 
-    distribution = _respondent_distribution(completed_uuids)
+    # 완료자 서브셋을 1회만 생성해 분포·문항 집계가 공유 (BP-2).
+    # 문항마다 store.df 100만 행 isin+set_index를 반복하던 중복 연산 제거.
+    store = get_store()
+    completed_rows = store.df[store.df["uuid"].isin(completed_uuids)]
+    rows_by_uuid = completed_rows.set_index("uuid")
+
+    distribution = _respondent_distribution(completed_rows)
 
     questions = [
-        _build_question_report(q, completed_sessions, completed_uuids)
+        _build_question_report(q, completed_sessions, rows_by_uuid)
         for q in survey.questions
     ]
 
@@ -330,6 +340,52 @@ def regenerate_commentary(
 
     background.add_task(generate_and_persist, survey_id)
     return {"queued": True, "survey_id": survey_id}
+
+
+def _label_choice(q: Question, value: str) -> str:
+    """선택지 텍스트(또는 번호)에 1-based 번호를 병기 → '3. 텍스트'.
+
+    LLM은 보통 선택지 텍스트를 그대로 반환하지만, 번호로 답하거나 약간 변형하는
+    경우도 있어 세 단계로 매칭한다.
+    """
+    opts = q.options or []
+    # 1) 값이 옵션 텍스트와 정확히 일치 → 해당 위치의 1-based 번호 병기
+    for i, opt in enumerate(opts, start=1):
+        if value == opt:
+            return f"{i}. {opt}"
+    # 2) 값이 번호 문자열이면 해당 옵션 텍스트 병기
+    if value.isdigit():
+        idx = int(value)
+        if 1 <= idx <= len(opts):
+            return f"{idx}. {opts[idx - 1]}"
+    # 3) 매칭 실패(LLM 변형 답변 등) → 원문 그대로
+    return value
+
+
+def _format_answer_cell(q: Question, value: str | int | list[str]) -> str:
+    """CSV용 답변 셀 — 번호/점수에 실제 의미(선택지 텍스트·척도 라벨)를 병기.
+
+    번호만 노출하면 의미를 알 수 없어, 유형별로 사람이 읽을 수 있게 변환한다.
+    """
+    # 객관식 다중 — 각 항목에 번호 병기 후 결합
+    if isinstance(value, list):
+        return "; ".join(_label_choice(q, str(x)) for x in value)
+    # 척도형 — 점수 + 양 끝 라벨로 방향 맥락 제공
+    if q.type in ("scale", "nps"):
+        smin = q.scale_min if q.scale_min is not None else (0 if q.type == "nps" else 1)
+        smax = q.scale_max if q.scale_max is not None else (10 if q.type == "nps" else 5)
+        ends = []
+        if q.scale_label_low:
+            ends.append(f"{smin}={q.scale_label_low}")
+        if q.scale_label_high:
+            ends.append(f"{smax}={q.scale_label_high}")
+        ctx = f" ({' ~ '.join(ends)})" if ends else ""
+        return f"{value}점{ctx}"
+    # 객관식 단일 — 번호 병기
+    if q.type in ("single_choice", "multi_choice"):
+        return _label_choice(q, str(value))
+    # 주관식 등 — 원문 그대로
+    return str(value)
 
 
 @router.get("/{survey_id}/report.csv")
@@ -387,10 +443,7 @@ def get_report_csv(survey_id: str) -> StreamingResponse:
             if a is None:
                 row += ["", "", ""]
                 continue
-            value = a.answer_value
-            if isinstance(value, list):
-                value = ", ".join(str(x) for x in value)
-            row += [str(value), a.reasoning, a.confidence]
+            row += [_format_answer_cell(q, a.answer_value), a.reasoning, a.confidence]
         writer.writerow(row)
 
     buf.seek(0)

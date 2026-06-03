@@ -18,7 +18,12 @@ import numpy as np
 
 from models.survey import ResponseSession, Survey
 from services import survey_repo
-from services.llm import DEFAULT_PROVIDER, LLMProvider, generate_overall_commentary
+from services.llm import (
+    DEFAULT_PROVIDER,
+    LLMProvider,
+    enforce_provider,
+    generate_overall_commentary,
+)
 from services.store import get_store
 
 logger = logging.getLogger("personafit.commentary")
@@ -202,7 +207,7 @@ def generate_and_persist(
     best-effort 호출용 — 예외를 swallow하고 로그만 남긴다. 호출자는 reload 시점에
     survey_repo.load_commentary로 결과를 읽으면 된다.
     """
-    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
+    provider = enforce_provider(provider)  # 단일 호출 정책 (Anthropic 차단)
     try:
         survey = survey_repo.get_survey(survey_id)
         if survey is None:

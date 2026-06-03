@@ -9,14 +9,16 @@
 from __future__ import annotations
 
 import json
-import os
-import tempfile
+import logging
 import threading
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
 from models.survey import Segment
+from services.fileio import atomic_write_text
+
+logger = logging.getLogger("personafit.segment_repo")
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 BASE_DIR = _PROJECT_ROOT / "data" / "segments"
@@ -29,28 +31,21 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _atomic_write(path: Path, content: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp_")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(content)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp_path, path)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        raise
+# 원자적 파일 쓰기는 services.fileio로 이관. 기존 호출부 호환을 위해 별칭만 유지.
+_atomic_write = atomic_write_text
 
 
 def _read_index() -> dict[str, dict]:
+    # 파일 부재는 정상(아직 세그먼트 없음) → 빈 인덱스.
+    # 파일이 존재하는데 파싱/읽기 실패는 데이터 손상이므로 삼키지 않고(빈 {}로 모든
+    # 세그먼트를 '없음'으로 둔갑시키지 않고) 로깅 후 재발생한다 (fail-fast).
     if not INDEX_PATH.exists():
         return {}
     try:
         return json.loads(INDEX_PATH.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError):
-        return {}
+        logger.exception("세그먼트 인덱스 손상/읽기 실패: %s", INDEX_PATH)
+        raise
 
 
 def _segment_path(segment_id: str) -> Path:
@@ -79,13 +74,17 @@ def create_segment(segment: Segment) -> Segment:
 
 
 def get_segment(segment_id: str) -> Segment | None:
+    # 파일 부재는 정상(존재하지 않는 id) → None.
+    # 파일이 존재하는데 파싱/검증 실패는 데이터 손상이므로 삼키지 않고 로깅 후 재발생한다.
+    # (손상을 '결과 없음'으로 둔갑시키면 운영자가 원인을 추적할 수 없다 — fail-fast)
     path = _segment_path(segment_id)
     if not path.exists():
         return None
     try:
         return Segment.model_validate_json(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
+    except (OSError, ValueError):
+        logger.exception("세그먼트 손상/검증 실패: %s", segment_id)
+        raise
 
 
 def list_segments(limit: int = 100, offset: int = 0) -> tuple[list[dict], int]:

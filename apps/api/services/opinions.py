@@ -23,6 +23,7 @@ from services.llm import (
     LLMProvider,
     _anthropic_to_openai_tool,
     anthropic_client,
+    enforce_provider,
     resolve_sllm_model,
     sllm_client,
 )
@@ -179,7 +180,7 @@ def _render_prompt(
 
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
 def _call_llm_sync(prompt: str, provider: LLMProvider) -> dict:
-    provider = "sllm"  # ENFORCE: Anthropic 호출 차단 (활성화 시 이 줄 제거)
+    provider = enforce_provider(provider)  # 단일 호출 정책 (Anthropic 차단)
     if provider == "anthropic":
         client: Anthropic = anthropic_client()
         msg = client.messages.create(

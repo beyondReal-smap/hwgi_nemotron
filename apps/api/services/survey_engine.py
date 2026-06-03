@@ -15,10 +15,24 @@ from __future__ import annotations
 
 import asyncio
 
+from pydantic import BaseModel, Field, ValidationError
+
 from models.survey import Answer, Question
 from services import answer_cache
 from services.llm import generate_persona_answer
 from services.store import get_store
+
+
+class _AnswerOutput(BaseModel):
+    """LLM(sLLM tool_use / Anthropic tool_use)이 돌려준 원시 dict 검증용 모델.
+
+    sLLM은 tool 스키마를 엄격히 강제하지 않으므로 answer 키 누락·confidence 타입 불일치 등을
+    경계에서 fail-fast로 잡아내고, 통과한 경우만 Answer로 매핑한다.
+    """
+
+    answer: str | int | list[str]
+    reasoning: str = ""
+    confidence: float = Field(0.0, ge=0.0, le=1.0)
 
 
 def _build_profile(row) -> str:
@@ -125,12 +139,11 @@ async def answer_one(
     if cached is not None:
         return cached, 0
 
-    # 페르소나 프로필 추출 (인메모리 store 조회)
+    # 페르소나 프로필 추출 (인메모리 store 조회: uuid 인덱스로 O(1), 100만 행 풀스캔 회피)
     store = get_store()
-    rows = store.df[store.df["uuid"] == persona_uuid]
-    if rows.empty:
+    row = store.get_row_by_uuid(persona_uuid)
+    if row is None:
         raise ValueError(f"persona not found: {persona_uuid}")
-    row = rows.iloc[0]
     profile = _build_profile(row)
 
     # LLM 호출은 동기 함수 → 이벤트 루프 안 막도록 to_thread
@@ -150,11 +163,18 @@ async def answer_one(
         temperature=temperature,
     )
 
+    # LLM 출력은 신뢰 경계 밖 → Pydantic으로 검증. 실패 시 fail-fast(RuntimeError)하여
+    # 상위 _retry가 의미 있게 재시도/실패 처리하도록 한다.
+    try:
+        parsed = _AnswerOutput.model_validate(result)
+    except ValidationError as e:
+        raise RuntimeError(f"LLM 응답 검증 실패 (question={question.id}): {e}") from e
+
     answer = Answer(
         question_id=question.id,
-        answer_value=result["answer"],
-        reasoning=result.get("reasoning", "")[:200],
-        confidence=float(result.get("confidence", 0.0)),
+        answer_value=parsed.answer,
+        reasoning=parsed.reasoning[:200],
+        confidence=parsed.confidence,
     )
     answer_cache.put(key, answer)
     return answer, tokens

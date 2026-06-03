@@ -38,8 +38,15 @@ _PROVINCE_SHORT_MAP = {
     "충청남": "충남",
     "충청북": "충북",
     "전라남": "전남",
-    # '전북'은 데이터셋 원본이 이미 단축형이라 매핑 불필요
+    "전라북": "전북",  # 풀네임 '전라북도' 입력 정규화용 (데이터셋 원본은 이미 '전북')
 }
+
+
+def _normalize_province_label(value: str) -> str:
+    """시도 표기를 데이터셋의 짧은 표기로 맞춘다."""
+    label = str(value).strip()
+    label = re.sub(r"(특별자치시|특별자치도|특별시|광역시|도|시)$", "", label)
+    return _PROVINCE_SHORT_MAP.get(label, label)
 
 
 @dataclass
@@ -87,6 +94,16 @@ class PersonaStore:
         self.df = df.reset_index(drop=True)
         # L2 정규화는 쿼리 시점 온디맨드로 처리하여 전체 복사본 RAM 점유 방지 (mmap 유지)
         self.embeddings = embeddings
+        # 컬럼별 '비어있지 않음'(0/1 float32) 마스크 캐시. 카테고리 페르소나 텍스트의 존재
+        # 여부는 요청과 무관한 정적 속성이라, 매 스코어링마다 str.len()을 1M 행에 재계산
+        # (컬럼당 ~80ms)하지 않고 부팅 후 컬럼별 1회 계산해 재사용한다.
+        self._nonempty_cache: dict[str, np.ndarray] = {}
+        self._district_values_cache: set[str] | None = None
+        # uuid → 행 위치(positional index) dict. uuid로 단건 조회 시 100만 행 boolean
+        # 풀스캔(O(N)) 대신 O(1) iloc 조회를 제공한다. 부팅 후 1회 구축.
+        self._uuid_to_pos: dict[str, int] = {
+            uuid: i for i, uuid in enumerate(self.df["uuid"])
+        }
 
     @property
     def total(self) -> int:
@@ -104,7 +121,7 @@ class PersonaStore:
         if params.sex:
             mask &= df["sex"].isin(params.sex)
         if params.provinces:
-            mask &= df["province"].isin(params.provinces)
+            mask &= df["province"].isin([_normalize_province_label(v) for v in params.provinces])
         if params.marital_statuses:
             mask &= df["marital_status"].isin(params.marital_statuses)
         if params.family_types:
@@ -138,9 +155,45 @@ class PersonaStore:
                     continue
                 if col not in df.columns:
                     continue
-                mask &= df[col].isin(values)
+                if col == "district":
+                    mask &= df[col].isin(self._expand_district_filter_values(values))
+                else:
+                    mask &= df[col].isin(values)
 
         return df.index[mask].to_numpy()
+
+    def _expand_district_filter_values(self, values: list[str]) -> set[str]:
+        """'영등포구', '서울 영등포구' 같은 입력을 '서울-영등포구' 값으로 확장한다."""
+        if self._district_values_cache is None:
+            self._district_values_cache = set(self.df["district"].dropna().astype(str).unique())
+
+        expanded: set[str] = set()
+        suffix_tokens: set[str] = set()
+
+        for raw in values:
+            token = str(raw).strip()
+            if not token:
+                continue
+            token = re.sub(r"\s*[-/]\s*", "-", token)
+            token = re.sub(r"\s+", "-", token)
+            expanded.add(token)
+
+            if "-" in token:
+                province, district = token.split("-", 1)
+                province = _normalize_province_label(province)
+                district = district.strip()
+                if province and district:
+                    expanded.add(f"{province}-{district}")
+            else:
+                suffix_tokens.add(token)
+
+        for district_value in self._district_values_cache:
+            suffix = district_value.split("-", 1)[-1]
+            for token in suffix_tokens:
+                if suffix == token or (len(token) >= 2 and suffix.startswith(token)):
+                    expanded.add(district_value)
+
+        return expanded
 
     def cosine_topk(
         self,
@@ -162,14 +215,20 @@ class PersonaStore:
             return np.array([], dtype=np.int64), np.array([], dtype=np.float32)
         q = (query_vec / q_norm).astype(np.float32)
 
-        # 후보들의 임베딩 슬라이스 (mmap 상태에서 필요한 조각만 슬라이스로 로드)
-        cand_emb = self.embeddings[candidate_indices]  # (N, 1536)
-        
-        # 쿼리 시점 온디맨드 코사인 유사도 연산 (dot product / ||cand||)
-        sims = cand_emb @ q  # (N,)
-        cand_norms = np.linalg.norm(cand_emb, axis=1)
-        cand_norms[cand_norms == 0] = 1.0
-        sims = sims / cand_norms
+        # 임베딩은 사전 L2 정규화됨(OpenAI text-embedding-3-small 반환 벡터, 실측 norm
+        # 0.9994~1.0005). 따라서 score_all_personas와 동일하게 dot만으로 코사인 유사도가 된다.
+        # 후보별 norm 재계산(np.linalg.norm + 나눗셈)은 불필요한 연산이라 제거 — 일관성·속도.
+        #
+        # 후보가 많으면 fancy-indexing 복사(self.embeddings[candidate_indices], (N,1536)
+        # float32 수백 MB 신규 할당)가 GC 압박/지연 변동을 유발한다. 후보 비율이 임계
+        # (전체의 50%) 이상이면 복사 없이 전체 매트릭스 dot 후 후보만 추려 더 안정적이다.
+        # 임계 미만(좁은 검색 경로)은 현행 슬라이스 유지가 빠르다. 결과·정규화는 동일.
+        if len(candidate_indices) >= self.total * 0.5:
+            all_sims = self.embeddings @ q  # (total,) — 복사 없음(mmap 비활성 시 RAM 상주)
+            sims = all_sims[candidate_indices]  # (N,)
+        else:
+            cand_emb = self.embeddings[candidate_indices]  # (N, 1536)
+            sims = cand_emb @ q  # (N,)
 
         # 상위 top_k 추출
         k = min(top_k, len(sims))
@@ -181,6 +240,31 @@ class PersonaStore:
     def get_rows(self, indices: np.ndarray) -> pd.DataFrame:
         """인덱스 → 행 DataFrame 슬라이스."""
         return self.df.iloc[indices]
+
+    def get_row_by_uuid(self, uuid: str) -> pd.Series | None:
+        """uuid로 단일 행을 O(1) 조회. 없으면 None.
+
+        _uuid_to_pos 인덱스를 사용해 100만 행 boolean 풀스캔을 회피한다.
+        """
+        pos = self._uuid_to_pos.get(uuid)
+        if pos is None:
+            return None
+        return self.df.iloc[pos]
+
+    def nonempty_mask(self, col: str) -> np.ndarray:
+        """col 값이 비어있지 않으면 1.0, 비어있거나 컬럼 부재면 0.0인 float32 마스크 (length=total).
+
+        카테고리 페르소나 텍스트 존재 여부는 정적이라 부팅 후 컬럼별 1회 계산 후 캐싱한다.
+        _category_bonus가 매 스코어링마다 1M 행 str.len()을 반복하던 비용을 제거한다.
+        """
+        cached = self._nonempty_cache.get(col)
+        if cached is None:
+            if col in self.df.columns:
+                cached = (self.df[col].fillna("").str.len() > 0).to_numpy(dtype=np.float32)
+            else:
+                cached = np.zeros(self.total, dtype=np.float32)
+            self._nonempty_cache[col] = cached
+        return cached
 
 
 # ============================================================

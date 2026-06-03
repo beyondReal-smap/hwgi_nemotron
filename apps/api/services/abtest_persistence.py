@@ -1,16 +1,15 @@
 """A/B 테스트 결과 영속화 — data/abtests.jsonl (analyses.jsonl과 분리).
 
 MVP에선 영속화만 — UI 이력 목록·상세 조회는 v2에서.
-analyses와 동일한 JSONL append-only 패턴.
+analyses와 동일한 JSONL append-only 패턴(services.fileio 공통 헬퍼 사용).
 """
 
 from __future__ import annotations
 
-import json
 import os
-import uuid
-from datetime import UTC, datetime
 from pathlib import Path
+
+from services.fileio import append_jsonl, read_jsonl, rewrite_jsonl
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DEFAULT_ABTESTS_LOG = _PROJECT_ROOT / "data" / "abtests.jsonl"
@@ -22,18 +21,7 @@ def _log_path() -> Path:
 
 def persist_abtest(payload: dict) -> str:
     """A/B 테스트 1건 영속화 + abtest_id 반환."""
-    path = _log_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-
-    abtest_id = str(uuid.uuid4())
-    record = {
-        "id": abtest_id,
-        "created_at": datetime.now(UTC).isoformat(),
-        **payload,
-    }
-    with path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(record, ensure_ascii=False) + "\n")
-    return abtest_id
+    return append_jsonl(_log_path(), payload)
 
 
 # ============================================================
@@ -42,20 +30,7 @@ def persist_abtest(payload: dict) -> str:
 
 def _read_all() -> list[dict]:
     """이력 전체 (깨진 줄 무시)."""
-    path = _log_path()
-    if not path.exists():
-        return []
-    records: list[dict] = []
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-    return records
+    return read_jsonl(_log_path())
 
 
 def list_abtests(limit: int = 20, offset: int = 0) -> tuple[list[dict], int]:
@@ -125,23 +100,13 @@ def get_abtest(abtest_id: str) -> dict | None:
     return None
 
 
-def _rewrite_jsonl(path: Path, records: list[dict]) -> None:
-    """파일 전체를 records로 재작성 (atomic)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with tmp.open("w", encoding="utf-8") as f:
-        for r in records:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    tmp.replace(path)
-
-
 def delete_abtest(abtest_id: str) -> bool:
     """단건 삭제. 1건 이상 지워지면 True."""
     records = _read_all()
     remaining = [r for r in records if r.get("id") != abtest_id]
     if len(remaining) == len(records):
         return False
-    _rewrite_jsonl(_log_path(), remaining)
+    rewrite_jsonl(_log_path(), remaining)
     return True
 
 
@@ -150,5 +115,5 @@ def delete_all_abtests() -> int:
     records = _read_all()
     path = _log_path()
     if path.exists():
-        _rewrite_jsonl(path, [])
+        rewrite_jsonl(path, [])
     return len(records)

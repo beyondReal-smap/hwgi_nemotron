@@ -1,21 +1,23 @@
-"""한화일반보험 상품 카탈로그 라우트.
+"""보험 약관 PDF 카탈로그 라우트.
 
-- GET  /api/products            → 30개 상품 메타 + 약관 본문 가용 여부
-- GET  /api/products/{id}/body  → 약관 본문 텍스트 (수동 업로드된 PDF에서 추출)
+- GET  /api/products            → insurance/ 폴더의 약관 PDF 목록 + 본문 가용 여부
+- GET  /api/products/{id}/body  → 약관 본문 텍스트 (PDF에서 추출, txt 캐시)
 
 데이터 소스:
-- data/products/catalog.json      (scripts/crawler/hwgi_crawl.py 산출물)
-- data/products/pdfs/<id>.pdf     (대표님이 한화 사이트에서 직접 받아둔 약관 PDF)
-- data/products/bodies/<id>.txt   (PDF에서 추출된 텍스트 캐시 — mtime 비교로 자동 갱신)
+- insurance/<파일명>.pdf           (대표님이 폴더에 둔 한화 약관 PDF — 런타임 스캔)
+- data/products/bodies/<id>.txt    (PDF에서 추출된 텍스트 캐시 — mtime 비교로 자동 갱신)
 
-한화 사이트는 anti-bot 보호로 PDF 자동 다운로드가 막혀 있어, 약관 본문은
-수동 업로드 워크플로우로 운영한다 (2026-05-26 결정).
+폴더에 PDF를 추가/삭제하면 별도 크롤러 실행 없이 드롭다운에 자동 반영된다
+(2026-06-01 결정: catalog.json 크롤러 산출물 → insurance/ 폴더 직접 스캔으로 교체).
+한글 파일명은 안정적인 SHA1 해시(12자)를 id로 부여해 URL-safe + path traversal을 차단한다.
 """
 
 from __future__ import annotations
 
-import json
+import hashlib
 import logging
+import unicodedata
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -33,15 +35,20 @@ logger = logging.getLogger("personafit.products")
 
 router = APIRouter(prefix="/api/products", tags=["products"])
 
-# 데이터 경로 — apps/api/main.py 의 BASE 기준으로 ../../data
-DATA_DIR = Path(__file__).resolve().parents[3] / "data" / "products"
-CATALOG_PATH = DATA_DIR / "catalog.json"
-PDF_DIR = DATA_DIR / "pdfs"
-BODY_DIR = DATA_DIR / "bodies"
+# 데이터 경로 — apps/api/main.py 의 BASE 기준으로 ../../insurance, ../../data/products
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+INSURANCE_DIR = _PROJECT_ROOT / "insurance"
+BODY_DIR = _PROJECT_ROOT / "data" / "products" / "bodies"
 
-# 카탈로그 캐시 — 파일 mtime이 바뀌면 재로드
-_catalog_cache: dict | None = None
-_catalog_mtime: float | None = None
+# 파일명 키워드 → 카테고리 (위에서부터 우선순위. 첫 매칭 채택)
+_CATEGORY_RULES: list[tuple[str, tuple[str, ...]]] = [
+    ("운전자", ("운전자",)),
+    ("자동차", ("자동차", "이륜", "마일리지", "캐롯자동차")),
+    ("연금·저축", ("연금", "저축")),
+    ("화재·재산·기업", ("화재", "재산", "주택", "가정생활", "농기계", "기업", "owner")),
+    ("건강·의료", ("암", "건강", "치아", "치료", "어린이", "실손", "여성", "간편", "종합보험")),
+]
+_DEFAULT_CATEGORY = "기타"
 
 
 class ProductSummary(BaseModel):
@@ -69,49 +76,62 @@ class ProductBody(BaseModel):
     source: Literal["pdf", "txt"]
 
 
-def _load_catalog() -> dict:
-    """카탈로그 JSON을 mtime 기반으로 lazy-load."""
-    global _catalog_cache, _catalog_mtime
+def _product_id(filename: str) -> str:
+    """파일명 → 안정적인 12자 해시 id (ASCII, URL-safe, traversal-free)."""
+    return hashlib.sha1(filename.encode("utf-8")).hexdigest()[:12]
 
-    if not CATALOG_PATH.exists():
+
+def _display_name(stem: str) -> str:
+    """파일명을 NFC로 정규화한 표시용 문자열.
+
+    insurance/ PDF 파일명은 NFD(자모 분리)로 저장돼 있어, NFC로 정규화하지 않으면
+    한글 키워드 매칭과 프론트 표시에서 깨진다. 디스크 접근에는 원본 파일명을 쓴다.
+    """
+    return unicodedata.normalize("NFC", stem)
+
+
+def _categorize(stem: str) -> str:
+    """파일명(확장자 제외)을 키워드로 분류."""
+    lowered = _display_name(stem).lower()
+    for category, keywords in _CATEGORY_RULES:
+        if any(kw.lower() in lowered for kw in keywords):
+            return category
+    return _DEFAULT_CATEGORY
+
+
+def _scan_pdfs() -> list[Path]:
+    """insurance/ 폴더의 PDF를 파일명 가나다순으로 반환."""
+    if not INSURANCE_DIR.is_dir():
         raise HTTPException(
             status_code=503,
             detail=(
-                "상품 카탈로그가 아직 생성되지 않았습니다. "
-                "scripts/crawler/hwgi_crawl.py 를 실행하세요."
+                "약관 PDF 폴더(insurance/)가 없습니다. "
+                "프로젝트 루트에 insurance/ 폴더를 만들고 약관 PDF를 넣어주세요."
             ),
         )
-
-    mtime = CATALOG_PATH.stat().st_mtime
-    if _catalog_cache is None or _catalog_mtime != mtime:
-        _catalog_cache = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
-        _catalog_mtime = mtime
-        logger.info("catalog reloaded: %d products", _catalog_cache.get("count", 0))
-    return _catalog_cache
+    return sorted(
+        (p for p in INSURANCE_DIR.glob("*.pdf") if p.is_file()),
+        key=lambda p: p.name,
+    )
 
 
-def _resolve_body(product_id: str) -> tuple[str, Literal["pdf", "txt"]] | None:
-    """약관 본문 텍스트를 반환 + 출처 표시.
+def _find_pdf_by_id(product_id: str) -> Path | None:
+    """해시 id로 insurance/ 폴더의 PDF 경로를 역매핑."""
+    for pdf in _scan_pdfs():
+        if _product_id(pdf.name) == product_id:
+            return pdf
+    return None
 
-    우선순위:
-      1) bodies/<id>.txt 존재 + (pdfs/<id>.pdf 없거나 txt가 더 최신) → txt 그대로
-      2) pdfs/<id>.pdf 존재 → 추출 후 bodies/<id>.txt 캐시 후 반환
-      3) 둘 다 없음 → None
+
+def _resolve_body(pdf_path: Path, product_id: str) -> tuple[str, Literal["pdf", "txt"]]:
+    """약관 본문 텍스트 + 출처 반환.
+
+    캐시(bodies/<id>.txt)가 PDF보다 최신이면 캐시를, 아니면 PDF에서 추출 후 캐시.
     """
     txt_path = BODY_DIR / f"{product_id}.txt"
-    pdf_path = PDF_DIR / f"{product_id}.pdf"
-
-    txt_exists = txt_path.exists()
-    pdf_exists = pdf_path.exists()
-
-    if not txt_exists and not pdf_exists:
-        return None
-
-    # 캐시가 PDF보다 최신이면 그대로 사용
-    if txt_exists and (not pdf_exists or txt_path.stat().st_mtime >= pdf_path.stat().st_mtime):
+    if txt_path.exists() and txt_path.stat().st_mtime >= pdf_path.stat().st_mtime:
         return txt_path.read_text(encoding="utf-8"), "txt"
 
-    # PDF에서 추출 후 캐시
     try:
         text = extract_from_bytes(pdf_path.read_bytes(), pdf_path.name)
     except (UnsupportedFormatError, FileTooLargeError, TextExtractionError) as e:
@@ -122,40 +142,39 @@ def _resolve_body(product_id: str) -> tuple[str, Literal["pdf", "txt"]] | None:
     return text, "pdf"
 
 
-def _body_meta(product_id: str) -> tuple[bool, int | None]:
-    """약관 본문 가용 여부 + 캐시된 글자수 (없으면 None)."""
+def _body_chars(product_id: str, pdf_path: Path) -> int | None:
+    """캐시된 본문 글자수 (PDF보다 최신인 캐시가 있을 때만). 없으면 None."""
     txt_path = BODY_DIR / f"{product_id}.txt"
-    if txt_path.exists():
+    if txt_path.exists() and txt_path.stat().st_mtime >= pdf_path.stat().st_mtime:
         try:
-            return True, len(txt_path.read_text(encoding="utf-8"))
+            return len(txt_path.read_text(encoding="utf-8"))
         except OSError:
-            return True, None
-    if (PDF_DIR / f"{product_id}.pdf").exists():
-        return True, None  # PDF는 있지만 아직 추출 전
-    return False, None
+            return None
+    return None
 
 
 @router.get("", response_model=ProductCatalog)
 def list_products() -> ProductCatalog:
-    """30개 상품 메타 + 각 상품의 약관 본문 가용 여부."""
-    cat = _load_catalog()
+    """insurance/ 폴더의 약관 PDF 목록. PDF는 항상 본문 추출 가능."""
+    pdfs = _scan_pdfs()
     summaries: list[ProductSummary] = []
-    for p in cat["products"]:
-        available, chars = _body_meta(p["id"])
+    for pdf in pdfs:
+        display = _display_name(pdf.stem)
+        pid = _product_id(pdf.name)
         summaries.append(
             ProductSummary(
-                id=p["id"],
-                name=p["name"],
-                official_name=p.get("official_name") or p["name"],
-                category=p.get("category") or "기타",
-                page_url=p["page_url"],
-                body_available=available,
-                body_chars=chars,
+                id=pid,
+                name=display,
+                official_name=display,
+                category=_categorize(pdf.stem),
+                page_url="",
+                body_available=True,  # PDF가 존재하므로 항상 추출 가능
+                body_chars=_body_chars(pid, pdf),
             )
         )
     return ProductCatalog(
-        source=cat["source"],
-        fetched_at=cat["fetched_at"],
+        source="insurance/ (약관 PDF 폴더)",
+        fetched_at=datetime.now(timezone.utc).isoformat(),
         count=len(summaries),
         products=summaries,
     )
@@ -163,29 +182,15 @@ def list_products() -> ProductCatalog:
 
 @router.get("/{product_id}/body", response_model=ProductBody)
 def get_product_body(product_id: str) -> ProductBody:
-    """특정 상품의 약관 본문 텍스트.
-
-    PDF가 data/products/pdfs/<id>.pdf 로 업로드되어 있어야 한다.
-    텍스트 캐시(bodies/<id>.txt)가 PDF보다 최신이면 캐시를 그대로 반환.
-    """
-    cat = _load_catalog()
-    product = next((p for p in cat["products"] if p["id"] == product_id), None)
-    if product is None:
+    """특정 약관 PDF의 본문 텍스트. 캐시(bodies/<id>.txt)가 최신이면 캐시 반환."""
+    pdf_path = _find_pdf_by_id(product_id)
+    if pdf_path is None:
         raise HTTPException(status_code=404, detail=f"상품을 찾을 수 없습니다: {product_id}")
 
-    result = _resolve_body(product_id)
-    if result is None:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"약관 본문이 아직 등록되지 않았습니다. "
-                f"data/products/pdfs/{product_id}.pdf 로 약관 PDF를 업로드하세요."
-            ),
-        )
-    text, source = result
+    text, source = _resolve_body(pdf_path, product_id)
     return ProductBody(
         id=product_id,
-        name=product.get("official_name") or product["name"],
+        name=_display_name(pdf_path.stem),
         text=text,
         chars=len(text),
         source=source,

@@ -153,9 +153,7 @@ def _rule_bonus(rows: pd.DataFrame, sp: SellingPoints) -> np.ndarray:
     # 직업 (0.20) — 부분 매칭
     if sp.target_occupations:
         pattern = "|".join(_re_escape_for_pandas(o) for o in sp.target_occupations)
-        match = (
-            rows["occupation"].fillna("").str.contains(pattern, regex=True, na=False)
-        ).to_numpy().astype(np.float32)
+        match = _occupation_match(rows, pattern)
         specified.append((0.20, match))
 
     if not specified:
@@ -175,6 +173,38 @@ def _re_escape_for_pandas(s: str) -> str:
     return _re.escape(s)
 
 
+# occupation 컬럼은 자유 텍스트(object dtype)지만 고유값이 ~2천여 개로 행 수(100만) 대비
+# 매우 적다. 매 분석마다 100만 행 전체에 regex str.contains를 돌리는 대신, 고유값
+# 배열에만 regex를 적용하고 codes로 broadcast하면 동일 결과를 ~수백 배 적은 비용에 얻는다.
+# factorize 결과는 df 행이 불변인 한 정적이므로 DataFrame 객체 식별자(id) 기준 1회 캐시.
+# (_rule_bonus는 store 수명주기 내 동일한 store.df로만 호출됨)
+_OCCUPATION_FACTORIZE_CACHE: dict[int, tuple[np.ndarray, pd.Index]] = {}
+
+
+def _occupation_factorize(df: pd.DataFrame) -> tuple[np.ndarray, pd.Index]:
+    """df["occupation"] → (codes, uniques). 결측은 ""로 정규화해 fillna("") 동치."""
+    key = id(df)
+    cached = _OCCUPATION_FACTORIZE_CACHE.get(key)
+    if cached is None:
+        codes, uniques = pd.factorize(df["occupation"].fillna(""), sort=False)
+        cached = (codes.astype(np.intp), uniques)
+        _OCCUPATION_FACTORIZE_CACHE[key] = cached
+    return cached
+
+
+def _occupation_match(df: pd.DataFrame, pattern: str) -> np.ndarray:
+    """occupation 부분 매칭 마스크(0/1 float32). 고유값에만 regex 적용 후 codes로 broadcast.
+
+    `df["occupation"].fillna("").str.contains(pattern, regex=True, na=False)`와 동일 결과를
+    산출하되 regex 매칭 대상을 100만 행에서 고유값(~2천)으로 줄인다.
+    """
+    codes, uniques = _occupation_factorize(df)
+    unique_match = (
+        pd.Series(uniques).str.contains(pattern, regex=True, na=False)
+    ).to_numpy()
+    return unique_match[codes].astype(np.float32)
+
+
 _CATEGORY_TO_PERSONA_COL = {
     "professional": "professional_persona",
     "sports": "sports_persona",
@@ -185,7 +215,9 @@ _CATEGORY_TO_PERSONA_COL = {
 }
 
 
-def _category_bonus(rows: pd.DataFrame, sp: SellingPoints) -> np.ndarray:
+def _category_bonus(
+    rows: pd.DataFrame, sp: SellingPoints, store: PersonaStore | None = None
+) -> np.ndarray:
     """카테고리 보너스 (0-1).
 
     MVP에서는 카테고리별 임베딩을 만들지 않았으므로,
@@ -193,10 +225,15 @@ def _category_bonus(rows: pd.DataFrame, sp: SellingPoints) -> np.ndarray:
     아니면 0.5의 평탄한 보너스를 부여 (사실상 가중치만 가산).
 
     추후 카테고리별 임베딩을 추가하면 여기서 카테고리 코사인 유사도 가중합으로 교체.
+
+    store가 주어지고 rows가 전체 모집단(len == store.total)이면 store.nonempty_mask 캐시를
+    사용해 매 스코어링마다 반복되던 1M 행 str.len()(컬럼당 ~80ms)을 제거한다.
     """
     weights = sp.persona_category_weights or {}
     if not weights:
         return np.full(len(rows), 0.5, dtype=np.float32)
+
+    use_cache = store is not None and len(rows) == store.total
 
     # 가중치 합으로 정규화
     total_w = sum(weights.values()) or 1.0
@@ -205,25 +242,28 @@ def _category_bonus(rows: pd.DataFrame, sp: SellingPoints) -> np.ndarray:
         col = _CATEGORY_TO_PERSONA_COL.get(cat)
         if not col or col not in rows.columns:
             continue
-        non_empty = rows[col].fillna("").str.len() > 0
-        weighted += (w / total_w) * non_empty.to_numpy(dtype=np.float32)
+        if use_cache:
+            non_empty = store.nonempty_mask(col)
+        else:
+            non_empty = (rows[col].fillna("").str.len() > 0).to_numpy(dtype=np.float32)
+        weighted += (w / total_w) * non_empty
 
     return weighted  # 0~1
 
 
 def _compute_percentile_for_hits(
-    hit_scores: np.ndarray, all_scores: np.ndarray
+    hit_scores: np.ndarray, sorted_all: np.ndarray
 ) -> np.ndarray:
     """상위 hit의 raw score를 모집단 백분위(0~100)로 변환.
 
-    100만 행 전체 argsort 2회 대신 sort 1회 + searchsorted로 효율적.
+    sorted_all: 모집단 전체 점수를 오름차순 정렬한 배열(호출자가 1회 정렬해 전달).
+    top/mid/bottom 3회 호출 시 매번 1M 정렬을 반복하던 비용을 제거한다.
     동률은 left/right 경계 평균(`rankdata(method='average')` 동치)으로
     동일 raw가 다른 percentile로 표시되는 부작용 방지. scipy 의존성 없음.
     """
-    if len(hit_scores) == 0 or len(all_scores) == 0:
+    if len(hit_scores) == 0 or len(sorted_all) == 0:
         return np.array([], dtype=np.float32)
-    sorted_all = np.sort(all_scores)
-    n = len(all_scores)
+    n = len(sorted_all)
     left = np.searchsorted(sorted_all, hit_scores, side="left")
     right = np.searchsorted(sorted_all, hit_scores, side="right")
     avg_rank = (left + right) / 2.0  # 0~n
@@ -294,6 +334,11 @@ def score_personas(
 
     n = len(all_scores)
 
+    # 모집단 전체 점수를 1회만 정렬해 top/mid/bottom 백분위 계산에 재사용.
+    # (이전에는 _compute_percentile_for_hits가 호출마다 np.sort(all_scores)를 돌려
+    #  요청당 1M 정렬이 3회 반복됐다.)
+    sorted_all = np.sort(all_scores)
+
     # 2a) 상위 final_top 인덱스 (argpartition으로 빠르게)
     k_top = min(final_top, n)
     partial = np.argpartition(-all_scores, k_top - 1)[:k_top]
@@ -301,7 +346,7 @@ def score_personas(
 
     top_rows = store.get_rows(top_idx).copy()
     top_rows["score"] = all_scores[top_idx]
-    top_pct = _compute_percentile_for_hits(all_scores[top_idx], all_scores)
+    top_pct = _compute_percentile_for_hits(all_scores[top_idx], sorted_all)
     top_personas = _rows_to_personas(top_rows, percentiles=top_pct)
 
     # 2b) 하위 bottom_k 인덱스 (가장 점수 낮은 N명, 오름차순)
@@ -311,7 +356,7 @@ def score_personas(
 
     bottom_rows = store.get_rows(bottom_idx).copy()
     bottom_rows["score"] = all_scores[bottom_idx]
-    bottom_pct = _compute_percentile_for_hits(all_scores[bottom_idx], all_scores)
+    bottom_pct = _compute_percentile_for_hits(all_scores[bottom_idx], sorted_all)
     bottom_personas = _rows_to_personas(bottom_rows, percentiles=bottom_pct)
 
     # 2c) 중위 mid_k 인덱스 (median 근처 ±mid_k/2 — 평균 시장 반응 샘플).
@@ -339,7 +384,7 @@ def score_personas(
 
         mid_rows = store.get_rows(mid_idx).copy()
         mid_rows["score"] = all_scores[mid_idx]
-        mid_pct = _compute_percentile_for_hits(all_scores[mid_idx], all_scores)
+        mid_pct = _compute_percentile_for_hits(all_scores[mid_idx], sorted_all)
         mid_personas = _rows_to_personas(mid_rows, percentiles=mid_pct)
     else:
         mid_personas = []
@@ -439,8 +484,8 @@ def score_all_personas(
         # 2) 룰 보너스 (전체 100만, 0~1)
         rule_all = _rule_bonus(df, sp)
 
-        # 3) 카테고리 보너스 (전체 100만, 0~1)
-        cat_all = _category_bonus(df, sp)
+        # 3) 카테고리 보너스 (전체 100만, 0~1) — store 캐시로 str.len() 반복 회피
+        cat_all = _category_bonus(df, sp, store)
 
         # 4) 보험 관심자 부스트 — AI Hub 통합 데이터(fin_) 있을 때만. 보험 반응도 분석에서
         #    실제 보험 관심층을 상위로 끌어올린다. 미통합 데이터셋에서는 0(영향 없음).
@@ -494,10 +539,23 @@ def score_all_personas(
     # raw score는 [52,78]로 좁아 cohort 인원만으로는 차이가 안 보임 → mean/std/p99 등 종합.
     raw_mean = float(all_scores.mean())
     raw_std = float(all_scores.std())
-    raw_p50 = float(np.percentile(all_scores, 50))
-    raw_p95 = float(np.percentile(all_scores, 95))
-    raw_p99 = float(np.percentile(all_scores, 99))
-    raw_max = float(all_scores.max())
+    # p50/p95/p99/max: np.percentile 3회는 매번 내부 정렬/partition을 반복(1M 기준 ~29ms).
+    # 단일 np.sort 후 linear 보간으로 동일 값을 ~6ms에 산출(요청당 ~23ms 절감). max도 같은
+    # 정렬 배열의 마지막 원소로 공짜. 보간식은 np.percentile 기본('linear')과 동치라 값 불변.
+    sorted_scores = np.sort(all_scores)
+    n_sorted = len(sorted_scores)
+
+    def _pct(q: float) -> float:
+        pos = q / 100.0 * (n_sorted - 1)
+        lo = int(pos)
+        hi = min(lo + 1, n_sorted - 1)
+        frac = pos - lo
+        return float(sorted_scores[lo] * (1.0 - frac) + sorted_scores[hi] * frac)
+
+    raw_p50 = _pct(50.0)
+    raw_p95 = _pct(95.0)
+    raw_p99 = _pct(99.0)
+    raw_max = float(sorted_scores[-1])
     n_above_80 = int((all_scores >= 80).sum())  # UI/LLM '매우 높음' 컷
     n_above_65 = int((all_scores >= 65).sum())  # '높음' 컷
 

@@ -1,140 +1,24 @@
-"""LLM 추상화 — Anthropic Claude 또는 OpenAI 호환 sLLM(vLLM).
+"""LLM tool_use 스키마 정의 + 프롬프트 빌더 + 컨텍스트 포매터.
 
-provider 인자로 두 경로를 선택:
-- "anthropic": Sonnet(소구점) + Haiku(리포트·시뮬레이션)
-- "sllm":      OpenAI 호환 엔드포인트의 단일 모델 (런타임에 /v1/models로 자동 감지)
-                tool_use는 OpenAI function calling으로, system은 messages[0]으로 변환.
-
-설계 원칙:
-- 클라이언트는 앱 수명주기 싱글톤
-- tenacity로 3회 재시도
-- 임베딩은 항상 OpenAI (sLLM 무관)
-- 모델명은 SLLM_MODEL env가 있으면 그대로, 없으면 /v1/models 자동 감지 (lazy + 캐싱)
+provider(anthropic/sllm) 무관한 순수 데이터·헬퍼만 모은다. 실제 API 호출은 service.py.
 """
 
 from __future__ import annotations
 
 import json
-import os
-import threading
-import weakref
-from abc import ABC, abstractmethod
-from functools import lru_cache
-from pathlib import Path
-from typing import Literal
 
-import numpy as np
-from anthropic import Anthropic
-from openai import OpenAI
-from tenacity import retry, stop_after_attempt, wait_exponential
+from models.schemas import PersonaHit, PopulationStats, SellingPoints
 
-from models.schemas import (
-    PersonaHit,
-    PopulationStats,
-    SellingPoints,
+from .config import (
+    _DYNAMIC_COLUMNS_SCHEMA,
+    _EDUCATION_ENUM,
+    _MARITAL_ENUM,
+    _PROVINCE_ENUM,
 )
-from services import embed_cache
-
-# ============================================================
-# Provider 타입
-# ============================================================
-
-LLMProvider = Literal["anthropic", "sllm"]
-# 기본 provider — 사내 sLLM(Qwen) 우선. Anthropic은 explicit하게 지정한 경우에만 사용.
-DEFAULT_PROVIDER: LLMProvider = "sllm"
-
-
-# ============================================================
-# 모델 / 경로 상수
-# ============================================================
-
-CLAUDE_SONNET = "claude-sonnet-4-6"
-CLAUDE_HAIKU = "claude-haiku-4-5"
-EMBED_MODEL = "text-embedding-3-small"
-EMBED_DIM = 1536
-
-# sLLM (OpenAI 호환 vLLM) — base URL은 env override, 모델명은 resolve_sllm_model()로 lazy 결정.
-SLLM_BASE_URL = os.environ.get("SLLM_BASE_URL", "http://3.38.195.121:5015/v1")
-
-PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
-SELLING_POINTS_PROMPT = (PROMPTS_DIR / "selling_points.md").read_text(encoding="utf-8")
-REPORT_PROMPT = (PROMPTS_DIR / "report.md").read_text(encoding="utf-8")
-COMMENTARY_PROMPT = (PROMPTS_DIR / "commentary.md").read_text(encoding="utf-8")
-ABTEST_COMPANY_PROMPT = (PROMPTS_DIR / "abtest_company.md").read_text(encoding="utf-8")
-ABTEST_STRATEGY_PROMPT = (PROMPTS_DIR / "abtest_strategy.md").read_text(encoding="utf-8")
-
-MAX_PRODUCT_TEXT_CHARS = 8000  # 입력 truncate (토큰 보호)
-
-
-# ============================================================
-# 싱글톤 클라이언트
-# ============================================================
-
-@lru_cache(maxsize=1)
-def anthropic_client() -> Anthropic:
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        raise RuntimeError("ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.")
-    return Anthropic()
-
-
-@lru_cache(maxsize=1)
-def sllm_client() -> OpenAI:
-    """sLLM(OpenAI 호환) 싱글톤. vLLM은 api_key 미사용이지만 SDK 요구로 dummy 전달."""
-    return OpenAI(base_url=SLLM_BASE_URL, api_key="dummy-sllm-no-auth")
-
-
-@lru_cache(maxsize=1)
-def resolve_sllm_model() -> str:
-    """sLLM 모델명 결정 — env > /v1/models 자동 감지.
-
-    우선순위:
-    1. SLLM_MODEL 환경변수 (운영자 명시 override)
-    2. /v1/models 응답의 첫 번째 모델 id (게이트웨이가 hosting 중인 실제 모델명)
-
-    lru_cache로 1회만 resolve — 같은 프로세스 내에서 모델이 바뀌지 않는다고 가정.
-    조회 실패 시 RuntimeError로 fail-fast (default 추측 금지: 잘못된 모델명은
-    400/404를 유발하고 디버깅이 어려움).
-    """
-    env_model = os.environ.get("SLLM_MODEL")
-    if env_model:
-        return env_model
-    try:
-        models = sllm_client().models.list()
-    except Exception as e:
-        raise RuntimeError(
-            f"sLLM 모델 자동 감지 실패: {SLLM_BASE_URL}/models 호출 중 오류 ({e}). "
-            "SLLM_MODEL 환경변수로 모델명을 명시하거나 백엔드 상태를 확인하세요."
-        ) from e
-    data = list(getattr(models, "data", []) or [])
-    if not data:
-        raise RuntimeError(
-            f"sLLM 모델 자동 감지 실패: {SLLM_BASE_URL}/models 응답에 모델이 없습니다 "
-            "(백엔드 미기동 가능성). SLLM_MODEL 환경변수로 모델명을 명시하세요."
-        )
-    return data[0].id
-
-
-@lru_cache(maxsize=1)
-def openai_client() -> OpenAI:
-    if not os.environ.get("OPENAI_API_KEY"):
-        raise RuntimeError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다.")
-    return OpenAI()
-
 
 # ============================================================
 # 소구점 추출 (Claude Sonnet + tool_use)
 # ============================================================
-
-# tool_use 스키마 — SellingPoints와 동일 구조
-_EDUCATION_ENUM = [
-    "무학",
-    "초등학교",
-    "중학교",
-    "고등학교",
-    "2~3년제 전문대학",
-    "4년제 대학교",
-    "대학원",
-]
 
 _SELLING_POINTS_TOOL = {
     "name": "record_selling_points",
@@ -217,107 +101,9 @@ def _input_mode_prefix(input_mode: str) -> str:
     return ""
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
-def extract_selling_points(
-    product_text: str,
-    provider: LLMProvider = DEFAULT_PROVIDER,
-    input_mode: str = "terms",
-) -> SellingPoints:
-    """상품 분석 → SellingPoints. get_llm_service() 위임.
-
-    input_mode("terms" | "marketing" | "concept")에 따라 LLM이 hallucination 없이
-    카피·컨셉 입력의 본질만 추출하도록 user message에 가드 prefix가 prepend된다.
-
-    카피 모드 안전망: key_benefits를 강제로 빈 배열로 덮어쓴다. 카피 한 줄에는
-    명시된 보장 혜택이 없으므로 LLM이 추론한 값(예: '전면적 케어')은 모두 hallucination.
-    """
-    sp = get_llm_service(provider).extract_selling_points(product_text, input_mode)
-    if input_mode == "marketing":
-        sp.key_benefits = []
-    return sp
-
-
-# ============================================================
-# 임베딩 (OpenAI)
-# ============================================================
-
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
-def _embed_text_uncached(text: str) -> np.ndarray:
-    """OpenAI 임베딩 API 직접 호출 (캐시 미적용)."""
-    res = openai_client().embeddings.create(model=EMBED_MODEL, input=[text])
-    return np.asarray(res.data[0].embedding, dtype=np.float32)
-
-
-# per-key lock — 동일 query 동시 miss 시 OpenAI 중복 호출 방지.
-# WeakValueDictionary로 미사용 lock은 자동 GC → 무한 증가 없음.
-_embed_key_locks: weakref.WeakValueDictionary[str, threading.Lock] = (
-    weakref.WeakValueDictionary()
-)
-_embed_keys_guard = threading.Lock()
-
-
-def _get_embed_lock(key: str) -> threading.Lock:
-    """key별 lock 획득. dict 자체는 약참조라 호출자가 strong ref 유지 필요."""
-    with _embed_keys_guard:
-        lock = _embed_key_locks.get(key)
-        if lock is None:
-            lock = threading.Lock()
-            _embed_key_locks[key] = lock
-        return lock
-
-
-def embed_text(text: str) -> list[float]:
-    """text → 1536d 임베딩. (model, text) 단위 영속 캐시 적용.
-
-    캐시 hit 시 OpenAI 호출 0회 (200~500ms 절감).
-    동일 query 동시 miss 시 per-key lock으로 OpenAI 중복 호출 방지.
-    리턴 타입은 호환성 위해 list[float] 유지 — 호출자가 np.array로 변환.
-    """
-    key = embed_cache.cache_key(EMBED_MODEL, text)
-    # 1차 조회 — fast path (hit 시 lock 획득 안 함)
-    cached = embed_cache.get(key)
-    if cached is not None:
-        return cached.tolist()
-
-    # 동시 miss 직렬화 — 같은 key는 한 번만 OpenAI 호출
-    per_key_lock = _get_embed_lock(key)
-    with per_key_lock:
-        # double-check: lock 대기 중 다른 요청이 채웠을 수 있음
-        cached = embed_cache.get(key)
-        if cached is not None:
-            return cached.tolist()
-        arr = _embed_text_uncached(text)
-        embed_cache.put(key, arr)
-        return arr.tolist()
-
-
 # ============================================================
 # 자연어 → 메타 필터 추출 (Claude Haiku tool_use)
 # ============================================================
-
-# 17개 시도 — 데이터셋 정규화 표기와 정확히 일치해야 함 (store._PROVINCE_SHORT_MAP 적용 후)
-_PROVINCE_ENUM = [
-    "강원", "경기", "경남", "경북", "광주", "대구", "대전",
-    "부산", "서울", "세종", "울산", "인천", "전남", "전북",
-    "제주", "충남", "충북",
-]
-
-_MARITAL_ENUM = ["미혼", "배우자있음", "사별", "이혼"]
-
-# 동적 필터 가능 컬럼·값 — 시스템 프롬프트에 주입해서 LLM이 자유롭게 활용.
-# 카디널리티 작은 컬럼만 (district 252개는 자유 키워드로 별도 처리 — 일단 제외).
-_DYNAMIC_COLUMNS_SCHEMA: dict[str, list[str]] = {
-    "housing_type": [
-        "아파트", "단독주택", "다세대주택", "주택 이외의 거처",
-        "연립주택", "비주거용 건물 내 주택",
-    ],
-    "bachelors_field": [
-        "해당없음", "공학·제조·건설", "경영·행정·법", "예술·인문",
-        "보건·복지", "교육", "정보통신기술", "서비스",
-        "자연과학·수학·통계", "농림·수산·수의", "기타",
-    ],
-    "military_status": ["비현역", "현역"],
-}
 
 _QUERY_FILTER_EXTRACT_TOOL = {
     "name": "extract_persona_filter",
@@ -534,6 +320,7 @@ column_name: [values] 형태로 추가하세요.
   - 'IT 개발자' → occupations=['개발자', 'IT']
   - '한식 조리사' → occupations=['한식', '조리']
 - '조리원'이 아니라 '조리사'가 데이터에 흔함 — 짧은 어근('조리')을 선호하면 부분 매칭 폭이 넓어짐
+- '동거/함께사는/같이사는' 단서는 혼자 거주를 제외하는 방향으로 family_types를 채움
 - additional_filters는 시스템 프롬프트에 명시된 값(enum)만 정확히 사용
 - 데이터셋에 없는 값이면 additional_filters에 넣지 말고 remaining_query에 남기기
 - 추측 금지 — 텍스트에 단서가 명확할 때만 채웁니다
@@ -557,14 +344,6 @@ def _fill_extract_defaults(data: dict, query: str) -> dict:
     data.setdefault("additional_filters", {})
     data.setdefault("remaining_query", query)
     return data
-
-
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4))
-def extract_filter_from_query(
-    query: str, provider: LLMProvider = DEFAULT_PROVIDER,
-) -> dict:
-    """자연어 쿼리 → 메타 필터 dict. get_llm_service() 위임."""
-    return get_llm_service(provider).extract_filter_from_query(query)
 
 
 # ============================================================
@@ -695,38 +474,6 @@ def _build_answer_prompt(
     return "\n".join(parts)
 
 
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4))
-def generate_persona_answer(
-    *,
-    profile: str,
-    survey_objective: str,
-    question_text: str,
-    question_type: str,
-    options: list[str] | None,
-    scale_min: int | None,
-    scale_max: int | None,
-    scale_label_low: str | None,
-    scale_label_high: str | None,
-    provider: LLMProvider,
-    model: str,
-    temperature: float,
-) -> tuple[dict, int]:
-    """단일 페르소나 × 단일 질문 → get_llm_service() 위임."""
-    return get_llm_service(provider).generate_persona_answer(
-        profile=profile,
-        survey_objective=survey_objective,
-        question_text=question_text,
-        question_type=question_type,
-        options=options,
-        scale_min=scale_min,
-        scale_max=scale_max,
-        scale_label_low=scale_label_low,
-        scale_label_high=scale_label_high,
-        model=model,
-        temperature=temperature,
-    )
-
-
 # ============================================================
 # 설문 질문 자동 추천 (Claude Haiku tool_use)
 # ============================================================
@@ -854,30 +601,8 @@ def _normalize_suggested_questions(qs: list[dict]) -> list[dict]:
     return qs
 
 
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4))
-def generate_survey_questions(
-    *,
-    title: str,
-    description: str,
-    objective: str,
-    target_summary: str,
-    num: int = 5,
-    existing_question_texts: list[str] | None = None,
-    provider: LLMProvider = DEFAULT_PROVIDER,
-) -> list[dict]:
-    """설문 제목·목적·대상 → 추천 질문. get_llm_service() 위임."""
-    return get_llm_service(provider).generate_survey_questions(
-        title=title,
-        description=description,
-        objective=objective,
-        target_summary=target_summary,
-        num=num,
-        existing_question_texts=existing_question_texts,
-    )
-
-
 # ============================================================
-# 리포트 생성 (Claude Haiku)
+# 리포트 / 총평 컨텍스트 포매터 (Claude Haiku)
 # ============================================================
 
 def _format_context_for_report(
@@ -961,32 +686,18 @@ def _format_context_for_report(
     )
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
-def generate_report(
-    sp: SellingPoints,
-    top_personas: list[PersonaHit],
-    population: PopulationStats,
-    provider: LLMProvider = DEFAULT_PROVIDER,
-) -> str:
-    """FP/기획자용 마크다운 리포트 (모집단 기반). get_llm_service() 위임."""
-    return get_llm_service(provider).generate_report(sp, top_personas, population)
-
-
-# ============================================================
-# 설문 차트 리포트 총평 생성 (Claude Haiku)
-#
-# 입력 stats는 dict로 받음 — routes/survey_report.py의 ReportResponse를 services 레이어가
-# 의존하지 않도록 약식 결합. 호출자가 통계를 추출해 넘기는 책임.
-# 기대 키: survey(title, objective, question_count, persona_count, status),
-#         summary(total_completed, total_failed, total_tokens, avg_response_seconds),
-#         distribution(sex, age_bins, province_top),
-#         questions[{order, type, text, total_responses, avg_confidence,
-#                    choice_distribution?, scale_mean?, scale_histogram?,
-#                    open_ended_samples?}]
-# ============================================================
-
 def _format_context_for_commentary(stats: dict) -> str:
-    """설문 통계 dict → LLM user 컨텍스트 텍스트."""
+    """설문 통계 dict → LLM user 컨텍스트 텍스트.
+
+    입력 stats는 dict로 받음 — routes/survey_report.py의 ReportResponse를 services 레이어가
+    의존하지 않도록 약식 결합. 호출자가 통계를 추출해 넘기는 책임.
+    기대 키: survey(title, objective, question_count, persona_count, status),
+            summary(total_completed, total_failed, total_tokens, avg_response_seconds),
+            distribution(sex, age_bins, province_top),
+            questions[{order, type, text, total_responses, avg_confidence,
+                       choice_distribution?, scale_mean?, scale_histogram?,
+                       open_ended_samples?}]
+    """
     lines: list[str] = []
     sv = stats.get("survey", {})
     sm = stats.get("summary", {})
@@ -1076,392 +787,3 @@ def _format_context_for_commentary(stats: dict) -> str:
                 lines.append(f"  - {ans}")
 
     return "\n".join(lines)
-
-
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
-def generate_overall_commentary(
-    stats: dict,
-    provider: LLMProvider = DEFAULT_PROVIDER,
-) -> str:
-    """설문 차트 리포트 최상단 총평 마크다운 생성. get_llm_service() 위임."""
-    return get_llm_service(provider).generate_overall_commentary(stats)
-
-
-# ============================================================
-# LLM 다형성 추상 레이어 (BaseLLMService & 구현체)
-# ============================================================
-
-class BaseLLMService(ABC):
-    """LLM 추상화용 Base 서비스 클래스."""
-
-    @abstractmethod
-    def extract_selling_points(
-        self, product_text: str, input_mode: str = "terms"
-    ) -> SellingPoints:
-        pass
-
-    @abstractmethod
-    def extract_filter_from_query(self, query: str) -> dict:
-        pass
-
-    @abstractmethod
-    def generate_persona_answer(
-        self,
-        *,
-        profile: str,
-        survey_objective: str,
-        question_text: str,
-        question_type: str,
-        options: list[str] | None,
-        scale_min: int | None,
-        scale_max: int | None,
-        scale_label_low: str | None,
-        scale_label_high: str | None,
-        model: str,
-        temperature: float,
-    ) -> tuple[dict, int]:
-        pass
-
-    @abstractmethod
-    def generate_survey_questions(
-        self,
-        *,
-        title: str,
-        description: str,
-        objective: str,
-        target_summary: str,
-        num: int = 5,
-        existing_question_texts: list[str] | None = None,
-    ) -> list[dict]:
-        pass
-
-    @abstractmethod
-    def generate_report(
-        self,
-        sp: SellingPoints,
-        top_personas: list[PersonaHit],
-        population: PopulationStats,
-    ) -> str:
-        pass
-
-    @abstractmethod
-    def generate_overall_commentary(self, stats: dict) -> str:
-        pass
-
-
-class AnthropicLLMService(BaseLLMService):
-    """Anthropic Claude API 기반 LLM 서비스 구현."""
-
-    def extract_selling_points(
-        self, product_text: str, input_mode: str = "terms"
-    ) -> SellingPoints:
-        truncated = product_text[:MAX_PRODUCT_TEXT_CHARS]
-        user_content = _input_mode_prefix(input_mode) + truncated
-        msg = anthropic_client().messages.create(
-            model=CLAUDE_SONNET,
-            max_tokens=1500,
-            system=SELLING_POINTS_PROMPT,
-            tools=[_SELLING_POINTS_TOOL],
-            tool_choice={"type": "tool", "name": "record_selling_points"},
-            messages=[{"role": "user", "content": user_content}],
-        )
-        for block in msg.content:
-            if block.type == "tool_use" and block.name == "record_selling_points":
-                return SellingPoints.model_validate(block.input)
-        raise RuntimeError(f"Claude tool_use 응답 누락. content={msg.content!r}")
-
-    def extract_filter_from_query(self, query: str) -> dict:
-        msg = anthropic_client().messages.create(
-            model=CLAUDE_HAIKU,
-            max_tokens=400,
-            system=_QUERY_FILTER_EXTRACT_SYSTEM,
-            tools=[_QUERY_FILTER_EXTRACT_TOOL],
-            tool_choice={"type": "tool", "name": "extract_persona_filter"},
-            messages=[{"role": "user", "content": query}],
-        )
-        for block in msg.content:
-            if block.type == "tool_use" and block.name == "extract_persona_filter":
-                return _fill_extract_defaults(dict(block.input), query)
-        raise RuntimeError(f"Claude tool_use 응답 누락. content={msg.content!r}")
-
-    def generate_persona_answer(
-        self,
-        *,
-        profile: str,
-        survey_objective: str,
-        question_text: str,
-        question_type: str,
-        options: list[str] | None,
-        scale_min: int | None,
-        scale_max: int | None,
-        scale_label_low: str | None,
-        scale_label_high: str | None,
-        model: str,
-        temperature: float,
-    ) -> tuple[dict, int]:
-        tool = _build_answer_tool_schema(question_type, options, scale_min, scale_max)
-        user_prompt = _build_answer_prompt(
-            profile=profile,
-            survey_objective=survey_objective,
-            question_text=question_text,
-            question_type=question_type,
-            options=options,
-            scale_min=scale_min,
-            scale_max=scale_max,
-            scale_label_low=scale_label_low,
-            scale_label_high=scale_label_high,
-        )
-        msg = anthropic_client().messages.create(
-            model=model,
-            max_tokens=400,
-            temperature=temperature,
-            system=_PERSONA_ANSWER_SYSTEM,
-            tools=[tool],
-            tool_choice={"type": "tool", "name": "submit_answer"},
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        tokens = msg.usage.input_tokens + msg.usage.output_tokens
-        for block in msg.content:
-            if block.type == "tool_use" and block.name == "submit_answer":
-                return dict(block.input), tokens
-        raise RuntimeError(f"Claude submit_answer 누락. content={msg.content!r}")
-
-    def generate_survey_questions(
-        self,
-        *,
-        title: str,
-        description: str,
-        objective: str,
-        target_summary: str,
-        num: int = 5,
-        existing_question_texts: list[str] | None = None,
-    ) -> list[dict]:
-        user_prompt = _build_suggest_user_prompt(
-            title=title,
-            description=description,
-            objective=objective,
-            target_summary=target_summary,
-            num=num,
-            existing_question_texts=existing_question_texts,
-        )
-        msg = anthropic_client().messages.create(
-            model=CLAUDE_HAIKU,
-            max_tokens=1500,
-            system=_SUGGEST_QUESTIONS_SYSTEM,
-            tools=[_SUGGEST_QUESTIONS_TOOL],
-            tool_choice={"type": "tool", "name": "submit_suggested_questions"},
-            messages=[{"role": "user", "content": user_prompt}],
-        )
-        for block in msg.content:
-            if block.type == "tool_use" and block.name == "submit_suggested_questions":
-                data = dict(block.input)
-                qs: list[dict] = data.get("questions", []) or []
-                return _normalize_suggested_questions(qs)
-        raise RuntimeError(f"Claude tool_use 응답 누락. content={msg.content!r}")
-
-    def generate_report(
-        self,
-        sp: SellingPoints,
-        top_personas: list[PersonaHit],
-        population: PopulationStats,
-    ) -> str:
-        context = _format_context_for_report(sp, top_personas, population)
-        msg = anthropic_client().messages.create(
-            model=CLAUDE_HAIKU,
-            max_tokens=1600,
-            system=REPORT_PROMPT,
-            messages=[{"role": "user", "content": context}],
-        )
-        parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
-        return "\n".join(parts).strip()
-
-    def generate_overall_commentary(self, stats: dict) -> str:
-        context = _format_context_for_commentary(stats)
-        msg = anthropic_client().messages.create(
-            model=CLAUDE_HAIKU,
-            max_tokens=900,
-            system=COMMENTARY_PROMPT,
-            messages=[{"role": "user", "content": context}],
-        )
-        parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
-        return "\n".join(parts).strip()
-
-
-class SLLMService(BaseLLMService):
-    """OpenAI 호환 sLLM vLLM API 기반 LLM 서비스 구현."""
-
-    def extract_selling_points(
-        self, product_text: str, input_mode: str = "terms"
-    ) -> SellingPoints:
-        truncated = product_text[:MAX_PRODUCT_TEXT_CHARS]
-        user_content = _input_mode_prefix(input_mode) + truncated
-        completion = sllm_client().chat.completions.create(
-            model=resolve_sllm_model(),
-            max_tokens=1500,
-            temperature=0.2,
-            messages=[
-                {"role": "system", "content": SELLING_POINTS_PROMPT},
-                {"role": "user", "content": user_content},
-            ],
-            tools=[_anthropic_to_openai_tool(_SELLING_POINTS_TOOL)],
-            tool_choice={"type": "function", "function": {"name": "record_selling_points"}},
-        )
-        message = completion.choices[0].message
-        if not message.tool_calls:
-            raise RuntimeError(f"sLLM tool_calls 누락. content={message.content!r}")
-        args_json = message.tool_calls[0].function.arguments
-        try:
-            args = json.loads(args_json)
-        except json.JSONDecodeError as e:
-            raise RuntimeError(f"sLLM tool args JSON 파싱 실패: {args_json!r}") from e
-        return SellingPoints.model_validate(args)
-
-    def extract_filter_from_query(self, query: str) -> dict:
-        completion = sllm_client().chat.completions.create(
-            model=resolve_sllm_model(),
-            max_tokens=400,
-            temperature=0.2,
-            messages=[
-                {"role": "system", "content": _QUERY_FILTER_EXTRACT_SYSTEM},
-                {"role": "user", "content": query},
-            ],
-            tools=[_anthropic_to_openai_tool(_QUERY_FILTER_EXTRACT_TOOL)],
-            tool_choice={"type": "function", "function": {"name": "extract_persona_filter"}},
-        )
-        msg = completion.choices[0].message
-        if not msg.tool_calls:
-            raise RuntimeError(f"sLLM tool_calls 누락. {msg!r}")
-        args = json.loads(msg.tool_calls[0].function.arguments)
-        return _fill_extract_defaults(args, query)
-
-    def generate_persona_answer(
-        self,
-        *,
-        profile: str,
-        survey_objective: str,
-        question_text: str,
-        question_type: str,
-        options: list[str] | None,
-        scale_min: int | None,
-        scale_max: int | None,
-        scale_label_low: str | None,
-        scale_label_high: str | None,
-        model: str,
-        temperature: float,
-    ) -> tuple[dict, int]:
-        tool = _build_answer_tool_schema(question_type, options, scale_min, scale_max)
-        user_prompt = _build_answer_prompt(
-            profile=profile,
-            survey_objective=survey_objective,
-            question_text=question_text,
-            question_type=question_type,
-            options=options,
-            scale_min=scale_min,
-            scale_max=scale_max,
-            scale_label_low=scale_label_low,
-            scale_label_high=scale_label_high,
-        )
-        completion = sllm_client().chat.completions.create(
-            model=model,
-            max_tokens=400,
-            temperature=temperature,
-            messages=[
-                {"role": "system", "content": _PERSONA_ANSWER_SYSTEM},
-                {"role": "user", "content": user_prompt},
-            ],
-            tools=[_anthropic_to_openai_tool(tool)],
-            tool_choice={"type": "function", "function": {"name": "submit_answer"}},
-        )
-        msg = completion.choices[0].message
-        tokens = (completion.usage.prompt_tokens + completion.usage.completion_tokens
-                  if completion.usage else 0)
-        if not msg.tool_calls:
-            raise RuntimeError(f"sLLM tool_calls 누락. {msg!r}")
-        args = json.loads(msg.tool_calls[0].function.arguments)
-        return args, tokens
-
-    def generate_survey_questions(
-        self,
-        *,
-        title: str,
-        description: str,
-        objective: str,
-        target_summary: str,
-        num: int = 5,
-        existing_question_texts: list[str] | None = None,
-    ) -> list[dict]:
-        user_prompt = _build_suggest_user_prompt(
-            title=title,
-            description=description,
-            objective=objective,
-            target_summary=target_summary,
-            num=num,
-            existing_question_texts=existing_question_texts,
-        )
-        completion = sllm_client().chat.completions.create(
-            model=resolve_sllm_model(),
-            max_tokens=1500,
-            temperature=0.4,
-            messages=[
-                {"role": "system", "content": _SUGGEST_QUESTIONS_SYSTEM},
-                {"role": "user", "content": user_prompt},
-            ],
-            tools=[_anthropic_to_openai_tool(_SUGGEST_QUESTIONS_TOOL)],
-            tool_choice={"type": "function", "function": {"name": "submit_suggested_questions"}},
-        )
-        msg = completion.choices[0].message
-        if not msg.tool_calls:
-            raise RuntimeError(f"sLLM tool_calls 누락. {msg!r}")
-        args = json.loads(msg.tool_calls[0].function.arguments)
-        qs = args.get("questions", []) or []
-        return _normalize_suggested_questions(qs)
-
-    def generate_report(
-        self,
-        sp: SellingPoints,
-        top_personas: list[PersonaHit],
-        population: PopulationStats,
-    ) -> str:
-        context = _format_context_for_report(sp, top_personas, population)
-        completion = sllm_client().chat.completions.create(
-            model=resolve_sllm_model(),
-            max_tokens=1600,
-            temperature=0.4,
-            messages=[
-                {"role": "system", "content": REPORT_PROMPT},
-                {"role": "user", "content": context},
-            ],
-        )
-        return (completion.choices[0].message.content or "").strip()
-
-    def generate_overall_commentary(self, stats: dict) -> str:
-        context = _format_context_for_commentary(stats)
-        completion = sllm_client().chat.completions.create(
-            model=resolve_sllm_model(),
-            max_tokens=900,
-            temperature=0.4,
-            messages=[
-                {"role": "system", "content": COMMENTARY_PROMPT},
-                {"role": "user", "content": context},
-            ],
-        )
-        return (completion.choices[0].message.content or "").strip()
-
-
-# 팩토리 매핑 싱글톤
-_SERVICES: dict[LLMProvider, BaseLLMService] = {
-    "anthropic": AnthropicLLMService(),
-    "sllm": SLLMService(),
-}
-
-
-def get_llm_service(provider: LLMProvider = DEFAULT_PROVIDER) -> BaseLLMService:
-    """LLM 프로바이더별 객체 인스턴스 팩토리.
-
-    ⚠️ 현재 Anthropic 호출은 비활성 — 모든 provider 인자를 'sllm'으로 강제.
-    AnthropicLLMService 코드는 SDK·향후 복귀를 위해 보존만. 활성화 시 아래 줄 제거.
-    """
-    provider = "sllm"  # ENFORCE: Anthropic 호출 차단
-    if provider not in _SERVICES:
-        raise ValueError(f"지원하지 않는 LLM 프로바이더: {provider}")
-    return _SERVICES[provider]

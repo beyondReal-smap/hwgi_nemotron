@@ -33,11 +33,11 @@ class AnalyzeRequest(BaseModel):
 
 
 # ============================================================
-# Claude 소구점 추출 결과
+# 소구점 추출 결과
 # ============================================================
 
 class SellingPoints(BaseModel):
-    """Claude(Sonnet)가 상품 텍스트에서 추출한 분석 결과.
+    """LLM이 상품 텍스트에서 추출한 분석 결과 (anthropic provider 시 Claude Sonnet, 현재 enforce_provider로 사내 sLLM 고정).
 
     tool_use 모드로 스키마 강제. 누락 가능 필드는 None/빈 배열로.
     """
@@ -317,7 +317,7 @@ class AnalyzeResponse(BaseModel):
         default_factory=list,
         description="bottom_personas와 같은 순서로 매칭된 의견",
     )
-    report_md: str = Field(..., description="Claude(Haiku) 생성 FP/기획자용 마크다운 리포트")
+    report_md: str = Field(..., description="FP/기획자용 마크다운 리포트 (provider별 생성; 현재 enforce_provider로 사내 sLLM 고정)")
     elapsed_ms: dict[str, int] = Field(
         ..., description="단계별 소요 ms: selling_points, embed, score, opinions, report"
     )
