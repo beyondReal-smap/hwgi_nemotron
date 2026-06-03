@@ -69,7 +69,7 @@ function Hero() {
       <HeroBackdrop />
 
       <div className="relative z-10 w-full max-w-[860px] mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <p className="hero-line inline-flex items-center gap-2 rounded-2xl sm:rounded-full border border-terra/30 bg-terra/8 px-4 py-1.5 text-overline text-terra shadow-[0_0_0_4px_rgba(217,119,87,0.05)]" style={{ "--i": 0 } as React.CSSProperties}>
+        <p className="hero-line inline-flex items-center gap-2 rounded-2xl sm:rounded-full border border-terra/30 bg-terra/8 px-4 py-1.5 text-overline text-graphite shadow-[0_0_0_4px_rgba(217,119,87,0.05)]" style={{ "--i": 0 } as React.CSSProperties}>
           <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-terra shrink-0" />
           <span className="text-left leading-snug">
             AI 페르소나 타겟 분석
@@ -89,8 +89,8 @@ function Hero() {
         </p>
 
         <div className="hero-line mt-9 flex flex-col sm:flex-row items-center justify-center gap-3" style={{ "--i": 3 } as React.CSSProperties}>
-          <CtaButton href="/personas" variant="primary">페르소나 탐색하기<ArrowIcon /></CtaButton>
-          <CtaButton href="/analyze" variant="ghost">상품 분석 시작하기</CtaButton>
+          <CtaButton href="/overview" variant="primary">데이터 현황 보기<ArrowIcon /></CtaButton>
+          <CtaButton href="/personas" variant="ghost">데이터 탐색하기</CtaButton>
         </div>
 
         {/* 인라인 미니 스탯 — 반투명 카드로 배경 점과 분리(가독성) */}
@@ -509,7 +509,7 @@ function ScaleSection() {
             </p>
             <div className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
               <CtaButton href="/analyze" variant="primary">상품 분석 시작하기<ArrowIcon /></CtaButton>
-              <CtaButton href="/overview" variant="onDark">데이터 현황 보기</CtaButton>
+              <CtaButton href="/surveys" variant="onDark">설문 해보기</CtaButton>
             </div>
           </div>
         </div>
@@ -528,7 +528,7 @@ function ScaleSection() {
 function SectionHeading({ eyebrow, title, subtitle }: { eyebrow: string; title: string; subtitle?: string }) {
   return (
     <>
-      <p data-reveal className="reveal text-overline text-terra">{eyebrow}</p>
+      <p data-reveal className="reveal text-overline text-graphite">{eyebrow}</p>
       <h2
         data-reveal
         className="reveal mt-2 text-[2rem] sm:text-[2.5rem] leading-[1.12] font-bold tracking-[-0.025em] text-ink text-balance"
@@ -716,10 +716,10 @@ const introStyles = `
   .hero-line { opacity: 0; transform: translateY(16px); animation: intro-rise 0.7s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: calc(var(--i,0)*100ms + 80ms); }
   @keyframes intro-rise { to { opacity: 1; transform: translateY(0); } }
 
-  .hero-gradient { background-image: linear-gradient(105deg, #f2c9b8, #d97757 30%, #b85535 60%, #141413 95%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: intro-pan 7s ease-in-out infinite; }
+  .hero-gradient { background-image: linear-gradient(105deg, #d97757, #b85535 45%, #b85535 70%, #141413 95%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: intro-pan 7s ease-in-out infinite; }
   @keyframes intro-pan { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
   .stat-num { background-image: linear-gradient(120deg, #d97757, #b85535); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .step-num { background-image: linear-gradient(160deg, #dedcd1, rgba(217,119,87,0.35)); -webkit-background-clip: text; background-clip: text; color: transparent; transition: background-image 0.3s; }
+  .step-num { background-image: linear-gradient(160deg, #9c9a92, #d97757); -webkit-background-clip: text; background-clip: text; color: transparent; transition: background-image 0.3s; }
   .group:hover .step-num { background-image: linear-gradient(160deg, rgba(217,119,87,0.6), #b85535); }
   .btn-primary { background-image: linear-gradient(135deg, #e0875f, #d97757 45%, #b85535); }
 
@@ -889,7 +889,7 @@ const introStyles = `
       animation: none !important;
     }
     .hero-line { opacity: 1 !important; transform: none !important; }
-    .hero-gradient, .stat-num { -webkit-text-fill-color: #d97757; color: #d97757; }
+    .hero-gradient, .stat-num { -webkit-text-fill-color: #b85535; color: #b85535; }
     .hero-match { transform: none; }
     .reveal { transition: none !important; opacity: 1 !important; transform: none !important; }
     /* 데모는 최종 상태로 정적 표시 */
