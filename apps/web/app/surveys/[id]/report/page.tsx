@@ -165,7 +165,7 @@ function OverallCommentaryCard({
       <header className="bg-snow border-b border-parchment px-5 py-4">
         <h2 className="text-title text-ink">총평</h2>
         <p className="text-body-sm text-dusty mt-1">
-          Claude가 응답 분포·핵심 발견·시사점을 한눈에 정리
+          AI가 응답 분포·핵심 발견·시사점을 한눈에 정리
         </p>
       </header>
       <div className="px-5 py-4">

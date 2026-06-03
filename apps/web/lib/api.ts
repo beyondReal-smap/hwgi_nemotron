@@ -139,29 +139,6 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
 export type LLMProvider = "anthropic" | "sllm";
 
-// 기본 표시 순서를 sLLM 우선으로 (사내 무료, 빠름)
-export const LLM_PROVIDER_OPTIONS: Array<{
-  value: LLMProvider;
-  label: string;
-  sub: string;
-}> = [
-  { value: "sllm", label: "sLLM", sub: "사내·무료" },
-  { value: "anthropic", label: "Claude", sub: "Anthropic Sonnet · Haiku" },
-];
-
-const LLM_PROVIDER_STORAGE_KEY = "personafit:llm-provider";
-
-export function loadLLMProvider(): LLMProvider {
-  if (typeof window === "undefined") return "sllm";
-  const v = window.localStorage.getItem(LLM_PROVIDER_STORAGE_KEY);
-  return v === "anthropic" ? "anthropic" : "sllm";
-}
-
-export function saveLLMProvider(p: LLMProvider): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(LLM_PROVIDER_STORAGE_KEY, p);
-}
-
 export function analyzeProduct(
   productText: string,
   topK = 20,

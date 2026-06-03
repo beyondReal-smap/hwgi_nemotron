@@ -14,7 +14,7 @@ export function ReportPanel({ markdown }: Props) {
           FP·기획자용 인사이트 리포트
         </h2>
         <p className="text-body-sm text-dusty mt-1">
-          Claude Haiku가 위 데이터를 바탕으로 작성한 영업·기획 가이드
+          AI가 위 데이터를 바탕으로 작성한 영업·기획 가이드
         </p>
       </header>
       <div className="px-4 py-4 sm:px-5 sm:py-5">
