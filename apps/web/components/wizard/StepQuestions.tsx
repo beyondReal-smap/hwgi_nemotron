@@ -197,7 +197,7 @@ export function StepQuestions({
             </button>
           </div>
           {aiError && (
-            <p className="text-caption text-ink bg-terra/10 border border-terra/30 rounded px-2 py-1">
+            <p role="alert" className="text-caption text-ink bg-terra/10 border border-terra/30 rounded px-2 py-1">
               {aiError}
             </p>
           )}

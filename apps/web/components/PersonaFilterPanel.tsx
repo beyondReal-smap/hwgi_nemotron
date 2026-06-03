@@ -58,8 +58,9 @@ export function PersonaFilterPanel({
       <div className="p-4 flex flex-col gap-5">
         {/* 자연어 입력 */}
         <section>
-          <label className="text-overline text-dusty">자연어 조건 (선택)</label>
+          <label htmlFor="filter-query" className="text-overline text-dusty">자연어 조건 (선택)</label>
           <textarea
+            id="filter-query"
             value={value.query ?? ""}
             onChange={(e) => patch({ query: e.target.value || null })}
             placeholder="예: 30대 워킹맘 수도권 거주"
@@ -81,6 +82,7 @@ export function PersonaFilterPanel({
           <div className="flex items-center gap-2 text-body-sm">
             <input
               type="number"
+              aria-label="최소 연령"
               min={facets?.age_range.min ?? 0}
               max={facets?.age_range.max ?? 120}
               value={ageMin}
@@ -92,6 +94,7 @@ export function PersonaFilterPanel({
             <span className="text-dusty">~</span>
             <input
               type="number"
+              aria-label="최대 연령"
               min={facets?.age_range.min ?? 0}
               max={facets?.age_range.max ?? 120}
               value={ageMax}
@@ -152,6 +155,7 @@ export function PersonaFilterPanel({
         <FilterGroup label="직업 키워드 (부분 매칭)">
           <input
             type="text"
+            aria-label="직업 키워드 (부분 매칭)"
             value={(value.occupations ?? []).join(", ")}
             onChange={(e) =>
               patch({

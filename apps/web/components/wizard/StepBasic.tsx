@@ -24,11 +24,13 @@ export function StepBasic({
   return (
     <div className="flex flex-col gap-5 max-w-2xl">
       <Field
+        id="wizard-basic-title"
         label="설문 제목"
         required
         counter={`${state.basic.title.length}/200`}
       >
         <input
+          id="wizard-basic-title"
           type="text"
           value={state.basic.title}
           onChange={(e) => patch({ title: e.target.value.slice(0, 200) })}
@@ -40,8 +42,13 @@ export function StepBasic({
         />
       </Field>
 
-      <Field label="설명" counter={`${state.basic.description.length}/2000`}>
+      <Field
+        id="wizard-basic-description"
+        label="설명"
+        counter={`${state.basic.description.length}/2000`}
+      >
         <textarea
+          id="wizard-basic-description"
           value={state.basic.description}
           onChange={(e) =>
             patch({ description: e.target.value.slice(0, 2000) })
@@ -55,11 +62,13 @@ export function StepBasic({
       </Field>
 
       <Field
+        id="wizard-basic-objective"
         label="조사 목적"
         helperText="LLM이 페르소나 응답을 생성할 때 맥락으로 활용합니다. 가급적 작성하시면 응답 품질이 향상됩니다."
         counter={`${state.basic.objective.length}/2000`}
       >
         <textarea
+          id="wizard-basic-objective"
           value={state.basic.objective}
           onChange={(e) => patch({ objective: e.target.value.slice(0, 2000) })}
           placeholder="예: 사내 식당의 메뉴 다양성 부족 가설을 검증하고 개선 우선순위를 파악"
@@ -78,12 +87,14 @@ export function StepBasic({
 // ============================================================
 
 function Field({
+  id,
   label,
   required = false,
   helperText,
   counter,
   children,
 }: {
+  id: string;
   label: string;
   required?: boolean;
   helperText?: string;
@@ -93,7 +104,7 @@ function Field({
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2 mb-1.5">
-        <label className="text-overline text-dusty">
+        <label className="text-overline text-dusty" htmlFor={id}>
           {label}
           {required && <span className="text-terra ml-1">*</span>}
         </label>

@@ -86,7 +86,7 @@ function PersonaItem({
   return (
     <li className="px-4 py-3 sm:px-5 sm:py-4 hover:bg-snow/70 transition-colors">
       <div className="flex items-start gap-2 sm:gap-3">
-        <span className="text-body-sm font-mono text-stone w-6 sm:w-7 shrink-0 mt-0.5 num-tabular">
+        <span className="text-body-sm font-mono text-dusty w-6 sm:w-7 shrink-0 mt-0.5 num-tabular">
           {rankPrefix}
           {rank}
         </span>
@@ -103,7 +103,7 @@ function PersonaItem({
               <p className="text-body-sm text-dusty mt-1">
                 {p.occupation}
                 {p.family_type && (
-                  <span className="text-stone"> · {p.family_type}</span>
+                  <span className="text-dusty"> · {p.family_type}</span>
                 )}
               </p>
             </div>
@@ -145,7 +145,7 @@ function OpinionBlock({ opinion }: { opinion: PersonaOpinion }) {
         <span className="text-caption text-dusty num-tabular">
           가입의향{" "}
           <span className="font-semibold text-ink">{opinion.purchase_intent}</span>
-          <span className="text-stone">/5</span>
+          <span className="text-dusty">/5</span>
         </span>
         {opinion.key_concern && (
           <span className="text-caption text-dusty truncate max-w-full sm:max-w-[60%]">

@@ -274,7 +274,7 @@ function HistoryMode({
             aria-busy="true"
             aria-live="polite"
           >
-            <span className="inline-flex h-7 w-7 rounded-full border-2 border-parchment border-t-terra animate-spin" aria-hidden />
+            <span className="inline-flex h-7 w-7 rounded-full border-2 border-parchment border-t-terra animate-spin motion-reduce:animate-none" aria-hidden />
             <p className="text-body-sm">상세 리포트를 불러오는 중…</p>
           </div>
         )}

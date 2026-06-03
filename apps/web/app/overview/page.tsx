@@ -255,6 +255,30 @@ function Dashboard({ data }: { data: DatasetOverview }) {
 // ============================================================
 
 function AnchorNav({ items }: { items: { id: string; label: string }[] }) {
+  // scrollspy — 뷰포트에 들어온 섹션을 추적해 TOC에 현재 위치를 표시한다.
+  // sticky TOC 높이(top-14~20)만큼 rootMargin 상단을 깎아 헤더에 가린 섹션은
+  // active로 잡지 않는다.
+  const [activeId, setActiveId] = useState<string>(items[0]?.id ?? "");
+
+  useEffect(() => {
+    const sections = items
+      .map((it) => document.getElementById(it.id))
+      .filter((el): el is HTMLElement => el !== null);
+    if (sections.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible[0]) setActiveId(visible[0].target.id);
+      },
+      { rootMargin: "-30% 0px -60% 0px", threshold: 0 },
+    );
+    sections.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [items]);
+
   return (
     <nav
       aria-label="섹션 바로가기"
@@ -263,19 +287,26 @@ function AnchorNav({ items }: { items: { id: string; label: string }[] }) {
     >
       <ul className="flex items-center gap-1 overflow-x-auto py-2 text-body-sm
                      scrollbar-thin scrollbar-thumb-parchment">
-        {items.map((it) => (
-          <li key={it.id} className="shrink-0">
-            <a
-              href={`#${it.id}`}
-              className="inline-flex items-center px-3 py-1.5 rounded-[9.6px]
-                         text-graphite hover:text-ink hover:bg-snow/80
-                         focus:outline-none focus-visible:ring-2 focus-visible:ring-azure
-                         transition-colors"
-            >
-              {it.label}
-            </a>
-          </li>
-        ))}
+        {items.map((it) => {
+          const isActive = it.id === activeId;
+          return (
+            <li key={it.id} className="shrink-0">
+              <a
+                href={`#${it.id}`}
+                aria-current={isActive ? "true" : undefined}
+                className={`inline-flex items-center px-3 py-1.5 rounded-[9.6px]
+                           focus:outline-none focus-visible:ring-2 focus-visible:ring-azure
+                           transition-colors ${
+                             isActive
+                               ? "text-ink font-semibold bg-snow"
+                               : "text-graphite hover:text-ink hover:bg-snow/80"
+                           }`}
+              >
+                {it.label}
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );
@@ -564,8 +595,17 @@ function PersonaTextPanel({
                 return (
                   <tr
                     key={s.column}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={isSel}
                     onClick={() => setSelected(s.column as PersonaTextColumn)}
-                    className={`border-t border-parchment cursor-pointer transition-colors ${
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelected(s.column as PersonaTextColumn);
+                      }
+                    }}
+                    className={`border-t border-parchment cursor-pointer transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-azure ${
                       isSel
                         ? "bg-snow"
                         : "hover:bg-snow/70 text-graphite"
@@ -685,8 +725,8 @@ function LoadingState() {
       </SectionCard>
 
       {/* 4. 지역 — 지도(7) + 시도 막대(5) */}
-      <section className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <div className="xl:col-span-7">
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-7">
           <SectionCard
             title="시군구 인원 분포"
             sub="252개 시군구 · 인원 내림차순"
@@ -697,7 +737,7 @@ function LoadingState() {
             </div>
           </SectionCard>
         </div>
-        <div className="xl:col-span-5">
+        <div className="lg:col-span-5">
           <SectionCard
             title="시도별 인원"
             sub="17개 시도 · 인원 내림차순"

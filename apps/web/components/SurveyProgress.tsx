@@ -162,7 +162,7 @@ export function SurveyProgress({
           <div className="flex items-center justify-between mb-2">
             <span className="text-caption">
               {status.survey_status === "running" && (
-                <span className="text-terra font-medium animate-pulse flex items-center gap-1">
+                <span className="text-terra font-medium animate-pulse motion-reduce:animate-none flex items-center gap-1">
                   ⚡ AI 페르소나가 상품 검토 및 응답 작성 중...
                 </span>
               )}
@@ -183,6 +183,9 @@ export function SurveyProgress({
                     rgba(255, 255, 255, 0.45) 50%,
                     transparent
                   );
+                }
+                @media (prefers-reduced-motion: reduce) {
+                  .shimmer-overlay { animation: none; }
                 }
               `}</style>
             )}

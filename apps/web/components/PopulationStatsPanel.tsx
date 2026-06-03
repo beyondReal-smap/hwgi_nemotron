@@ -102,7 +102,7 @@ function RawStatsBox({ stats }: { stats: PopulationStats }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
         {tiles.map((t) => (
           <div key={t.label} title={t.title}>
-            <p className="text-overline text-stone leading-tight">{t.label}</p>
+            <p className="text-overline text-dusty leading-tight">{t.label}</p>
             <p className="text-body-sm font-semibold text-ink num-tabular tabular-nums">
               {t.value}
             </p>
@@ -236,7 +236,7 @@ function CohortStrip({
               {c.size.toLocaleString()}
               <span className="text-body-sm font-normal text-dusty ml-1">명</span>
             </p>
-            <p className="text-caption text-stone num-tabular mt-1.5">
+            <p className="text-caption text-dusty num-tabular mt-1.5">
               점수 ≥ {c.min_score.toFixed(1)} · 평균 {c.avg_score.toFixed(1)} ·{" "}
               전체의 {sharePct.toFixed(2)}%
             </p>

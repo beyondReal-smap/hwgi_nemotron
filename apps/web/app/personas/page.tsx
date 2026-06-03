@@ -339,7 +339,7 @@ export default function PersonasPage() {
 
             {/* 에러 */}
             {error && (
-              <div className="bg-terra/10 border border-terra/30 text-ink px-4 py-3 rounded-[9.6px]">
+              <div role="alert" className="bg-terra/10 border border-terra/30 text-ink px-4 py-3 rounded-[9.6px]">
                 <p className="font-medium mb-1">결과를 불러오지 못했습니다</p>
                 <p className="text-caption text-graphite">{error}</p>
               </div>

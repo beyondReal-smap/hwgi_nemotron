@@ -335,7 +335,7 @@ export function StepTargets({
           }
         >
           {error && (
-            <p className="text-caption text-ink bg-terra/10 border border-terra/30 rounded px-3 py-2 mb-3">
+            <p role="alert" className="text-caption text-ink bg-terra/10 border border-terra/30 rounded px-3 py-2 mb-3">
               {error}
             </p>
           )}

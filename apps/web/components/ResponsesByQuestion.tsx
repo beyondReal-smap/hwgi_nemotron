@@ -95,7 +95,9 @@ function ChoiceTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-body-sm">
-        <caption className="sr-only">페르소나별 응답, 자신감, 근거 비교 표</caption>
+        <caption className="sr-only sm:not-sr-only sm:px-3 sm:py-2 sm:text-left sm:text-caption sm:text-dusty">
+          페르소나별 응답 · 좁은 화면에서는 좌우로 스크롤하세요
+        </caption>
         <thead className="bg-snow">
           <tr className="text-left text-overline text-dusty">
             <th scope="col" className="px-3 py-2">페르소나</th>

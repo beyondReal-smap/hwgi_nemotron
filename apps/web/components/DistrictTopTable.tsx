@@ -35,7 +35,7 @@ export function DistrictTopTable({ districts, topN = 10 }: Props) {
               key={d.name}
               className="px-4 py-3 sm:px-5 grid grid-cols-[1.75rem_minmax(0,1fr)_auto] sm:grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-2 sm:gap-3"
             >
-              <span className="text-body-sm font-mono text-stone num-tabular">
+              <span className="text-body-sm font-mono text-dusty num-tabular">
                 #{idx + 1}
               </span>
               <div className="min-w-0">
@@ -60,7 +60,7 @@ export function DistrictTopTable({ districts, topN = 10 }: Props) {
                     명
                   </span>
                 </p>
-                <p className="text-caption text-stone">
+                <p className="text-caption text-dusty">
                   {sharePct.toFixed(1)}% · 평균 {d.avg_score.toFixed(1)}
                 </p>
               </div>

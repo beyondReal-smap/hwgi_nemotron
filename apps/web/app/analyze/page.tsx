@@ -28,7 +28,7 @@ const KoreaMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[420px] bg-snow border border-parchment rounded-[9.6px] animate-pulse" />
+      <div className="h-[360px] sm:h-[460px] lg:h-[520px] bg-snow border border-parchment rounded-[9.6px] animate-pulse motion-reduce:animate-none" />
     ),
   },
 );
@@ -120,6 +120,10 @@ export default function Page() {
                 {/* key를 mode로 두어 전환 시 fade-slide 애니메이션이 다시 트리거되도록 */}
                 <div
                   key={mode}
+                  role="tabpanel"
+                  id={`mode-panel-${mode}`}
+                  aria-labelledby={`mode-tab-${mode}`}
+                  tabIndex={0}
                   className={
                     mode === "new"
                       ? "anim-fade-slide-right"
@@ -234,6 +238,14 @@ function ModeTabs({
     { value: "history", label: "이력 조회", sub: "과거 분석 다시 보기" },
   ];
   const activeIdx = tabs.findIndex((t) => t.value === value);
+  // WAI-ARIA tabs 키보드 패턴: 좌우 화살표로 인접 탭 이동(끝에서 순환)
+  function handleKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const dir = e.key === "ArrowRight" ? 1 : -1;
+    const nextIdx = (activeIdx + dir + tabs.length) % tabs.length;
+    onChange(tabs[nextIdx].value);
+  }
   return (
     <div
       role="tablist"
@@ -256,8 +268,12 @@ function ModeTabs({
             key={t.value}
             type="button"
             role="tab"
+            id={`mode-tab-${t.value}`}
             aria-selected={active}
+            aria-controls={`mode-panel-${t.value}`}
+            tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.value)}
+            onKeyDown={handleKeyDown}
             className={`relative z-10 px-4 sm:px-5 py-1.5 sm:py-2 rounded-[7px] text-body-sm font-medium transition-colors
                         ${active ? "text-ink" : "text-graphite hover:text-ink"}`}
           >

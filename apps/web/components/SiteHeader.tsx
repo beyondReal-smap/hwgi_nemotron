@@ -51,9 +51,9 @@ export function SiteHeader() {
         >
           <BrandMark />
           <div className="leading-tight hidden sm:block">
-            <h1 className="text-title text-ink tracking-tight transition-colors group-hover:text-terra">
+            <span className="text-title text-ink tracking-tight transition-colors group-hover:text-terra">
               PersonaFit
-            </h1>
+            </span>
           </div>
         </Link>
 

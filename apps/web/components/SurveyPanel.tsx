@@ -219,7 +219,7 @@ function ResultsLoading({ n }: { n: number }) {
               animation: smoothProgress 2s infinite ease-in-out;
             }
           `}</style>
-          <div className="h-full bg-azure rounded-full w-full absolute left-0 top-0 animate-progress origin-left" />
+          <div className="h-full bg-azure rounded-full w-full absolute left-0 top-0 animate-progress motion-reduce:animate-none origin-left" />
         </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
