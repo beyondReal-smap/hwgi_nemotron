@@ -31,10 +31,10 @@ module.exports = {
       // 환경변수: .env가 main.py 안에서 load_dotenv로 로드되므로 별도 지정 불필요
       env: {
         PYTHONUNBUFFERED: "1",
-        // 통합 임베딩 v3 — 7종 페르소나 + 3종 속성 + 금융·소비 프로파일(AI Hub 통합) 2026-05-30 전환.
-        // 금융 텍스트 포함으로 보험/건강 관심층 매칭 +29~39%p 개선. parquet personas_1m.parquet(fin_ 컬럼)과 행순서 정합.
-        // 롤백: 이 줄 → "data/embeddings_1m_v2.npy" (금융 전, .archive/2026-05-29_aihub-explore/embeddings_1m_v2_pre-finance.npy 백업) + pm2 restart.
-        PERSONAS_NPY: path.join(PROJECT_ROOT, "data/embeddings_1m_v3_fin.npy"),
+        // 임베딩 v2 — 금융·소비 프로파일 제외(2026-05-31 롤백). 금융 hot-deck 개인추정 신빙성
+        // 이슈로 fin_ 컬럼/임베딩 텍스트를 제거. parquet personas_1m.parquet(fin_ 드롭본)과 행순서 정합.
+        // 금융 복원: 이 줄 → "data/embeddings_1m_v3_fin.npy" + parquet 백업(.archive/2026-05-31_finance-rollback/) 복원 + PersonaFilterPanel SHOW_FINANCE_FILTER=true + pm2 restart.
+        PERSONAS_NPY: path.join(PROJECT_ROOT, "data/embeddings_1m_v2.npy"),
         // Docker 컨테이너 메모리 한계 48GB + 다른 PM2 앱 누적 사용으로 임베딩을 RAM 상주
         // 적재하면 OOM-killer SIGKILL 발생. mmap 모드로 페이지 캐시에 위임.
         // 컨테이너 한계가 풀리면 이 줄 제거 → RAM 상주로 cold 40~80초 문제 해소.

@@ -228,7 +228,7 @@
     </p>
     <div class="meta">
       <span><strong>데이터</strong> Nemotron-Personas-Korea 1M · CC BY 4.0</span>
-      <span><strong>LLM</strong> Claude Sonnet/Haiku · vLLM Qwen3.6-27B</span>
+      <span><strong>LLM</strong> sLLM · vLLM</span>
       <span><strong>임베딩</strong> OpenAI text-embedding-3-small · 1,536d</span>
       <span><strong>스택</strong> Next.js 14 · FastAPI · Supabase(option) · pm2</span>
     </div>
@@ -420,9 +420,9 @@
         </tr>
         <tr>
           <td><strong>LLM (생성)</strong></td>
-          <td>Claude Sonnet 4.6 (소구점) · Claude Haiku 4.5 (리포트·시뮬레이션)<br>
-              사내 vLLM <code>Qwen3.6-27B-FP8</code> (OpenAI 호환, 기본)</td>
-          <td>Anthropic tool_use + OpenAI function calling 추상화 → 동일 코드로 분기</td>
+          <td>sLLM (소구점·리포트·시뮬레이션)<br>
+              사내 vLLM (OpenAI 호환, 기본)</td>
+          <td>OpenAI function calling 추상화 → 동일 코드로 분기</td>
         </tr>
         <tr>
           <td><strong>LLM (임베딩)</strong></td>
@@ -458,7 +458,7 @@
     <p>
       <code>services/llm.py</code>가 Anthropic의 <code>tool_use</code> 스키마를 OpenAI <code>function calling</code>으로
       자동 변환합니다. 호출부는 <code>provider="anthropic"</code> 또는 <code>"sllm"</code>만 지정하면 동일 결과를 얻고,
-      해커톤·내부 데모에서는 비용 0인 사내 vLLM Qwen으로, 외부 시연에서는 Claude로 즉시 전환할 수 있습니다.
+      해커톤·내부 데모에서는 비용 0인 사내 sLLM으로, 외부 시연에서는 Claude로 즉시 전환할 수 있습니다.
     </p>
   </div>
 
@@ -510,7 +510,7 @@
       <div class="boxes">
         <div class="box">Anthropic API <span class="b-sub">Sonnet/Haiku</span></div>
         <div class="box">OpenAI Embeddings <span class="b-sub">3-small 1536d</span></div>
-        <div class="box">vLLM Qwen3.6-27B <span class="b-sub">사내 호스팅</span></div>
+        <div class="box">사내 sLLM <span class="b-sub">vLLM 호스팅</span></div>
       </div>
     </div>
   </div>
@@ -526,7 +526,7 @@
     </div>
     <div class="step"><div class="n">2</div>
       <div class="title">소구점 추출</div>
-      <div class="desc">Claude Sonnet이 tool_use로 <em>SellingPoints</em>(연령/성별/가구/학력/직업 + 키워드 + 카테고리 가중치) JSON 산출</div>
+      <div class="desc">sLLM이 tool_use로 <em>SellingPoints</em>(연령/성별/가구/학력/직업 + 키워드 + 카테고리 가중치) JSON 산출</div>
     </div>
     <div class="step"><div class="n">3</div>
       <div class="title">룰 사전 필터</div>
@@ -552,7 +552,7 @@
   <div class="flow">
     <div class="step"><div class="n">1</div>
       <div class="title">메타 추출</div>
-      <div class="desc">Claude Haiku/Qwen이 tool_use로 sex/age/region/has_children/occupation/employment 분해</div>
+      <div class="desc">Claude Haiku/sLLM이 tool_use로 sex/age/region/has_children/occupation/employment 분해</div>
     </div>
     <div class="step"><div class="n">2</div>
       <div class="title">후보 필터</div>
