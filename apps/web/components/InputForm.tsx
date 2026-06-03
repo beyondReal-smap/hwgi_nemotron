@@ -119,7 +119,9 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-      <header>
+      {/* 제목 헤더 — 설문·탐색 등 다른 메뉴의 카드와 동일한 bg-snow 흰색 띠.
+          부모 카드의 p-5 패딩을 음수 마진으로 상쇄해 띠가 카드 끝까지 닿게 한다. */}
+      <header className="bg-snow border-b border-parchment -mx-5 -mt-5 px-5 py-4">
         <h2 className="text-title text-ink">상품 분석</h2>
         <p className="text-body-sm text-dusty mt-1.5">
           한화 상품을 선택하거나, 약관 파일을 업로드하거나, 본문을 붙여넣으세요.
@@ -153,6 +155,7 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
           accept={ACCEPT_ATTR}
           onChange={handleFileInput}
           disabled={uploading || submitting}
+          aria-label="파일 업로드"
           className="hidden"
         />
         <div className="flex items-center justify-center gap-2 text-body">
@@ -209,6 +212,8 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
                    placeholder:text-stone"
         placeholder="상품설명서·약관 본문 (20자 이상 20000자 이하)..."
         disabled={submitting || uploading}
+        aria-invalid={tooShort || tooLong}
+        aria-describedby={tooShort || tooLong ? "product-text-error" : undefined}
       />
 
       <div className="flex justify-between items-center text-body-sm text-dusty num-tabular">
@@ -217,12 +222,12 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
           <span className="text-stone"> / {MAX_LEN.toLocaleString()}자</span>
         </span>
         {tooShort && (
-          <span className="text-terra font-semibold">
+          <span id="product-text-error" aria-live="polite" className="text-terra font-semibold">
             최소 {MIN_LEN}자 이상
           </span>
         )}
         {tooLong && (
-          <span className="text-terra font-semibold">
+          <span id="product-text-error" aria-live="polite" className="text-terra font-semibold">
             최대 {MAX_LEN}자 초과
           </span>
         )}

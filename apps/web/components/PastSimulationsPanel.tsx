@@ -13,10 +13,10 @@ export function SurveyCta({ analysisId }: { analysisId: string }) {
       className="group block border border-parchment rounded-[9.6px] bg-vellum hover:bg-snow hover:border-azure transition-colors
                  focus:outline-none focus-visible:ring-2 focus-visible:ring-azure"
     >
-      <div className="border-l-4 border-l-azure px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3 sm:gap-4">
+      <div className="px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3 sm:gap-4">
         <div className="min-w-0">
           <p className="text-title text-ink">
-            📋 이 페르소나들에게 설문하기
+            이 페르소나들에게 설문하기
           </p>
           <p className="text-body-sm text-dusty mt-1">
             매칭된 페르소나가 본인 입장으로 주관식 문항에 어떻게 응답할지
@@ -39,14 +39,14 @@ type Props = {
 
 export function PastSimulationsPanel({
   simulations,
-  title = "📋 과거 설문 시뮬레이션",
+  title = "과거 설문 시뮬레이션",
   description = "이 분석에 대해 실행한 설문 시뮬레이션 이력 (최신순)",
 }: Props) {
   if (simulations.length === 0) return null;
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-azure px-4 py-3 sm:px-5 sm:py-4">
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="text-title text-ink">
           {title} ({simulations.length}건)
         </h2>

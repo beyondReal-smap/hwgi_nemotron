@@ -118,11 +118,20 @@ function colorForCount(count: number, max: number): string {
   return "#f5dccf"; // 가장 옅음
 }
 
+// 색에 의존하지 않는 밀도 카테고리 텍스트 (DV-002: color-not-only-data)
+function densityLabelForCount(count: number, max: number): string {
+  if (max <= 0 || count <= 0) return "데이터 없음";
+  const ratio = Math.min(1, count / max);
+  if (ratio >= 0.55) return "높음";
+  if (ratio >= 0.3) return "중간";
+  return "낮음";
+}
+
 // ============================================================
 // 메인 컴포넌트
 // ============================================================
 
-export function KoreaMap({ districts, title = "🗺️ 시군구 분포 지도" }: Props) {
+export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props) {
   const appkey = process.env.NEXT_PUBLIC_KAKAO_MAP_APPKEY ?? "";
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -149,6 +158,12 @@ export function KoreaMap({ districts, title = "🗺️ 시군구 분포 지도" 
     }
     return { countMap: counts, scoreMap: scores, maxCount: max, totalCount: total };
   }, [districts]);
+
+  // 스크린리더 요약용: 인원 많은 순 정렬 (원본 불변)
+  const srSummary = useMemo(
+    () => [...districts].sort((a, b) => b.count - a.count),
+    [districts],
+  );
 
   useEffect(() => {
     if (!appkey) {
@@ -240,7 +255,7 @@ export function KoreaMap({ districts, title = "🗺️ 시군구 분포 지도" 
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-4 py-3 sm:px-5 sm:py-4">
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <h2 className="text-title text-ink">{title}</h2>
           <p className="text-body-sm text-dusty num-tabular">
@@ -255,7 +270,29 @@ export function KoreaMap({ districts, title = "🗺️ 시군구 분포 지도" 
 
       <div className="relative h-[360px] sm:h-[460px] lg:h-[520px]">
         {/* 지도 컨테이너 */}
-        <div ref={containerRef} className="absolute inset-0 bg-snow" />
+        <div
+          ref={containerRef}
+          className="absolute inset-0 bg-snow"
+          role="img"
+          aria-label="전국 시군구 분포 지도. 색이 진할수록 반응 페르소나 많음"
+          aria-describedby="korea-map-sr-summary"
+        />
+
+        {/* 스크린리더용 데이터 요약 (DV-001/DV-003: Kakao 폴리곤은 키보드 포커스 미지원 → 텍스트 대체) */}
+        <div id="korea-map-sr-summary" className="sr-only">
+          <p>
+            전국 시군구 반응 페르소나 분포. 총 {totalCount.toLocaleString()}명, {districts.length}
+            개 시군구. 시군구별 인원(많은 순):
+          </p>
+          <ul>
+            {srSummary.map((d) => (
+              <li key={d.name}>
+                {d.name}: {d.count.toLocaleString()}명, 밀도 {densityLabelForCount(d.count, maxCount)}
+                {d.avg_score > 0 ? `, 평균 ${d.avg_score.toFixed(1)}점` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {/* 로딩 / 에러 오버레이 */}
         {status === "loading" && (
@@ -287,6 +324,7 @@ export function KoreaMap({ districts, title = "🗺️ 시군구 분포 지도" 
               <span className="font-semibold text-terra">
                 {hoverInfo.count.toLocaleString()}명
               </span>
+              {" · "}밀도 {densityLabelForCount(hoverInfo.count, maxCount)}
               {hoverInfo.avg > 0 && (
                 <>
                   {" · "}평균 {hoverInfo.avg.toFixed(1)}점

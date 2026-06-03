@@ -30,7 +30,7 @@ export function ComparisonTable({ labelA, labelB, comparison, inputMode }: Props
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-ink px-4 py-3 sm:px-5 sm:py-4">
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="text-title text-ink">A vs B 비교 표</h2>
         <p className="text-body-sm text-dusty mt-1">
           모집단 통계·소구점·페르소나 의견을 항목별로 직접 비교
@@ -55,12 +55,12 @@ export function ComparisonTable({ labelA, labelB, comparison, inputMode }: Props
                 <td className="px-4 py-2.5 text-ink font-medium">{displayLabel(row)}</td>
                 <td
                   className={`px-4 py-2.5 ${
-                    row.winner === "A" ? "text-ink font-semibold" : "text-graphite"
+                    row.winner === "A" ? "text-marine font-semibold" : "text-graphite"
                   }`}
                 >
                   <span className="inline-flex items-center gap-1.5">
                     {row.winner === "A" && (
-                      <span aria-label="A 우위" className="text-azure">
+                      <span aria-label="A 우위" className="text-marine">
                         ▲
                       </span>
                     )}
@@ -69,7 +69,7 @@ export function ComparisonTable({ labelA, labelB, comparison, inputMode }: Props
                 </td>
                 <td
                   className={`px-4 py-2.5 ${
-                    row.winner === "B" ? "text-ink font-semibold" : "text-graphite"
+                    row.winner === "B" ? "text-terra font-semibold" : "text-graphite"
                   }`}
                 >
                   <span className="inline-flex items-center gap-1.5">

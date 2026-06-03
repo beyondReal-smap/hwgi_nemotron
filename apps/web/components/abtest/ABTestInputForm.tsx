@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { HwgiProductPicker } from "@/components/HwgiProductPicker";
 import {
   runABTest,
   type ABChallengerKind,
@@ -130,7 +131,16 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
   const placeholders = getPlaceholders(inputMode);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit}>
+      <div className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
+        {/* 제목 헤더 — 분석·설문 등 다른 탭 카드와 동일한 bg-snow 흰색 띠로 통일 */}
+        <header className="bg-snow border-b border-parchment px-5 py-4">
+          <h2 className="text-title text-ink">비교할 두 안 입력</h2>
+          <p className="text-body-sm text-dusty mt-1.5">
+            기준안(당사)과 도전안을 입력하면 동일 모집단 페르소나 반응을 비교합니다.
+          </p>
+        </header>
+        <div className="space-y-5 p-5">
       {/* 당사 정보 */}
       <section className="rounded-[9.6px] border border-parchment bg-snow/40 p-4 sm:p-5">
         <div className="flex items-baseline justify-between gap-2 mb-2">
@@ -209,6 +219,8 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
           onSelectBaseline={() => setBaseline("A")}
           challengerKind={challengerKind}
           onChallengerKindChange={setChallengerKind}
+          inputMode={inputMode}
+          onError={onError}
         />
         <VariantInputCard
           accent="B"
@@ -224,6 +236,8 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
           onSelectBaseline={() => setBaseline("B")}
           challengerKind={challengerKind}
           onChallengerKindChange={setChallengerKind}
+          inputMode={inputMode}
+          onError={onError}
         />
       </section>
       <p className="text-caption text-dusty -mt-2">
@@ -232,7 +246,7 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
 
       {/* 라벨 중복 안내 */}
       {!labelsOk && labelA.trim() && labelB.trim() && labelA.trim() === labelB.trim() && (
-        <p className="text-caption text-terra font-medium">
+        <p className="text-caption text-terra font-medium" aria-live="polite" aria-atomic="true">
           A와 B의 별명을 다르게 지정해 주세요.
         </p>
       )}
@@ -261,6 +275,8 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
           A·B 두 안을 동시에 분석합니다. 30~60초 정도 걸립니다.
         </p>
       )}
+        </div>
+      </div>
     </form>
   );
 }
@@ -279,6 +295,8 @@ function VariantInputCard({
   onSelectBaseline,
   challengerKind,
   onChallengerKindChange,
+  inputMode,
+  onError,
 }: {
   accent: "A" | "B";
   label: string;
@@ -294,12 +312,17 @@ function VariantInputCard({
   /** 도전안 카드일 때만 사용되는 성격 토글 — 기준안 카드는 무시. */
   challengerKind: ABChallengerKind;
   onChallengerKindChange: (k: ABChallengerKind) => void;
+  /** 약관 모드에서 당사 약관 PDF 드롭다운 노출 여부 판단용. */
+  inputMode: ABTestInputMode;
+  onError: (msg: string | null) => void;
 }) {
+  // 약관 모드 + (당사 안(기준) 또는 도전안이 '당사 다른 상품')일 때만 약관 PDF 드롭다운 노출.
+  // 타사 상품(external)은 insurance/ 폴더에 약관이 없으므로 숨김.
+  const showProductPicker =
+    inputMode === "terms" && (isBaseline || challengerKind === "internal");
   const len = text.length;
-  // 기준안 카드는 좌측 4px 강조선 + 살짝 밝은 배경
-  const cardClass = isBaseline
-    ? "border-l-4 border-l-ink bg-snow/40"
-    : "bg-vellum";
+  // 기준안 카드는 좌측 강조선 대신 살짝 밝은 배경으로 구분 ("당사 안" 라벨이 보강)
+  const cardClass = isBaseline ? "bg-snow/40" : "bg-vellum";
   return (
     <div
       className={`rounded-[9.6px] border border-parchment ${cardClass} p-4 flex flex-col gap-3 transition-colors`}
@@ -308,7 +331,7 @@ function VariantInputCard({
         <div className="flex items-center gap-2 flex-1 min-w-0">
           <span
             className={`inline-flex items-center justify-center w-7 h-7 rounded-[7px] text-body-sm font-bold
-                        ${accent === "A" ? "bg-azure/30 text-ink" : "bg-terra/20 text-terra"}`}
+                        ${accent === "A" ? "bg-marine/20 text-marine" : "bg-terra/20 text-terra"}`}
           >
             {accent}
           </span>
@@ -344,10 +367,14 @@ function VariantInputCard({
             checked
             readOnly
             disabled={disabled}
-            className="w-4 h-4 accent-ink"
+            className={`w-4 h-4 ${accent === "A" ? "accent-marine" : "accent-terra"}`}
             aria-label={`${accent}안 — 당사 안(기준)`}
           />
-          <span className="text-ink font-semibold">✓ 당사 안 (기준)</span>
+          <span
+            className={`font-semibold ${accent === "A" ? "text-marine" : "text-terra"}`}
+          >
+            ✓ 당사 안 (기준)
+          </span>
         </label>
       ) : (
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
@@ -380,6 +407,17 @@ function VariantInputCard({
           />
         </div>
       )}
+      {showProductPicker && (
+        <HwgiProductPicker
+          disabled={disabled}
+          onError={onError}
+          onPick={({ text: body, label, productId }) => {
+            setText(body);
+            // 별명에는 상품명만(해시 id 제외) 채워 비교표 가독성 유지
+            setLabel(label.replace(` (${productId})`, "").trim());
+          }}
+        />
+      )}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -388,9 +426,11 @@ function VariantInputCard({
         placeholder={placeholder}
         className="w-full rounded-[7px] border border-parchment bg-vellum px-3 py-2 text-body text-ink placeholder:text-dusty focus:outline-none focus:border-azure focus:ring-2 focus:ring-azure/30 resize-y font-mono text-body-sm"
         maxLength={MAX_TEXT + 200}
+        aria-invalid={tooShort || tooLong}
+        aria-describedby={tooShort ? `variant-${accent}-error` : undefined}
       />
       {tooShort && (
-        <p className="text-caption text-graphite">
+        <p id={`variant-${accent}-error`} className="text-caption text-graphite" aria-live="polite" aria-atomic="true">
           <span className="text-terra font-medium">!</span> 최소 {MIN_TEXT}자 이상 입력해 주세요.
         </p>
       )}

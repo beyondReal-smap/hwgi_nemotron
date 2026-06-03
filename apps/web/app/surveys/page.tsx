@@ -53,13 +53,15 @@ function SurveysContent() {
         </p>
       </header>
 
-      {/* 모드 탭 — 가로 중앙 정렬 */}
-      <div className="flex justify-center">
+      {/* 모드 탭 — 제목은 스크롤로 사라지고, 탭은 헤더 바로 아래까지 올라가 sticky 고정 */}
+      <div className="sticky top-14 sm:top-16 lg:top-20 z-20 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 py-2 flex justify-center bg-vellum/90 backdrop-blur border-y border-parchment">
         <ModeTabs value={mode} onChange={handleModeChange} />
       </div>
 
-      {/* 컨텐츠 — mode 변경 시 key 교체로 fade-slide */}
-      <div className="mt-4">
+      {/* 컨텐츠 — mode 변경 시 key 교체로 fade-slide.
+          콘텐츠(마법사·이력)가 짧아도 탭이 헤더 바로 아래까지 올라가도록 최소 높이로 스크롤 공간 확보.
+          값 ≈ 100dvh − (헤더 + 탭 바). 정확히 맞으면 탭이 헤더에 붙는 시점에 스크롤이 끝나 콘텐츠가 탭 뒤로 가려지지 않는다. */}
+      <div className="mt-4 min-h-[calc(100dvh-8rem)] lg:min-h-[calc(100dvh-9.5rem)]">
         <div
           key={mode}
           className={

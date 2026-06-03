@@ -55,7 +55,7 @@ export function WizardShell({
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
       {/* 헤더 + Stepper */}
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4 flex flex-col gap-3">
+      <header className="bg-snow border-b border-parchment px-5 py-4 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-title text-ink">설문 만들기</h2>

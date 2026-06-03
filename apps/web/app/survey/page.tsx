@@ -25,7 +25,7 @@ export default function SurveyIndexPage() {
     <div className="min-h-screen bg-vellum text-ink flex flex-col">
       <main className="flex-1 max-w-[1100px] w-full mx-auto p-4 lg:p-8">
         <header className="mb-6">
-          <h1 className="text-title text-ink">📋 설문 시뮬레이션</h1>
+          <h1 className="text-title text-ink">설문 시뮬레이션</h1>
           <p className="text-caption text-dusty mt-1">
             기존 분석의 페르소나에게 주관식 문항을 던지고, 본인 입장의 응답을
             시뮬레이션합니다. 이력에서 분석을 선택하세요.
@@ -93,7 +93,7 @@ function AnalysisCard({ item }: { item: AnalysisSummary }) {
         </p>
         {item.simulation_count > 0 && (
           <span className="text-caption font-medium text-ink bg-azure/40 px-2 py-0.5 rounded-[9.6px] shrink-0 num-tabular">
-            📋 {item.simulation_count}건
+            {item.simulation_count}건
           </span>
         )}
       </div>
@@ -139,7 +139,7 @@ function EmptyState() {
         먼저 상품을 분석하면, 매칭된 페르소나에게 주관식 문항을 던질 수 있습니다.
       </p>
       <Link
-        href="/"
+        href="/analyze"
         className="inline-block px-4 py-2 rounded-[9.6px] bg-ink text-vellum text-body-sm font-medium hover:bg-graphite transition-colors"
       >
         분석 시작하기 →

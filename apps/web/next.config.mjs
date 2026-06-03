@@ -34,6 +34,12 @@ const nextConfig = {
   experimental: {
     proxyTimeout: 300_000,
   },
+  async redirects() {
+    return [
+      // 루트(/)는 소개 랜딩으로 — HTTP redirect라 Location 헤더가 확실히 실린다.
+      { source: "/", destination: "/intro", permanent: false },
+    ];
+  },
   async rewrites() {
     return [
       {

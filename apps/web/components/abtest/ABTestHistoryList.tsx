@@ -82,14 +82,18 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
 
   if (loading) {
     return (
-      <ul className="space-y-2.5" aria-busy="true" aria-live="polite">
-        {[0, 1, 2].map((i) => (
+      <ul
+        className="grid grid-cols-1 sm:grid-cols-2 gap-2.5"
+        aria-busy="true"
+        aria-live="polite"
+      >
+        {[0, 1, 2, 3].map((i) => (
           <li
             key={i}
-            className="h-[120px] rounded-[9.6px] border border-parchment bg-vellum animate-pulse"
+            className="h-[180px] rounded-[9.6px] border border-parchment bg-vellum animate-pulse"
           />
         ))}
-        <li className="text-center text-body-sm text-dusty pt-1">
+        <li className="sm:col-span-2 text-center text-body-sm text-dusty pt-1">
           이력을 불러오는 중…
         </li>
       </ul>
@@ -121,13 +125,13 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
 
   return (
     <>
-    <ul className="space-y-2.5">
+    <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
       {items.map((it) => (
         <li key={it.id}>
           <button
             type="button"
             onClick={() => onSelect(it.id)}
-            className="w-full text-left rounded-[9.6px] border border-parchment bg-vellum hover:bg-snow/40 hover:border-graphite/30
+            className="flex flex-col h-full w-full text-left rounded-[9.6px] border border-parchment bg-vellum hover:bg-snow/40 hover:border-graphite/30
                        transition-colors p-4 group focus:outline-none focus-visible:ring-2 focus-visible:ring-azure"
             aria-label={`${it.baseline_label} vs ${it.challenger_label} 분석 상세 보기`}
           >
@@ -187,7 +191,7 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
             </p>
 
             {/* 하단 액션 */}
-            <div className="mt-3 pt-2.5 border-t border-parchment flex justify-end">
+            <div className="mt-auto pt-2.5 border-t border-parchment flex justify-end">
               <span
                 role="button"
                 tabIndex={-1}

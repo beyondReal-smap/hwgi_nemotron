@@ -162,33 +162,24 @@ export function saveLLMProvider(p: LLMProvider): void {
   window.localStorage.setItem(LLM_PROVIDER_STORAGE_KEY, p);
 }
 
-export async function analyzeProduct(
+export function analyzeProduct(
   productText: string,
   topK = 20,
   llmProvider: LLMProvider = "sllm",
 ): Promise<AnalyzeResponse> {
-  const res = await fetch(`${BASE_URL}/api/analyze`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      product_text: productText,
-      top_k: topK,
-      llm_provider: llmProvider,
-    }),
-  });
-
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      // 응답 본문이 JSON이 아닐 수 있음. 그대로 진행.
-    }
-    throw new Error(`분석 실패: ${detail}`);
-  }
-
-  return res.json();
+  return _jsonRequest<AnalyzeResponse>(
+    `${BASE_URL}/api/analyze`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        product_text: productText,
+        top_k: topK,
+        llm_provider: llmProvider,
+      }),
+    },
+    "분석 실패",
+  );
 }
 
 // ============================================================
@@ -213,15 +204,15 @@ export type AnalysesListResponse = {
   items: AnalysisSummary[];
 };
 
-export async function listAnalyses(
+export function listAnalyses(
   limit = 50,
   offset = 0,
 ): Promise<AnalysesListResponse> {
-  const res = await fetch(
+  return _jsonRequest<AnalysesListResponse>(
     `${BASE_URL}/api/analyses?limit=${limit}&offset=${offset}`,
+    { method: "GET" },
+    "이력 조회 실패",
   );
-  if (!res.ok) throw new Error(`이력 조회 실패: HTTP ${res.status}`);
-  return res.json();
 }
 
 // 시뮬레이션 레코드 (영속화된 형태)
@@ -243,39 +234,33 @@ export type AnalysisDetail = AnalyzeResponse & {
   simulations?: StoredSimulation[];
 };
 
-export async function getAnalysis(id: string): Promise<AnalysisDetail> {
-  const res = await fetch(`${BASE_URL}/api/analyses/${id}`);
-  if (!res.ok) throw new Error(`이력 상세 실패: HTTP ${res.status}`);
-  return res.json();
+export function getAnalysis(id: string): Promise<AnalysisDetail> {
+  return _jsonRequest<AnalysisDetail>(
+    `${BASE_URL}/api/analyses/${id}`,
+    { method: "GET" },
+    "이력 상세 실패",
+  );
 }
 
 /** 단건 삭제 — 연관 시뮬레이션도 함께 정리됨. */
-export async function deleteAnalysis(id: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/analyses/${id}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      // JSON 아닐 수 있음
-    }
-    throw new Error(`이력 삭제 실패: ${detail}`);
-  }
+export function deleteAnalysis(id: string): Promise<void> {
+  return _jsonRequest<void>(
+    `${BASE_URL}/api/analyses/${id}`,
+    { method: "DELETE" },
+    "이력 삭제 실패",
+  );
 }
 
 /** 전체 삭제 — 분석·시뮬레이션 모두 비움. 되돌릴 수 없음. */
-export async function deleteAllAnalyses(): Promise<{
+export function deleteAllAnalyses(): Promise<{
   analyses: number;
   simulations: number;
 }> {
-  const res = await fetch(`${BASE_URL}/api/analyses`, {
-    method: "DELETE",
-  });
-  if (!res.ok) throw new Error(`전체 삭제 실패: HTTP ${res.status}`);
-  return res.json();
+  return _jsonRequest<{ analyses: number; simulations: number }>(
+    `${BASE_URL}/api/analyses`,
+    { method: "DELETE" },
+    "전체 삭제 실패",
+  );
 }
 
 // ============================================================
@@ -305,35 +290,26 @@ export type SimulateResponse = {
   elapsed_ms: Record<string, number>;
 };
 
-export async function simulateSurvey(
+export function simulateSurvey(
   analysisId: string,
   question: string,
   nRespondents: number,
   llmProvider: LLMProvider = "sllm",
 ): Promise<SimulateResponse> {
-  const res = await fetch(`${BASE_URL}/api/simulate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      analysis_id: analysisId,
-      question,
-      n_respondents: nRespondents,
-      llm_provider: llmProvider,
-    }),
-  });
-
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      // JSON 아닐 수 있음
-    }
-    throw new Error(`시뮬레이션 실패: ${detail}`);
-  }
-
-  return res.json();
+  return _jsonRequest<SimulateResponse>(
+    `${BASE_URL}/api/simulate`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        analysis_id: analysisId,
+        question,
+        n_respondents: nRespondents,
+        llm_provider: llmProvider,
+      }),
+    },
+    "시뮬레이션 실패",
+  );
 }
 
 // ============================================================
@@ -407,10 +383,12 @@ export type DatasetOverview = {
   persona_text_stats: PersonaTextStat[];
 };
 
-export async function getDatasetOverview(): Promise<DatasetOverview> {
-  const res = await fetch(`${BASE_URL}/api/dataset/overview`);
-  if (!res.ok) throw new Error(`현황 조회 실패: HTTP ${res.status}`);
-  return res.json();
+export function getDatasetOverview(): Promise<DatasetOverview> {
+  return _jsonRequest<DatasetOverview>(
+    `${BASE_URL}/api/dataset/overview`,
+    { method: "GET" },
+    "현황 조회 실패",
+  );
 }
 
 // ============================================================
@@ -446,15 +424,15 @@ export type PersonaSamplesResponse = {
   samples: PersonaSample[];
 };
 
-export async function getPersonaSamples(
+export function getPersonaSamples(
   column: PersonaTextColumn,
   limit = 8,
 ): Promise<PersonaSamplesResponse> {
-  const res = await fetch(
+  return _jsonRequest<PersonaSamplesResponse>(
     `${BASE_URL}/api/dataset/personas/samples?column=${column}&limit=${limit}`,
+    { method: "GET" },
+    "샘플 조회 실패",
   );
-  if (!res.ok) throw new Error(`샘플 조회 실패: HTTP ${res.status}`);
-  return res.json();
 }
 
 export type PersonaSearchResult = {
@@ -488,26 +466,19 @@ export type PersonaSearchResponse = {
   results: PersonaSearchResult[];
 };
 
-export async function searchPersonas(
+export function searchPersonas(
   query: string,
   limit = 20,
 ): Promise<PersonaSearchResponse> {
-  const res = await fetch(`${BASE_URL}/api/dataset/personas/search`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query, limit }),
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      // JSON 아닐 수 있음
-    }
-    throw new Error(`검색 실패: ${detail}`);
-  }
-  return res.json();
+  return _jsonRequest<PersonaSearchResponse>(
+    `${BASE_URL}/api/dataset/personas/search`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, limit }),
+    },
+    "검색 실패",
+  );
 }
 
 // ============================================================
@@ -633,39 +604,34 @@ export type PersonaFacets = {
 
 export type PersonaDetail = Record<string, string | number | null>;
 
-export async function getPersonaFacets(): Promise<PersonaFacets> {
-  const res = await fetch(`${BASE_URL}/api/dataset/personas/facets`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+export function getPersonaFacets(): Promise<PersonaFacets> {
+  return _jsonRequest<PersonaFacets>(
+    `${BASE_URL}/api/dataset/personas/facets`,
+    { method: "GET" },
+    "페르소나 옵션 조회 실패",
+  );
 }
 
-export async function filterPersonas(
+export function filterPersonas(
   req: PersonaFilterRequest,
 ): Promise<PersonaFilterResponse> {
-  const res = await fetch(`${BASE_URL}/api/dataset/personas/filter`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      /* not json */
-    }
-    throw new Error(`필터 실패: ${detail}`);
-  }
-  return res.json();
+  return _jsonRequest<PersonaFilterResponse>(
+    `${BASE_URL}/api/dataset/personas/filter`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    },
+    "필터 실패",
+  );
 }
 
-export async function getPersonaDetail(uuid: string): Promise<PersonaDetail> {
-  const res = await fetch(
+export function getPersonaDetail(uuid: string): Promise<PersonaDetail> {
+  return _jsonRequest<PersonaDetail>(
     `${BASE_URL}/api/dataset/personas/${encodeURIComponent(uuid)}`,
+    { method: "GET" },
+    "페르소나 상세 조회 실패",
   );
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
 }
 
 // ============================================================
@@ -920,24 +886,15 @@ export type ParseResult = {
   questions: ParsedQuestion[];
 };
 
-export async function parseQuestionsFile(file: File): Promise<ParseResult> {
+export function parseQuestionsFile(file: File): Promise<ParseResult> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${BASE_URL}/api/surveys/questions/parse-file`, {
-    method: "POST",
-    body: form,
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      /* not json */
-    }
-    throw new Error(`파일 파싱 실패: ${detail}`);
-  }
-  return res.json();
+  // FormData는 Content-Type(boundary)을 브라우저가 자동 설정하므로 헤더를 지정하지 않는다.
+  return _jsonRequest<ParseResult>(
+    `${BASE_URL}/api/surveys/questions/parse-file`,
+    { method: "POST", body: form },
+    "파일 파싱 실패",
+  );
 }
 
 export function getQuestionTemplateUrl(format: "excel" | "word"): string {
@@ -1280,65 +1237,43 @@ export type ABTestsListResponse = {
   items: ABTestSummary[];
 };
 
-export async function listABTests(
+export function listABTests(
   limit = 50,
   offset = 0,
 ): Promise<ABTestsListResponse> {
-  const res = await fetch(
+  return _jsonRequest<ABTestsListResponse>(
     `${BASE_URL}/api/abtests?limit=${limit}&offset=${offset}`,
+    { method: "GET" },
+    "A/B 이력 조회 실패",
   );
-  if (!res.ok) throw new Error(`A/B 이력 조회 실패: HTTP ${res.status}`);
-  return res.json();
 }
 
-export async function getABTest(id: string): Promise<ABTestResponse> {
-  const res = await fetch(`${BASE_URL}/api/abtests/${encodeURIComponent(id)}`);
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      // not json
-    }
-    throw new Error(`A/B 상세 조회 실패: ${detail}`);
-  }
-  return res.json();
+export function getABTest(id: string): Promise<ABTestResponse> {
+  return _jsonRequest<ABTestResponse>(
+    `${BASE_URL}/api/abtests/${encodeURIComponent(id)}`,
+    { method: "GET" },
+    "A/B 상세 조회 실패",
+  );
 }
 
-export async function deleteABTest(id: string): Promise<void> {
-  const res = await fetch(`${BASE_URL}/api/abtests/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      // not json
-    }
-    throw new Error(`A/B 이력 삭제 실패: ${detail}`);
-  }
+export function deleteABTest(id: string): Promise<void> {
+  return _jsonRequest<void>(
+    `${BASE_URL}/api/abtests/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "A/B 이력 삭제 실패",
+  );
 }
 
-export async function runABTest(req: ABTestRequest): Promise<ABTestResponse> {
-  const res = await fetch(`${BASE_URL}/api/abtest`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-  });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      if (body?.detail) detail = `${detail} — ${body.detail}`;
-    } catch {
-      // JSON 아닐 수 있음
-    }
-    throw new Error(`A/B 분석 실패: ${detail}`);
-  }
-  return res.json();
+export function runABTest(req: ABTestRequest): Promise<ABTestResponse> {
+  return _jsonRequest<ABTestResponse>(
+    `${BASE_URL}/api/abtest`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    },
+    "A/B 분석 실패",
+  );
 }
 
 // ============================================================

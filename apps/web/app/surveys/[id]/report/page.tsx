@@ -82,7 +82,7 @@ export default function ReportPage() {
 
         {/* 액션 바 */}
         <section className="mb-6 bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-          <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <header className="bg-snow border-b border-parchment px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-body-sm text-graphite">
               질문 유형별 차트 · 응답자 분포 · CSV export
             </p>
@@ -162,7 +162,7 @@ function OverallCommentaryCard({
 
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <h2 className="text-title text-ink">총평</h2>
         <p className="text-body-sm text-dusty mt-1">
           Claude가 응답 분포·핵심 발견·시사점을 한눈에 정리
@@ -199,7 +199,7 @@ function RespondentDistributionCard({ report }: { report: ReportResponse }) {
   const dist = report.respondent_distribution;
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <h2 className="text-title text-ink">응답자 분포</h2>
         <p className="text-body-sm text-dusty mt-1">
           {total.toLocaleString()}명 완료 기준

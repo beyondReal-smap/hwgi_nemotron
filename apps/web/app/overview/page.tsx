@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
-import { KoreaMap } from "@/components/KoreaMap";
+import dynamic from "next/dynamic";
 import { DemographicCard, ProvinceBar } from "@/components/DistributionCharts";
 import {
   getDatasetOverview,
@@ -13,6 +13,18 @@ import {
   type PersonaTextColumn,
   type RegionStat,
 } from "@/lib/api";
+
+// KoreaMap은 topojson-client + Kakao Maps SDK 로더를 포함해 무겁고, 데이터 로드 후에만
+// 렌더되므로 next/dynamic으로 초기 번들에서 분리한다(ssr:false — Kakao SDK는 브라우저 전용).
+const KoreaMap = dynamic(
+  () => import("@/components/KoreaMap").then((m) => m.KoreaMap),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[420px] bg-snow border border-parchment rounded-[9.6px] animate-pulse" />
+    ),
+  },
+);
 
 /**
  * /overview — 100만 행 데이터셋 현황 대시보드.
@@ -90,7 +102,7 @@ function SectionCard({
       className={`bg-vellum border border-parchment rounded-[9.6px] overflow-hidden scroll-mt-24 flex flex-col ${className}`}
     >
       {/* 헤더 기준: KoreaMap 헤더와 동일 — bg-snow + 좌측 4px terra accent bar + px-5 py-4 */}
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4 flex items-start justify-between gap-3">
+      <header className="bg-snow border-b border-parchment px-5 py-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-title text-ink truncate">{title}</h2>
           {sub && (
@@ -190,13 +202,13 @@ function Dashboard({ data }: { data: DatasetOverview }) {
         </div>
       </SectionCard>
 
-      {/* 4. 지역 — 지도 + 시도 막대 (12 col grid on xl) */}
-      <section id="region" className="grid grid-cols-1 xl:grid-cols-12 gap-4 scroll-mt-24">
-        <div className="xl:col-span-7">
+      {/* 4. 지역 — 지도 + 시도 막대 (lg부터 12 col grid로 전환, 그 아래는 single column) */}
+      <section id="region" className="grid grid-cols-1 lg:grid-cols-12 gap-4 scroll-mt-24">
+        <div className="lg:col-span-7 xl:col-span-7">
           {/* KoreaMap이 자체적으로 SectionCard와 동일 스타일의 헤더를 가지므로 외부 wrap 생략 */}
           <KoreaMap districts={districtsForMap} title="시군구 인원 분포" />
         </div>
-        <div className="xl:col-span-5 flex flex-col gap-4">
+        <div className="lg:col-span-5 xl:col-span-5 flex flex-col gap-4">
           <SectionCard
             title="시도별 인원"
             sub="17개 시도 · 인원 내림차순"
@@ -246,7 +258,7 @@ function AnchorNav({ items }: { items: { id: string; label: string }[] }) {
   return (
     <nav
       aria-label="섹션 바로가기"
-      className="sticky top-16 lg:top-20 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8
+      className="sticky top-14 sm:top-16 lg:top-20 z-20 -mx-4 lg:-mx-8 px-4 lg:px-8
                  bg-vellum/90 backdrop-blur border-y border-parchment"
     >
       <ul className="flex items-center gap-1 overflow-x-auto py-2 text-body-sm
@@ -532,9 +544,12 @@ function PersonaTextPanel({
       noBodyPadding
     >
       <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.4fr] gap-0">
-        {/* 좌측: 길이 표 + 선택 */}
+        {/* 좌측: 길이 표 + 선택 — 좁은 화면에서 가로 스크롤 가능함을 caption으로 안내 */}
         <div className="overflow-x-auto">
           <table className="w-full text-body-sm">
+            <caption className="sr-only sm:not-sr-only sm:px-4 sm:py-2 sm:text-left sm:text-caption sm:text-dusty">
+              카테고리 길이 표 · 좁은 화면에서는 좌우로 스크롤하세요
+            </caption>
             <thead className="bg-snow/60">
               <tr className="text-left text-caption text-dusty">
                 <th className="px-4 py-2 font-medium">카테고리</th>

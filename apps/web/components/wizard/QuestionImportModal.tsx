@@ -158,7 +158,7 @@ export function QuestionImportModal({
     >
       <div className="bg-vellum border border-parchment rounded-[9.6px] w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col">
         {/* 헤더 */}
-        <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4 flex items-start justify-between gap-3 shrink-0">
+        <header className="bg-snow border-b border-parchment px-5 py-4 flex items-start justify-between gap-3 shrink-0">
           <div className="min-w-0">
             <h2 id="qimport-title" className="text-title text-ink">
               질문 파일 업로드
@@ -407,7 +407,7 @@ function RowCard({
   return (
     <li
       className={`bg-snow border rounded-[9.6px] overflow-hidden ${
-        hasErrors ? "border-terra/40 border-l-4 border-l-terra" : "border-parchment"
+        hasErrors ? "border-terra/50 bg-terra/[0.03]" : "border-parchment"
       }`}
     >
       <header className="px-4 py-2 border-b border-parchment flex items-center justify-between gap-2 flex-wrap">

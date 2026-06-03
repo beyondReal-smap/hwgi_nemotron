@@ -1,4 +1,5 @@
 import type { PersonaHit, PersonaOpinion } from "@/lib/api";
+import { SentimentBadge } from "@/components/SentimentBadge";
 
 type Variant = "top" | "mid" | "bottom";
 
@@ -34,18 +35,10 @@ export function PersonaList({
         ? `평균 시장 반응 — 중간 점수 ${personas.length}명 · 본인 의견 포함`
         : `반응도 낮은 순서로 ${personas.length}명 · 비교용 (반대 반응)`;
 
-  // 한화 톤: 상위 = terra(열렬), 중위 = azure(평균·중립), 하위 = stone(저반응).
-  const accent =
-    variant === "top"
-      ? "border-l-terra"
-      : variant === "mid"
-        ? "border-l-azure"
-        : "border-l-stone";
-
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
       <header
-        className={`bg-snow border-b border-parchment border-l-4 ${accent} px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3`}
+        className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3"
       >
         <div className="min-w-0">
           <h2 className="text-title text-ink">{title ?? defaultTitle}</h2>
@@ -144,30 +137,11 @@ function PersonaItem({
 }
 
 function OpinionBlock({ opinion }: { opinion: PersonaOpinion }) {
-  // 한화 톤 내에서 시각적으로 명확히 분리:
-  //   긍정 = terra (강조/따뜻함), 중립 = azure (차분), 부정 = graphite (음소거된 어둠)
-  const sentimentTone =
-    opinion.sentiment === "긍정"
-      ? "bg-terra/20 text-ink border-terra"
-      : opinion.sentiment === "부정"
-        ? "bg-graphite/10 text-graphite border-graphite/30"
-        : "bg-azure/40 text-ink border-azure";
-  const sentimentDot =
-    opinion.sentiment === "긍정"
-      ? "bg-terra"
-      : opinion.sentiment === "부정"
-        ? "bg-graphite"
-        : "bg-azure";
-
+  // 감정 색은 시맨틱 상태색 + 아이콘으로 통일(SentimentBadge): 긍정=success, 부정=danger, 중립=회색.
   return (
     <div className="mt-3 border-t border-parchment pt-3">
       <div className="flex flex-wrap items-center gap-2 mb-2">
-        <span
-          className={`inline-flex items-center gap-1.5 text-caption font-semibold px-2.5 py-0.5 rounded-[9.6px] border ${sentimentTone}`}
-        >
-          <span className={`inline-block w-1.5 h-1.5 rounded-full ${sentimentDot}`} />
-          {opinion.sentiment}
-        </span>
+        <SentimentBadge sentiment={opinion.sentiment} />
         <span className="text-caption text-dusty num-tabular">
           가입의향{" "}
           <span className="font-semibold text-ink">{opinion.purchase_intent}</span>

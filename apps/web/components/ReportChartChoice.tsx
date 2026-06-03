@@ -14,14 +14,15 @@ import {
   YAxis,
 } from "recharts";
 import type { QuestionReport } from "@/lib/api";
+import { barTopOpacity, chartColor } from "@/lib/chartColors";
 
 /**
  * 객관식·NPS 도넛/막대 차트.
  *  - 선택지 ≤ 4개: 도넛 + 레전드
  *  - 선택지 > 4개: 가로 막대 + 카운트 라벨
+ *
+ * 도넛·범례 색은 lib/chartColors.ts의 CHART_PALETTE(chartColor)로 통일 — 선택지 계열 구분.
  */
-const COLORS = ["#d97757", "#ccdbe8", "#3d3d3a", "#73726c", "#9c9a92", "#dedcd1", "#1f1e1d"];
-
 export function ReportChartChoice({ q }: { q: QuestionReport }) {
   const dist = q.choice_distribution ?? {};
   const data = Object.entries(dist).map(([label, count]) => ({ label, count }));
@@ -30,7 +31,7 @@ export function ReportChartChoice({ q }: { q: QuestionReport }) {
 
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <p className="text-overline text-dusty mb-0.5">
           Q{q.order} · {q.type === "nps" ? "NPS" : q.type === "multi_choice" ? "다중 선택" : "단일 선택"}
         </p>
@@ -73,7 +74,7 @@ function DonutLayout({ data, total }: { data: { label: string; count: number }[]
             labelLine={false}
           >
             {data.map((_, i) => (
-              <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="#faf9f5" strokeWidth={2} />
+              <Cell key={i} fill={chartColor(i)} stroke="#faf9f5" strokeWidth={2} />
             ))}
           </Pie>
           <Tooltip
@@ -99,7 +100,7 @@ function DonutLayout({ data, total }: { data: { label: string; count: number }[]
             <li key={d.label} className="flex items-baseline gap-2">
               <span
                 className="inline-block w-3 h-3 rounded-sm shrink-0"
-                style={{ background: COLORS[i % COLORS.length] }}
+                style={{ background: chartColor(i) }}
               />
               <span className="text-ink min-w-0 truncate">{d.label}</span>
               <span className="text-graphite ml-auto font-mono tabular-nums shrink-0">
@@ -117,6 +118,7 @@ function DonutLayout({ data, total }: { data: { label: string; count: number }[]
 function BarLayout({ data, total }: { data: { label: string; count: number }[]; total: number }) {
   // 카운트 내림차순 정렬
   const sorted = [...data].sort((a, b) => b.count - a.count);
+  const maxCount = sorted[0]?.count ?? 0;
   return (
     <ResponsiveContainer width="100%" height={Math.max(240, sorted.length * 36)}>
       <BarChart
@@ -137,6 +139,9 @@ function BarLayout({ data, total }: { data: { label: string; count: number }[]; 
           stroke="#dedcd1"
           width={120}
           interval={0}
+          tickFormatter={(v: string) =>
+            v.length > 14 ? `${v.slice(0, 13)}…` : v
+          }
         />
         <Tooltip
           cursor={{ fill: "rgba(217, 119, 87, 0.08)" }}
@@ -153,6 +158,9 @@ function BarLayout({ data, total }: { data: { label: string; count: number }[]; 
           }}
         />
         <Bar dataKey="count" fill="#d97757" radius={[0, 4, 4, 0]}>
+          {sorted.map((d, i) => (
+            <Cell key={i} fillOpacity={barTopOpacity(d.count, maxCount)} />
+          ))}
           <LabelList
             dataKey="count"
             position="right"

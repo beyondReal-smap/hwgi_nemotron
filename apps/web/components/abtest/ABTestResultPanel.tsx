@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import type {
   ABChallengerKind,
@@ -11,6 +12,7 @@ import type {
 } from "@/lib/api";
 import { ComparisonTable } from "./ComparisonTable";
 import { DemographicCard } from "@/components/DistributionCharts";
+import { SentimentBadge } from "@/components/SentimentBadge";
 
 type Props = {
   result: ABTestResponse;
@@ -93,7 +95,6 @@ export function ABTestResultPanel({ result }: Props) {
         title="FP 판매·마케팅 전략"
         subtitle="타겟별 어프로치 스크립트 + 채널 추천"
         markdown={fp_strategy_md}
-        accent="terra"
       />
     </div>
   );
@@ -111,7 +112,7 @@ function DemographicComparisonSection({
   b: ABVariantResult;
 }) {
   return (
-    <section className="border border-parchment border-l-4 border-l-terra rounded-[9.6px] bg-vellum overflow-hidden">
+    <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
       <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="text-title text-ink">인구통계 분포 비교</h2>
         <p className="text-body-sm text-dusty mt-1">
@@ -134,11 +135,12 @@ function VariantDemographics({
   accent: "A" | "B";
 }) {
   return (
-    <div className="p-4">
+    // A·B 카드를 배경색으로 대비 (A: marine 톤, B: terra 톤 — 헤더 배지와 일관)
+    <div className={`p-4 ${accent === "A" ? "bg-marine/[0.07]" : "bg-terra/[0.05]"}`}>
       <h3 className="flex items-center gap-2 text-heading text-ink mb-3">
         <span
           className={`inline-flex items-center justify-center w-5 h-5 rounded-[5px] text-overline font-semibold
-            ${accent === "A" ? "bg-azure/30 text-ink" : "bg-terra/20 text-terra"}`}
+            ${accent === "A" ? "bg-marine/20 text-marine" : "bg-terra/20 text-terra"}`}
         >
           {accent}
         </span>
@@ -147,12 +149,15 @@ function VariantDemographics({
         </span>
       </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {variant.population_stats.demographics.map((g) => (
-          <DemographicCard
-            key={g.column}
-            dem={{ column: g.column, label: g.label, bins: g.bins }}
-          />
-        ))}
+        {variant.population_stats.demographics
+          // 병역(military_status)은 A/B 비교에서 제외
+          .filter((g) => g.column !== "military_status")
+          .map((g) => (
+            <DemographicCard
+              key={g.column}
+              dem={{ column: g.column, label: g.label, bins: g.bins }}
+            />
+          ))}
       </div>
     </div>
   );
@@ -265,7 +270,7 @@ function RecommendationBadge({ value }: { value: "A" | "B" | "split" }) {
       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] text-body-sm font-semibold border
                   ${
                     value === "A"
-                      ? "bg-azure/20 text-ink border-azure/30"
+                      ? "bg-marine/20 text-marine border-marine/30"
                       : "bg-terra/15 text-terra border-terra/30"
                   }`}
     >
@@ -292,16 +297,15 @@ function MiniStatCard({
     ? top_personas.reduce((s, p) => s + p.score, 0) / top_personas.length
     : 0;
 
-  const cardClass = isBaseline
-    ? "border-l-4 border-l-ink bg-vellum"
-    : "bg-vellum";
+  // 기준안은 좌측 강조선 대신 살짝 밝은 배경으로 구분 ("당사 안" 배지가 색을 보강)
+  const cardClass = isBaseline ? "bg-snow/60" : "bg-vellum";
 
   return (
     <div className={`rounded-[7px] border border-parchment ${cardClass} p-3`}>
       <div className="flex items-center gap-2 mb-2">
         <span
           className={`inline-flex items-center justify-center w-6 h-6 rounded-[5px] text-caption font-bold
-                      ${accent === "A" ? "bg-azure/30 text-ink" : "bg-terra/20 text-terra"}`}
+                      ${accent === "A" ? "bg-marine/20 text-marine" : "bg-terra/20 text-terra"}`}
         >
           {accent}
         </span>
@@ -309,7 +313,10 @@ function MiniStatCard({
           {variant.label}
         </span>
         {isBaseline ? (
-          <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-[5px] bg-ink text-vellum text-overline font-semibold">
+          <span
+            className={`shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-vellum text-overline font-semibold
+                        ${accent === "A" ? "bg-marine" : "bg-terra"}`}
+          >
             당사 안
           </span>
         ) : (
@@ -444,35 +451,34 @@ function VariantSummaryCard({
 }) {
   const { label, selling_points, top_personas, top_opinions, province_stats } = variant;
   const isMarketing = inputMode === "marketing";
-  // 기준안일 때는 ink(진한 색)으로 강조, 아니면 accent 컬러
-  const accentClass = isBaseline
-    ? "border-l-ink"
-    : accent === "A"
-      ? "border-l-azure"
-      : "border-l-terra";
+  // A·B 구분은 헤더의 accent 배지로 표현 (좌측 강조선 제거)
 
   return (
-    <section
-      className={`border border-parchment border-l-4 ${accentClass} rounded-[9.6px] bg-vellum overflow-hidden`}
-    >
+    <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
       <header className="bg-snow border-b border-parchment px-4 py-3">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
+        <div className="flex items-center gap-2 mb-1.5 min-w-0">
           <span
-            className={`inline-flex items-center justify-center w-6 h-6 rounded-[5px] text-caption font-bold
-                        ${accent === "A" ? "bg-azure/30 text-ink" : "bg-terra/20 text-terra"}`}
+            className={`shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-[5px] text-caption font-bold
+                        ${accent === "A" ? "bg-marine/20 text-marine" : "bg-terra/20 text-terra"}`}
           >
             {accent}
           </span>
           <h3 className="text-title text-ink truncate" title={label}>
             {label}
           </h3>
+        </div>
+        {/* 안 라벨(당사 안/도전안) — 상품명 길이와 무관하게 항상 별도 줄에 배치해 A·B 위치 일관 */}
+        <div className="mb-1">
           {isBaseline ? (
-            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-[5px] bg-ink text-vellum text-overline font-semibold">
+            <span
+              className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-vellum text-overline font-semibold
+                          ${accent === "A" ? "bg-marine" : "bg-terra"}`}
+            >
               당사 안 (기준)
             </span>
           ) : (
             <span
-              className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-[5px] text-overline font-medium border
+              className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-overline font-medium border
                           ${
                             challengerKind === "internal"
                               ? "bg-snow text-graphite border-parchment"
@@ -575,22 +581,13 @@ function OpinionRow({
   o: PersonaOpinion;
   inputMode: ABTestInputMode;
 }) {
-  // 한화 톤 매핑 — 긍정=azure(보조 강조), 부정=terra(주의 액센트), 중립=parchment.
-  // ChallengerKindBadge/RecommendationBadge의 internal=azure / external=terra 패턴과 일관.
-  const sentimentColor =
-    o.sentiment === "긍정"
-      ? "text-ink bg-azure/25 border-azure/40"
-      : o.sentiment === "부정"
-        ? "text-terra bg-terra/10 border-terra/30"
-        : "text-graphite bg-snow border-parchment";
+  // 감정 색은 SentimentBadge로 통일(긍정=success, 부정=danger, 중립=회색) — A/B 섹션색(marine/terra)과 분리.
   // 카피 입력일 때는 가입의향 → 관심도(이 카피를 본 후 알아볼 의향). 약관·컨셉은 그대로.
   const intentLabel = inputMode === "marketing" ? "관심도" : "가입의향";
   return (
     <li className="rounded-[7px] border border-parchment bg-snow/40 p-2.5">
       <div className="flex items-center gap-2 mb-1">
-        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-[5px] text-caption font-medium border ${sentimentColor}`}>
-          {o.sentiment}
-        </span>
+        <SentimentBadge sentiment={o.sentiment} size="sm" />
         <span className="text-caption text-dusty">
           {intentLabel} {o.purchase_intent}/5
         </span>
@@ -604,22 +601,21 @@ function OpinionRow({
 // 마크다운 섹션 (당사 장단점 / FP 전략 공통)
 // ============================================================
 
-function MarkdownSection({
+// markdown 문자열이 동일하면(분석 결과 고정) 부모 리렌더 시에도 ReactMarkdown 재파싱을
+// 건너뛰도록 memo. 마크다운 파싱은 비용이 크고 결과는 불변이라 효과가 확실하다.
+const MarkdownSection = memo(function MarkdownSection({
   title,
   subtitle,
   markdown,
-  accent = "ink",
 }: {
   title: string;
   subtitle: string;
   markdown: string;
-  accent?: "ink" | "terra";
 }) {
-  const accentClass = accent === "terra" ? "border-l-terra" : "border-l-ink";
-  const normalized = unwrapMarkdownFence(markdown);
+  const normalized = stripLatexArrows(unwrapMarkdownFence(markdown));
 
   return (
-    <section className={`border border-parchment border-l-4 ${accentClass} rounded-[9.6px] bg-vellum overflow-hidden`}>
+    <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
       <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="text-title text-ink">{title}</h2>
         <p className="text-body-sm text-dusty mt-1">{subtitle}</p>
@@ -631,10 +627,24 @@ function MarkdownSection({
       </div>
     </section>
   );
-}
+});
 
 function unwrapMarkdownFence(markdown: string): string {
   const trimmed = (markdown ?? "").trim();
   const match = trimmed.match(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i);
   return match ? match[1].trim() : trimmed;
+}
+
+/**
+ * LLM이 화살표를 LaTeX($\rightarrow$ 등)로 출력하는 경우 유니코드 기호로 치환.
+ * react-markdown은 KaTeX 플러그인이 없어 LaTeX 원문이 그대로 노출되기 때문.
+ * 앞뒤 `$`(인라인 수식 구분자)는 있어도 없어도 매칭.
+ */
+function stripLatexArrows(markdown: string): string {
+  return markdown
+    .replace(/\$?\\(?:long)?rightarrow\$?/g, "→")
+    .replace(/\$?\\(?:long)?leftarrow\$?/g, "←")
+    .replace(/\$?\\Rightarrow\$?/g, "⇒")
+    .replace(/\$?\\Leftrightarrow\$?/g, "↔")
+    .replace(/\$?\\to\b\$?/g, "→");
 }

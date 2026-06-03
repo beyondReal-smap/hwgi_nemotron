@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { PersonaCard } from "@/lib/api";
 
 /**
@@ -77,11 +78,7 @@ export function PersonaCardGrid({
                     isSel ? "bg-snow" : "hover:bg-snow/60"
                   }`}
                 >
-                  <td
-                    className={`px-3 py-2 ${
-                      isSel ? "border-l-4 border-l-terra" : "border-l-4 border-l-transparent"
-                    }`}
-                  >
+                  <td className="px-3 py-2">
                     <input
                       type="checkbox"
                       checked={isSel}
@@ -130,7 +127,10 @@ export function PersonaCardGrid({
 // 단일 카드
 // ============================================================
 
-function PersonaCardItem({
+// 그리드는 24개씩 카드를 렌더하므로, 선택 토글/페이지 상태 변화로 부모가 리렌더돼도
+// props(p·isSelected·콜백)가 같은 카드는 리렌더를 건너뛰도록 memo. 콜백은 부모에서
+// useCallback/setState dispatch로 안정화되어 있어야 효과가 있다(personas/page 참조).
+const PersonaCardItem = memo(function PersonaCardItem({
   p,
   isSelected,
   onToggle,
@@ -145,8 +145,8 @@ function PersonaCardItem({
 }) {
   return (
     <li
-      className={`bg-snow border border-parchment rounded-[9.6px] overflow-hidden flex flex-col transition-shadow hover:shadow-sm ${
-        isSelected ? "border-l-4 border-l-terra" : ""
+      className={`bg-snow border rounded-[9.6px] overflow-hidden flex flex-col transition-shadow hover:shadow-sm ${
+        isSelected ? "border-terra ring-1 ring-terra/40" : "border-parchment"
       }`}
     >
       {/* 헤더 — 체크 + 메타 + 유사도 */}
@@ -204,4 +204,4 @@ function PersonaCardItem({
       </footer>
     </li>
   );
-}
+});

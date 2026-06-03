@@ -37,7 +37,7 @@ export function ResponsesByQuestion({
 
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
+      <header className="bg-snow border-b border-parchment px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <h2 className="text-title text-ink">질문별 응답</h2>
           <p className="text-body-sm text-dusty mt-1">
@@ -95,20 +95,21 @@ function ChoiceTable({
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-body-sm">
+        <caption className="sr-only">페르소나별 응답, 자신감, 근거 비교 표</caption>
         <thead className="bg-snow">
           <tr className="text-left text-overline text-dusty">
-            <th className="px-3 py-2">페르소나</th>
-            <th className="px-3 py-2">답변</th>
-            <th className="px-3 py-2 text-right">자신감</th>
-            <th className="px-3 py-2">근거</th>
+            <th scope="col" className="px-3 py-2">페르소나</th>
+            <th scope="col" className="px-3 py-2">답변</th>
+            <th scope="col" className="px-3 py-2 text-right">자신감</th>
+            <th scope="col" className="px-3 py-2">근거</th>
           </tr>
         </thead>
         <tbody>
           {answers.map(({ item, answer }) => (
             <tr key={item.persona_uuid} className="border-t border-parchment hover:bg-snow/60">
-              <td className="px-3 py-2 text-graphite whitespace-nowrap">
+              <th scope="row" className="px-3 py-2 text-graphite whitespace-nowrap font-normal text-left">
                 {item.sex} {item.age}세 · {item.province}
-              </td>
+              </th>
               <td className="px-3 py-2 text-ink font-medium">
                 {formatValue(answer.answer_value)}
               </td>

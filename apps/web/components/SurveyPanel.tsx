@@ -6,6 +6,7 @@ import {
   type PersonaResponse,
   type SimulateResponse,
 } from "@/lib/api";
+import { SentimentBadge } from "@/components/SentimentBadge";
 
 type Props = {
   analysisId: string;
@@ -55,8 +56,8 @@ export function SurveyPanel({ analysisId, onSubmitted }: Props) {
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-azure px-5 py-3.5">
-        <h2 className="text-heading text-ink">📋 이 페르소나들에게 물어보기</h2>
+      <header className="bg-snow border-b border-parchment px-5 py-3.5">
+        <h2 className="text-heading text-ink">이 페르소나들에게 물어보기</h2>
         <p className="text-caption text-dusty mt-1">
           위에서 매칭된 페르소나가 본인 입장으로 설문에 어떻게 응답할지 시뮬레이션합니다
         </p>
@@ -92,6 +93,7 @@ export function SurveyPanel({ analysisId, onSubmitted }: Props) {
                   disabled={loading}
                   className="text-caption px-2 py-1 rounded-[9.6px] border border-parchment
                              text-dusty hover:bg-snow hover:text-ink transition-colors
+                             focus:outline-none focus-visible:ring-2 focus-visible:ring-azure
                              disabled:opacity-50"
                 >
                   {q}
@@ -125,6 +127,7 @@ export function SurveyPanel({ analysisId, onSubmitted }: Props) {
                       aria-checked={nRespondents === n}
                       disabled={loading}
                       className={`px-4 py-1.5 text-body-sm num-tabular border-r border-parchment last:border-r-0 transition-colors
+                                  focus:outline-none focus-visible:ring-2 focus-visible:ring-azure rounded
                                   ${
                                     nRespondents === n
                                       ? "bg-azure/40 text-ink font-semibold"
@@ -223,7 +226,7 @@ function ResultsLoading({ n }: { n: number }) {
         {Array.from({ length: Math.min(n, 4) }).map((_, i) => (
           <div
             key={i}
-            className="h-28 bg-snow border border-parchment rounded-[9.6px] animate-pulse flex flex-col justify-between p-4"
+            className="h-28 min-h-[112px] bg-snow border border-parchment rounded-[9.6px] animate-pulse motion-reduce:animate-none flex flex-col justify-between p-4"
           >
             <div className="h-4 bg-parchment rounded w-1/3" />
             <div className="space-y-2">
@@ -362,19 +365,13 @@ function Stat({
 }
 
 export function ResponseCard({ response }: { response: PersonaResponse }) {
-  const sentimentBadge = sentimentBadgeClass(response.sentiment);
-
   return (
     <article className="border border-parchment rounded-[9.6px] p-4 bg-vellum hover:bg-snow/40 transition-colors">
       <header className="flex items-start justify-between gap-3 mb-2">
         <p className="text-body-sm font-medium text-ink min-w-0 truncate">
           {response.persona_summary}
         </p>
-        <span
-          className={`text-overline font-semibold px-2 py-0.5 rounded-[9.6px] border shrink-0 ${sentimentBadge}`}
-        >
-          {response.sentiment}
-        </span>
+        <SentimentBadge sentiment={response.sentiment} className="shrink-0" />
       </header>
 
       <blockquote className="text-body text-graphite leading-7 my-3 pl-3 border-l-2 border-parchment">
@@ -392,17 +389,6 @@ export function ResponseCard({ response }: { response: PersonaResponse }) {
       </footer>
     </article>
   );
-}
-
-function sentimentBadgeClass(sentiment: PersonaResponse["sentiment"]): string {
-  switch (sentiment) {
-    case "긍정":
-      return "bg-terra/10 text-ink border-terra/30";
-    case "부정":
-      return "bg-stone/10 text-graphite border-stone/30";
-    default:
-      return "bg-azure/40 text-ink border-azure";
-  }
 }
 
 function IntentMeter({ value }: { value: number }) {

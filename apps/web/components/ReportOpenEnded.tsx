@@ -12,7 +12,7 @@ export function ReportOpenEnded({ q }: { q: QuestionReport }) {
 
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <p className="text-overline text-dusty mb-0.5">Q{q.order} · 주관식</p>
         <h3 className="text-title text-ink">{q.text}</h3>
         <p className="text-body-sm text-dusty mt-1">

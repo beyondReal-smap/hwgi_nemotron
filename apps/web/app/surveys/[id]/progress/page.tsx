@@ -189,7 +189,7 @@ function ProgressSkeleton() {
       className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden animate-pulse"
       aria-busy="true"
     >
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <div className="h-5 w-32 bg-parchment rounded" />
         <div className="h-3 w-48 bg-parchment rounded mt-2" />
       </header>

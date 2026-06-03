@@ -31,7 +31,7 @@ import {
  *      - 선택 카운터 + 세그먼트 저장 CTA (part2에서 wire-up)
  *
  * 디자인 원칙:
- *  - 모든 섹션은 SectionCard 헤더 패턴 (bg-snow + border-l-4 border-l-terra)
+ *  - 모든 섹션은 SectionCard 헤더 패턴 (bg-snow + border-b border-parchment)
  *  - 한화 토큰만 사용
  *  - 필터 변경 시 300ms 디바운스 후 API 호출
  *  - 페이지 변경은 즉시
@@ -126,12 +126,16 @@ export default function PersonasPage() {
     setSelected(new Set());
   }
 
-  function toggleSelect(uuid: string) {
-    const next = new Set(selected);
-    if (next.has(uuid)) next.delete(uuid);
-    else next.add(uuid);
-    setSelected(next);
-  }
+  // PersonaCardItem(memo)의 onToggle prop이 매 렌더 새 참조가 되지 않도록 useCallback.
+  // 함수형 setState로 selected 의존성을 없애 참조를 영구 고정한다.
+  const toggleSelect = useCallback((uuid: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(uuid)) next.delete(uuid);
+      else next.add(uuid);
+      return next;
+    });
+  }, []);
 
   function selectAllOnPage() {
     if (!result) return;
@@ -180,7 +184,7 @@ export default function PersonasPage() {
           <div className="xl:col-span-9 flex flex-col gap-4">
             {/* === 박스 1: 매칭 요약 (메타 + 분포) === */}
             <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-              <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+              <header className="bg-snow border-b border-parchment px-5 py-4">
                 <h2 className="text-title text-ink">
                   {loading ? (
                     <>
@@ -275,8 +279,11 @@ export default function PersonasPage() {
               </header>
 
               {/* 분포 차트 5종 — 현황(overview)과 동일한 DemographicCard 재사용.
-                  매칭 결과 전체 기준 집계(페이지 슬라이스 전). 빈 결과면 안내. */}
-              {result && result.total > 0 ? (
+                  매칭 결과 전체 기준 집계(페이지 슬라이스 전). 빈 결과면 안내.
+                  로딩 중에는 이전 결과를 덮어쓰지 않고 스켈레톤 표시 → 데이터 확정 후에만 차트 렌더. */}
+              {loading ? (
+                <ChartSkeleton />
+              ) : result && result.total > 0 ? (
                 <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   <DemographicCard
                     dem={{
@@ -340,7 +347,7 @@ export default function PersonasPage() {
 
             {/* === 박스 2: 매칭된 페르소나 리스트 === */}
             <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-              <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
+              <header className="bg-snow border-b border-parchment px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
                 <div className="min-w-0">
                   <h2 className="text-title text-ink">매칭된 페르소나</h2>
                   <p className="text-body-sm text-dusty mt-1">
@@ -377,16 +384,20 @@ export default function PersonasPage() {
               </header>
 
               <div className="p-4 flex flex-col gap-4">
-                {loading && !result && <ResultSkeleton />}
-                {result && (
-                  <PersonaCardGrid
-                    view={view}
-                    personas={result.page_personas}
-                    selected={selected}
-                    onToggle={toggleSelect}
-                    onOpenDetail={setDetailUuid}
-                    hasQuery={result.has_query}
-                  />
+                {/* 차트와 동일하게 매 검색마다 스켈레톤 → 데이터 확정 후에만 카드 렌더 */}
+                {loading ? (
+                  <ResultSkeleton />
+                ) : (
+                  result && (
+                    <PersonaCardGrid
+                      view={view}
+                      personas={result.page_personas}
+                      selected={selected}
+                      onToggle={toggleSelect}
+                      onOpenDetail={setDetailUuid}
+                      hasQuery={result.has_query}
+                    />
+                  )
                 )}
 
                 {/* 페이지네이션 */}
@@ -619,27 +630,47 @@ function Pagination({
 
   return (
     <nav className="flex items-center justify-center gap-1 py-2" aria-label="페이지">
-      <PageButton disabled={!canPrev} onClick={() => onChange(page - 1)}>
+      <PageButton
+        disabled={!canPrev}
+        onClick={() => onChange(page - 1)}
+        ariaLabel="이전 페이지"
+      >
         ◀
       </PageButton>
       {realStart > 1 && (
         <>
-          <PageButton onClick={() => onChange(1)}>1</PageButton>
+          <PageButton ariaLabel="1페이지로 이동" onClick={() => onChange(1)}>
+            1
+          </PageButton>
           <span className="text-caption text-stone px-1">…</span>
         </>
       )}
       {pages.map((p) => (
-        <PageButton key={p} active={p === page} onClick={() => onChange(p)}>
+        <PageButton
+          key={p}
+          active={p === page}
+          onClick={() => onChange(p)}
+          ariaLabel={`${p}페이지로 이동`}
+        >
           {p}
         </PageButton>
       ))}
       {end < totalPages && (
         <>
           <span className="text-caption text-stone px-1">…</span>
-          <PageButton onClick={() => onChange(totalPages)}>{totalPages}</PageButton>
+          <PageButton
+            ariaLabel={`${totalPages}페이지로 이동`}
+            onClick={() => onChange(totalPages)}
+          >
+            {totalPages}
+          </PageButton>
         </>
       )}
-      <PageButton disabled={!canNext} onClick={() => onChange(page + 1)}>
+      <PageButton
+        disabled={!canNext}
+        onClick={() => onChange(page + 1)}
+        ariaLabel="다음 페이지"
+      >
         ▶
       </PageButton>
     </nav>
@@ -651,18 +682,23 @@ function PageButton({
   disabled = false,
   onClick,
   children,
+  ariaLabel,
 }: {
   active?: boolean;
   disabled?: boolean;
   onClick: () => void;
   children: React.ReactNode;
+  ariaLabel?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      aria-current={active ? "page" : undefined}
       className={`min-w-[2rem] h-8 px-2 text-body-sm rounded-[9.6px] transition-colors tabular-nums
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-azure
                   disabled:opacity-30 disabled:cursor-not-allowed
                   ${
                     active
@@ -675,6 +711,8 @@ function PageButton({
   );
 }
 
+// 페르소나 카드 로딩 스켈레톤 — PersonaCardItem 골격(헤더: 체크+메타 / 본문: 직업·가구+발췌 / 푸터: 버튼)을
+// 그대로 본뜬다. 콘텐츠 자리만 parchment 골격으로 채움.
 function ResultSkeleton() {
   return (
     <ul
@@ -685,9 +723,107 @@ function ResultSkeleton() {
       {[1, 2, 3, 4, 5, 6].map((i) => (
         <li
           key={i}
-          className="h-48 bg-snow border border-parchment rounded-[9.6px]"
-        />
+          className="bg-snow border border-parchment rounded-[9.6px] overflow-hidden flex flex-col"
+        >
+          {/* 헤더 — 체크박스 + 성별·나이 + 지역 (실제: px-4 py-3 border-b) */}
+          <div className="px-4 py-3 border-b border-parchment flex items-start gap-2.5">
+            <div className="w-3.5 h-3.5 rounded-sm bg-parchment mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <div className="h-3.5 w-24 bg-parchment rounded" />
+              <div className="h-2.5 w-32 bg-parchment/60 rounded mt-1.5" />
+            </div>
+          </div>
+          {/* 본문 — 직업/가구 2줄 + persona 발췌 (실제: px-4 py-3) */}
+          <div className="px-4 py-3 flex-1 flex flex-col gap-2">
+            <div className="flex gap-2">
+              <div className="h-2.5 w-8 bg-parchment/60 rounded shrink-0" />
+              <div className="h-2.5 flex-1 bg-parchment/60 rounded" />
+            </div>
+            <div className="flex gap-2">
+              <div className="h-2.5 w-8 bg-parchment/60 rounded shrink-0" />
+              <div className="h-2.5 w-3/4 bg-parchment/60 rounded" />
+            </div>
+            <div className="space-y-1.5 mt-1">
+              <div className="h-2.5 w-full bg-parchment/50 rounded" />
+              <div className="h-2.5 w-full bg-parchment/50 rounded" />
+              <div className="h-2.5 w-2/3 bg-parchment/50 rounded" />
+            </div>
+          </div>
+          {/* 푸터 — 상세 보기 버튼 (실제: px-4 py-2 border-t) */}
+          <div className="px-4 py-2 border-t border-parchment flex justify-end">
+            <div className="h-2.5 w-16 bg-parchment/60 rounded" />
+          </div>
+        </li>
       ))}
     </ul>
+  );
+}
+
+// 분포 차트 6종 로딩 스켈레톤 — DemographicCard의 골격(카드 테두리 → 헤더 → 차트 → 범례)을
+// 그대로 본떠 실제 콘텐츠가 채워질 자리를 미리 보여준다. 콘텐츠 자리만 parchment 골격으로 채움.
+// 차트 유형은 검색 결과 항목 수로 가변이나, 기본/넓은 검색 기준(성별만 도넛, 나머지 5종 막대)으로 고정.
+function ChartSkeleton() {
+  const types: ("donut" | "bar")[] = [
+    "donut", // 성별
+    "bar", // 연령대
+    "bar", // 시도
+    "bar", // 직업군
+    "bar", // 가구 형태
+    "bar", // 주거 형태
+  ];
+  // 막대 길이 — 실제 분포는 내림차순 정렬돼 표시되므로 점점 짧아지게
+  const barWidths = ["88%", "71%", "62%", "50%", "43%", "34%", "27%"];
+  return (
+    <div
+      className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 animate-pulse"
+      aria-busy="true"
+      aria-label="분포 차트 로딩 중"
+    >
+      {types.map((type, i) => (
+        <div
+          key={i}
+          className="bg-snow border border-parchment rounded-[9.6px] overflow-hidden flex flex-col"
+        >
+          {/* 헤더 — 제목 + 부제 자리 (실제: px-3.5 py-2.5 border-b) */}
+          <div className="px-3.5 py-2.5 border-b border-parchment">
+            <div className="h-3.5 w-20 bg-parchment rounded" />
+            <div className="h-2.5 w-32 bg-parchment/60 rounded mt-1.5" />
+          </div>
+          {/* 본문 — 차트 자리 (실제: p-3) */}
+          <div className="p-3 flex-1">
+            {type === "donut" ? (
+              <div className="flex flex-col items-center">
+                {/* 도넛 링 (실제: 차트 height 220) */}
+                <div className="flex items-center justify-center h-[150px]">
+                  <div className="w-[110px] h-[110px] rounded-full border-[18px] border-parchment" />
+                </div>
+                {/* 범례 — 2열 4줄 (실제: grid-cols-2) */}
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 w-full">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-sm bg-parchment shrink-0" />
+                      <div className="h-2 flex-1 bg-parchment/60 rounded" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              // 가로 막대 — 좌측 카테고리 라벨 + 길이가 다른 막대 (실제: 차트 height 260)
+              <div className="flex flex-col justify-center gap-2.5 h-[230px] py-1">
+                {barWidths.map((w, k) => (
+                  <div key={k} className="flex items-center gap-2">
+                    <div className="h-2 w-14 bg-parchment/60 rounded shrink-0" />
+                    <div
+                      className="h-3 bg-parchment rounded"
+                      style={{ width: w }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

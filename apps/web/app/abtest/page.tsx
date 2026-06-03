@@ -90,8 +90,9 @@ function ABTestContent() {
         </p>
       </header>
 
-      {/* 모드 탭 */}
-      <div className="flex justify-center">
+      {/* 모드 탭 — 제목은 스크롤로 흘려보내고, 탭 바는 헤더 아래 sticky로 고정.
+          (overview AnchorNav와 동일한 offset/배경 패턴) */}
+      <div className="sticky top-14 sm:top-16 lg:top-20 z-20 -mx-3 sm:-mx-4 lg:-mx-8 px-3 sm:px-4 lg:px-8 py-2 flex justify-center bg-vellum/90 backdrop-blur border-y border-parchment">
         <ModeTabs value={mode} onChange={handleModeChange} />
       </div>
 
@@ -293,6 +294,10 @@ function HistoryMode({
     );
   }
 
-  // 목록 모드
-  return <ABTestHistoryList onSelect={onSelect} reloadKey={reloadKey} />;
+  // 목록 모드 — 2열 그리드. 1열일 때보다 폭이 넓어야 카드가 답답하지 않음. 중앙 정렬 + 폭 상한.
+  return (
+    <div className="max-w-5xl mx-auto">
+      <ABTestHistoryList onSelect={onSelect} reloadKey={reloadKey} />
+    </div>
+  );
 }

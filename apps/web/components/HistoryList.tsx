@@ -31,7 +31,7 @@ type Props = {
  *
  * 기능:
  * - 헤더: 총 N건 + 전체 삭제 + 새로고침
- * - 본문: 카드형 항목, 선택 시 좌측 4px terra 막대 + 배경 강조
+ * - 본문: 카드형 항목, 선택 시 배경 강조
  * - 각 행 호버 시 우측에 X 삭제 버튼 노출
  * - 삭제는 confirm 필수 (destructive action), 전체 삭제는 더욱 강력한 경고
  */
@@ -170,7 +170,7 @@ export function HistoryList({
           {[1, 2, 3].map((i) => (
             <div
               key={i}
-              className="h-20 bg-snow border border-parchment rounded-[9.6px] animate-pulse"
+              className="h-20 bg-snow border border-parchment rounded-[9.6px] animate-pulse motion-reduce:animate-none"
             />
           ))}
         </div>
@@ -302,8 +302,8 @@ function HistoryRow({
                     disabled:cursor-not-allowed
                     ${
                       selected
-                        ? "bg-snow border-l-4 border-terra"
-                        : "hover:bg-snow/70 border-l-4 border-transparent"
+                        ? "bg-snow"
+                        : "hover:bg-snow/70"
                     }`}
       >
         <div className="flex items-start justify-between gap-3">
@@ -336,7 +336,7 @@ function HistoryRow({
             <>
               <span aria-hidden>·</span>
               <span className="text-ink font-medium">
-                📋 {item.simulation_count}건
+                {item.simulation_count}건
               </span>
             </>
           )}
@@ -349,7 +349,7 @@ function HistoryRow({
         onClick={onDelete}
         disabled={deleting || disabled}
         aria-label={`"${item.summary || "(요약 없음)"}" 이력 삭제`}
-        className={`absolute top-2.5 right-2 inline-flex items-center justify-center w-8 h-8 rounded-[9.6px]
+        className={`absolute top-2.5 right-2 inline-flex items-center justify-center w-8 h-8 min-w-[44px] min-h-[44px] rounded-[9.6px]
                     text-stone hover:text-terra hover:bg-terra/10 transition-all
                     focus:outline-none focus-visible:ring-2 focus-visible:ring-azure
                     disabled:opacity-30 disabled:cursor-not-allowed

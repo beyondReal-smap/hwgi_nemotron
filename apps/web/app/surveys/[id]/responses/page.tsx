@@ -88,7 +88,7 @@ export default function ResponsesPage() {
 
         {/* 컨트롤 — 뷰 토글 + 검색 + 리포트 링크 */}
         <section className="mb-4 bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-          <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
+          <header className="bg-snow border-b border-parchment px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
             <ViewToggle value={view} onChange={setView} />
             <div className="flex items-center gap-2">
               <input

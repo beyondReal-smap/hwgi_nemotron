@@ -26,10 +26,10 @@ export function ResponsesByPersona({
   );
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.6fr] gap-4">
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.6fr] gap-4 items-start">
       {/* 좌측: 페르소나 목록 */}
-      <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-        <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden self-start">
+        <header className="bg-snow border-b border-parchment px-5 py-4">
           <h2 className="text-title text-ink">페르소나 ({items.length})</h2>
           <p className="text-body-sm text-dusty mt-1">선택하면 우측에 답변이 표시됩니다</p>
         </header>
@@ -47,12 +47,8 @@ export function ResponsesByPersona({
                   <button
                     type="button"
                     onClick={() => setSelectedUuid(it.persona_uuid)}
-                    className={`w-full text-left px-4 py-3 transition-colors border-l-4 ${
-                      isSel
-                        ? "bg-snow border-l-terra"
-                        : isFailed
-                          ? "border-l-transparent hover:bg-snow/60"
-                          : "border-l-transparent hover:bg-snow/60"
+                    className={`w-full text-left px-4 py-3 transition-colors ${
+                      isSel ? "bg-snow" : "hover:bg-snow/60"
                     }`}
                   >
                     <div className="flex items-baseline justify-between gap-2 mb-1">
@@ -60,7 +56,12 @@ export function ResponsesByPersona({
                         {it.sex} · {it.age}세
                       </p>
                       {isFailed && (
-                        <span className="text-caption text-terra shrink-0">실패</span>
+                        <span className="inline-flex items-center gap-1 text-caption text-danger font-medium shrink-0">
+                          <svg viewBox="0 0 10 10" className="w-2.5 h-2.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                            <path d="M2.5 2.5l5 5M7.5 2.5l-5 5" />
+                          </svg>
+                          실패
+                        </span>
                       )}
                     </div>
                     <p className="text-caption text-dusty truncate">
@@ -75,7 +76,7 @@ export function ResponsesByPersona({
       </section>
 
       {/* 우측: 답변 상세 */}
-      <section className="flex flex-col gap-4">
+      <section className="flex flex-col gap-4 self-start">
         {selected ? (
           <PersonaDetail item={selected} questions={questions} />
         ) : (
@@ -99,17 +100,18 @@ function PersonaDetail({
   item: PersonaWithSession;
   questions: SurveyQuestion[];
 }) {
+  const answers = item.session.answers;
   const answersByQid = useMemo(() => {
-    const m = new Map<string, (typeof item.session.answers)[number]>();
-    for (const a of item.session.answers) m.set(a.question_id, a);
+    const m = new Map<string, (typeof answers)[number]>();
+    for (const a of answers) m.set(a.question_id, a);
     return m;
-  }, [item.session.answers]);
+  }, [answers]);
 
   return (
     <>
       {/* 프로필 요약 카드 */}
       <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden">
-        <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+        <header className="bg-snow border-b border-parchment px-5 py-4">
           <h3 className="text-title text-ink">
             {item.sex} · {item.age}세
           </h3>

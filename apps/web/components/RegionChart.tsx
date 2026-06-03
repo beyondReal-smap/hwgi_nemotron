@@ -42,7 +42,7 @@ export function RegionChart({ provinceStats, districtStats }: Props) {
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-azure px-5 py-4 flex items-center justify-between gap-3">
+      <header className="bg-snow border-b border-parchment px-5 py-4 flex items-center justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-title text-ink">
             {selectedProvince ? `${selectedProvince} 시군구 분포` : "시도별 분포"}

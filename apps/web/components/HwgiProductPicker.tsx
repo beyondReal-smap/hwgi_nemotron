@@ -17,9 +17,9 @@ type Props = {
 };
 
 /**
- * 한화일반보험 카탈로그(30개)에서 상품을 골라 약관 본문을 textarea로 주입.
- * - 약관 PDF가 등록되지 않은 상품은 disabled 표시 (data/products/pdfs/<id>.pdf 안내)
- * - 카테고리(자동차/화재·배상·기업/장기·건강·연금)별로 옵션 그룹화
+ * insurance/ 폴더의 약관 PDF에서 상품을 골라 약관 본문을 textarea로 주입.
+ * - 폴더의 PDF를 런타임 스캔하므로 PDF 추가/삭제 시 자동 반영
+ * - 파일명 키워드로 카테고리(자동차/운전자/건강·의료/연금·저축/화재·재산 등) 그룹화
  */
 export function HwgiProductPicker({ onPick, disabled, onError }: Props) {
   const [products, setProducts] = useState<ProductSummary[] | null>(null);
@@ -63,7 +63,6 @@ export function HwgiProductPicker({ onPick, disabled, onError }: Props) {
     );
   }, [products]);
 
-  const availableCount = products?.filter((p) => p.body_available).length ?? 0;
   const totalCount = products?.length ?? 0;
 
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
@@ -72,14 +71,6 @@ export function HwgiProductPicker({ onPick, disabled, onError }: Props) {
     if (!id) return;
     const product = products?.find((p) => p.id === id);
     if (!product) return;
-
-    if (!product.body_available) {
-      onError(
-        `약관 PDF가 등록되지 않았습니다. data/products/pdfs/${id}.pdf 에 PDF 파일을 두면 자동으로 불러옵니다.`,
-      );
-      setSelectedId("");
-      return;
-    }
 
     onError(null);
     setLoadingBody(true);
@@ -107,11 +98,11 @@ export function HwgiProductPicker({ onPick, disabled, onError }: Props) {
           htmlFor="hwgi-product"
           className="text-body-sm font-semibold text-graphite"
         >
-          한화일반보험 상품에서 불러오기
+          보험 약관 PDF에서 불러오기
         </label>
         {products && totalCount > 0 && (
           <span className="text-caption text-stone num-tabular">
-            약관 등록 {availableCount} / 전체 {totalCount}
+            약관 {totalCount}건
           </span>
         )}
       </div>
@@ -130,9 +121,9 @@ export function HwgiProductPicker({ onPick, disabled, onError }: Props) {
         >
           <option value="">
             {loadingList
-              ? "카탈로그 불러오는 중..."
+              ? "약관 목록 불러오는 중..."
               : groups.length === 0
-                ? "카탈로그 없음 (크롤러 실행 필요)"
+                ? "약관 PDF 없음 (insurance/ 폴더 확인)"
                 : "상품을 선택하세요"}
           </option>
           {groups.map(([cat, items]) => (

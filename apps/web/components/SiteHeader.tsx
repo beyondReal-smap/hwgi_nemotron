@@ -20,7 +20,13 @@ import { useEffect, useState } from "react";
  */
 export function SiteHeader() {
   const pathname = usePathname();
-  const isHome = pathname === "/";
+  // 분석 결과는 /survey/[analysisId] 경로를 쓴다. 단, 설문 탭(/surveys)과 prefix가
+  // 겹치지 않도록 "/survey/"(슬래시 포함) 또는 정확히 "/survey"만 매칭한다.
+  const isAnalyze =
+    pathname === "/analyze" ||
+    pathname?.startsWith("/analyze/") ||
+    pathname === "/survey" ||
+    pathname?.startsWith("/survey/");
   const isPersonas = pathname?.startsWith("/personas");
   const isSurveys = pathname?.startsWith("/surveys"); // 통합 설문 탭 (마법사 + 이력)
   const isOverview = pathname?.startsWith("/overview");
@@ -39,9 +45,9 @@ export function SiteHeader() {
       <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-8 h-14 sm:h-16 lg:h-20 flex items-center justify-between gap-2 sm:gap-4">
         {/* 브랜드 — 모바일에서는 마크만 표시(좁은 화면 폭 절약) */}
         <Link
-          href="/overview"
+          href="/intro"
           className="flex items-center gap-1 sm:gap-1.5 group rounded-[9.6px] focus:outline-none focus-visible:ring-2 focus-visible:ring-azure shrink-0"
-          aria-label="PersonaFit 현황으로 이동"
+          aria-label="PersonaFit 소개 홈으로 이동"
         >
           <BrandMark />
           <div className="leading-tight hidden sm:block">
@@ -66,8 +72,8 @@ export function SiteHeader() {
             label="탐색"
           />
           <NavLink
-            href="/"
-            active={!!isHome}
+            href="/analyze"
+            active={!!isAnalyze}
             icon={<IconAnalyze />}
             label="분석"
           />
@@ -308,9 +314,7 @@ export function SiteFooter() {
           </a>{" "}
           (CC BY 4.0) · 합성 페르소나 기반, 실제 인물과 무관
         </div>
-        <div>
-          분석 엔진: Claude Sonnet/Haiku · sLLM · OpenAI 임베딩
-        </div>
+        <div>분석 엔진: sLLM · OpenAI 임베딩</div>
       </div>
     </footer>
   );

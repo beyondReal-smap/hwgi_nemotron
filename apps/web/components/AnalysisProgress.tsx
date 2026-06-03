@@ -75,7 +75,7 @@ export function AnalysisProgress({
       aria-live="polite"
       className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden"
     >
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <h2 className="text-title text-ink">⏳ {title}</h2>
         <p className="text-body-sm text-dusty mt-1">
           100만 명 합성 페르소나 전체에 대한 인구통계 분석을 진행합니다
@@ -121,7 +121,7 @@ export function AnalysisProgress({
                 >
                   {s.label}
                   {isActive && (
-                    <span className="ml-2 text-terra animate-pulse">●</span>
+                    <span className="ml-2 text-terra animate-pulse motion-reduce:animate-none">●</span>
                   )}
                 </p>
                 {s.hint && (
@@ -169,7 +169,7 @@ function StageIcon({ done, active }: { done: boolean; active: boolean }) {
         className="shrink-0 mt-0.5 w-5 h-5 rounded-full bg-azure/40 border border-azure flex items-center justify-center"
         aria-label="진행 중"
       >
-        <span className="w-2 h-2 rounded-full bg-ink animate-pulse" />
+        <span className="w-2 h-2 rounded-full bg-ink animate-pulse motion-reduce:animate-none" />
       </span>
     );
   }

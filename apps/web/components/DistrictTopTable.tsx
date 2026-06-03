@@ -14,7 +14,7 @@ export function DistrictTopTable({ districts, topN = 10 }: Props) {
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-azure px-4 py-3 sm:px-5 sm:py-4">
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <h2 className="text-title text-ink">Top {rows.length} 공략 시군구</h2>
           <p className="text-body-sm text-dusty num-tabular">
@@ -26,7 +26,7 @@ export function DistrictTopTable({ districts, topN = 10 }: Props) {
         </p>
       </header>
 
-      <ol className="divide-y divide-parchment">
+      <ol className="divide-y divide-parchment" aria-label={`Top ${rows.length} 공략 시군구 목록`}>
         {rows.map((d, idx) => {
           const widthPct = maxCount > 0 ? (d.count / maxCount) * 100 : 0;
           const sharePct = totalCount > 0 ? (d.count / totalCount) * 100 : 0;
@@ -42,11 +42,15 @@ export function DistrictTopTable({ districts, topN = 10 }: Props) {
                 <p className="text-body font-semibold text-ink truncate">
                   {d.name}
                 </p>
-                <div className="mt-1.5 h-1.5 bg-snow rounded-[2px] relative overflow-hidden">
+                <div
+                  className="mt-1.5 h-1.5 bg-snow rounded-[2px] relative overflow-hidden"
+                  title={`${d.name}: ${d.count.toLocaleString()}명 (${sharePct.toFixed(1)}%)`}
+                >
                   <div
                     className="absolute inset-y-0 left-0 bg-terra/70 rounded-[2px]"
                     style={{ width: `${widthPct}%` }}
                   />
+                  <span className="sr-only">{sharePct.toFixed(1)}%</span>
                 </div>
               </div>
               <div className="text-right num-tabular shrink-0">

@@ -22,7 +22,7 @@ const TAB_INDEX: { match: (p: string) => boolean; index: number }[] = [
   { match: (p) => p.startsWith("/personas"), index: 1 },
   { match: (p) => p.startsWith("/surveys"), index: 4 }, // /surveys 먼저 매칭해야 /survey와 충돌 안 함
   { match: (p) => p.startsWith("/abtest"), index: 3 },
-  { match: (p) => p === "/" || p.startsWith("/survey"), index: 2 }, // 분석 탭 (단수 /survey 포함)
+  { match: (p) => p.startsWith("/analyze") || p.startsWith("/survey"), index: 2 }, // 분석 탭 (단수 /survey 포함)
 ];
 
 function getTabIndex(pathname: string): number {

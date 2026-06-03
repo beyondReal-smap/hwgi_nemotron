@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   LabelList,
   ResponsiveContainer,
   Tooltip,
@@ -11,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import type { QuestionReport } from "@/lib/api";
+import { CHART_SINGLE, npsColor, SEMANTIC } from "@/lib/chartColors";
 
 /**
  * 척도형 히스토그램 (scale / nps).
@@ -25,7 +27,7 @@ export function ReportChartScale({ q }: { q: QuestionReport }) {
 
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <p className="text-overline text-dusty mb-0.5">
           Q{q.order} · {q.type === "nps" ? "NPS (0-10)" : "척도"}
         </p>
@@ -89,7 +91,12 @@ export function ReportChartScale({ q }: { q: QuestionReport }) {
                     );
                   }}
                 />
-                <Bar dataKey="count" fill="#d97757" radius={[6, 6, 0, 0]}>
+                {/* NPS는 점수 구간(추천/중립/비추천)을 시맨틱 색으로 구분. 일반 척도는 단색 terra. */}
+                <Bar dataKey="count" fill={CHART_SINGLE} radius={[6, 6, 0, 0]}>
+                  {q.type === "nps" &&
+                    hist.map((d, i) => (
+                      <Cell key={i} fill={npsColor(d.score)} />
+                    ))}
                   <LabelList
                     dataKey="count"
                     position="top"
@@ -100,10 +107,33 @@ export function ReportChartScale({ q }: { q: QuestionReport }) {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
+            {q.type === "nps" && <NpsLegend />}
           </>
         )}
       </div>
     </section>
+  );
+}
+
+/** NPS 색 구간 범례 — 막대 색의 의미(추천/중립/비추천)를 명시. */
+function NpsLegend() {
+  const items = [
+    { c: SEMANTIC.success, label: "추천자 9–10" },
+    { c: SEMANTIC.warning, label: "중립 7–8" },
+    { c: SEMANTIC.danger, label: "비추천 0–6" },
+  ];
+  return (
+    <ul className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-caption text-graphite">
+      {items.map((it) => (
+        <li key={it.label} className="flex items-center gap-1.5">
+          <span
+            className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
+            style={{ background: it.c }}
+          />
+          {it.label}
+        </li>
+      ))}
+    </ul>
   );
 }
 

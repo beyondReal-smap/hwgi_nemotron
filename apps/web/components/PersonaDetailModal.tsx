@@ -133,7 +133,7 @@ export function PersonaDetailModal({
                       w-full sm:max-w-3xl h-[100dvh] sm:h-auto sm:max-h-[90vh]
                       overflow-hidden flex flex-col">
         {/* 헤더 — SectionCard 패턴, sticky */}
-        <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-4 py-3 sm:px-5 sm:py-4
+        <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4
                            flex items-start justify-between gap-3 shrink-0
                            pt-[max(0.75rem,env(safe-area-inset-top))]">
           <div className="min-w-0">
@@ -171,7 +171,7 @@ export function PersonaDetailModal({
         <div className="flex-1 min-h-0 overflow-hidden p-4 sm:p-5 flex flex-col gap-4 sm:gap-5
                         pb-[max(1rem,env(safe-area-inset-bottom))]">
           {loading && (
-            <div className="space-y-3 animate-pulse">
+            <div className="space-y-3 animate-pulse min-h-[420px] motion-reduce:animate-none">
               <div className="h-20 bg-snow border border-parchment rounded-[9.6px]" />
               <div className="h-32 bg-snow border border-parchment rounded-[9.6px]" />
               <div className="h-32 bg-snow border border-parchment rounded-[9.6px]" />
@@ -285,12 +285,12 @@ export function PersonaDetailModal({
                             aria-selected={isActive}
                             aria-controls="persona-detail-body"
                             onClick={() => setSelectedKey(key)}
-                            className={`w-full text-left px-3 py-2.5 border-l-4 transition-colors
+                            className={`w-full text-left px-3 py-2.5 transition-colors
                                         focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azure
                                         ${
                                           isActive
-                                            ? "border-l-terra bg-snow text-ink"
-                                            : "border-l-transparent text-graphite hover:bg-snow/70 hover:text-ink"
+                                            ? "bg-snow text-ink font-medium"
+                                            : "text-graphite hover:bg-snow/70 hover:text-ink"
                                         }`}
                           >
                             <span

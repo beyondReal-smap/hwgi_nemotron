@@ -18,6 +18,7 @@ import type {
   DistributionBin,
   ProvinceRow,
 } from "@/lib/api";
+import { barTopOpacity, chartColor } from "@/lib/chartColors";
 
 /**
  * 현황(overview)과 탐색(personas) 페이지가 공유하는 분포 차트 컴포넌트.
@@ -55,16 +56,15 @@ export function recordToBins(
   return topN ? sorted.slice(0, topN) : sorted;
 }
 
-// 한화 토큰 기반 차트 팔레트.
-// 1순위 terra(악센트) → 2순위 azure(보조 블루) → 그 이후 graphite→stone 단조 회색계로 강·약 그라데이션.
-// 첫 두 자리에 채도 있는 색을 두어 4개 이상 항목에서도 1·2위가 즉시 구분되도록 함.
-export const DONUT_COLORS = ["#d97757", "#ccdbe8", "#3d3d3a", "#73726c", "#9c9a92", "#dedcd1", "#1f1e1d"];
+// 차트 색은 lib/chartColors.ts의 CHART_PALETTE(10색 muted 정성 팔레트)로 통일.
+// 도넛·범례처럼 계열 구분이 필요한 곳은 chartColor(i)로 순환 적용한다.
 
 // ============================================================
 // 시도 막대 — ProvinceRow(시군구 수·평균 연령·여성 비율 포함)용
 // ============================================================
 
 export function ProvinceBar({ rows }: { rows: ProvinceRow[] }) {
+  const maxCount = rows.length ? Math.max(...rows.map((r) => r.count)) : 0;
   return (
     <div className="p-3">
       <ResponsiveContainer width="100%" height={480}>
@@ -111,6 +111,9 @@ export function ProvinceBar({ rows }: { rows: ProvinceRow[] }) {
             }}
           />
           <Bar dataKey="count" fill="#d97757" radius={[0, 4, 4, 0]}>
+            {rows.map((r, i) => (
+              <Cell key={i} fillOpacity={barTopOpacity(r.count, maxCount)} />
+            ))}
             <LabelList
               dataKey="count"
               position="right"
@@ -139,6 +142,7 @@ export function DemographicCard({
 }) {
   const useDonut = dem.bins.length <= 4;
   const total = dem.bins.reduce((s, b) => s + b.count, 0);
+  const maxCount = dem.bins.length ? Math.max(...dem.bins.map((b) => b.count)) : 0;
 
   const isAge = dem.column === "age";
   const subText = isAge && ageData
@@ -164,6 +168,7 @@ export function DemographicCard({
                 innerRadius={42}
                 outerRadius={74}
                 paddingAngle={2}
+                isAnimationActive={false}
                 label={(entry) => {
                   const pct = (entry.percent ?? 0) * 100;
                   // 너무 작은 조각(<5%)은 라벨 생략해 시각 혼잡 방지
@@ -174,7 +179,7 @@ export function DemographicCard({
                 {dem.bins.map((_, i) => (
                   <Cell
                     key={i}
-                    fill={DONUT_COLORS[i % DONUT_COLORS.length]}
+                    fill={chartColor(i)}
                     stroke="#faf9f5"
                     strokeWidth={2}
                   />
@@ -215,8 +220,11 @@ export function DemographicCard({
                 dataKey="label"
                 tick={{ fontSize: 10, fill: "#3d3d3a", fontFamily: "SUITE" }}
                 stroke="#dedcd1"
-                width={110}
+                width={114}
                 interval={0}
+                tickFormatter={(v: string) =>
+                  v.length > 12 ? `${v.slice(0, 11)}…` : v
+                }
               />
               <Tooltip
                 cursor={{ fill: "rgba(217, 119, 87, 0.08)" }}
@@ -235,7 +243,15 @@ export function DemographicCard({
                   );
                 }}
               />
-              <Bar dataKey="count" fill="#d97757" radius={[0, 3, 3, 0]}>
+              <Bar
+                dataKey="count"
+                fill="#d97757"
+                radius={[0, 3, 3, 0]}
+                isAnimationActive={false}
+              >
+                {dem.bins.map((b, i) => (
+                  <Cell key={i} fillOpacity={barTopOpacity(b.count, maxCount)} />
+                ))}
                 <LabelList
                   dataKey="count"
                   position="right"
@@ -262,7 +278,7 @@ export function DemographicCard({
                   <span
                     className="inline-block w-2.5 h-2.5 rounded-sm shrink-0"
                     style={{
-                      background: DONUT_COLORS[i % DONUT_COLORS.length],
+                      background: chartColor(i),
                     }}
                   />
                   <span className="text-graphite truncate">{b.label}</span>

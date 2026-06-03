@@ -7,6 +7,7 @@ import {
   type SurveyStatusResponse,
 } from "@/lib/api";
 import { ConfirmModal } from "@/components/ConfirmModal";
+import { StatusBadge } from "@/components/StatusBadge";
 
 /**
  * 설문 진행 모니터링 — /surveys/:id/progress 페이지의 핵심 위젯.
@@ -87,7 +88,7 @@ export function SurveyProgress({
   return (
     <>
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4">
+      <header className="bg-snow border-b border-parchment px-5 py-4">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <h2 className="text-title text-ink">진행 현황</h2>
           <StatusBadge status={status.survey_status} />
@@ -110,7 +111,7 @@ export function SurveyProgress({
           {status.counts.failed > 0 && (
             <>
               {" · 실패 "}
-              <span className="font-mono text-terra">
+              <span className="font-mono text-danger">
                 {status.counts.failed}
               </span>
             </>
@@ -132,10 +133,11 @@ export function SurveyProgress({
       <div className="p-5 flex flex-col gap-5">
         {/* Stuck 경고 — pm2 재시작 등으로 백그라운드 작업 끊긴 정황 */}
         {isStuck && (
-          <div className="bg-terra/10 border border-terra/30 rounded-[9.6px] px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
+          <div className="bg-warning/12 border border-warning/40 rounded-[9.6px] px-4 py-3 flex items-start justify-between gap-3 flex-wrap">
             <div className="min-w-0">
-              <p className="text-body-sm font-medium text-ink">
-                ⚠ 진행이 멈춘 것 같습니다
+              <p className="text-body-sm font-medium text-ink flex items-center gap-1.5">
+                <IconWarning />
+                진행이 멈춘 것 같습니다
               </p>
               <p className="text-caption text-graphite mt-0.5">
                 서버 재시작 등으로 백그라운드 작업이 끊겼을 수 있습니다.
@@ -185,7 +187,7 @@ export function SurveyProgress({
               `}</style>
             )}
             <div
-              className="h-full bg-terra transition-all duration-500 relative overflow-hidden"
+              className="h-full bg-terra transition-all duration-300 relative overflow-hidden"
               style={{ width: `${Math.max(1.5, pct)}%` }}
               role="progressbar"
               aria-valuenow={Math.round(pct)}
@@ -232,7 +234,7 @@ export function SurveyProgress({
             label="실패"
             value={status.counts.failed.toLocaleString()}
             suffix="명"
-            highlight={status.counts.failed > 0 ? "terra" : undefined}
+            highlight={status.counts.failed > 0 ? "danger" : undefined}
           />
         </ul>
 
@@ -241,8 +243,8 @@ export function SurveyProgress({
           <p
             className={`text-caption px-3 py-2 rounded-[9.6px] border ${
               retryError
-                ? "text-ink bg-terra/10 border-terra/30"
-                : "text-ink bg-azure/20 border-azure"
+                ? "text-ink bg-danger/12 border-danger/40"
+                : "text-ink bg-success/12 border-success/45"
             }`}
           >
             {retryError ?? retryNotice}
@@ -271,7 +273,7 @@ export function SurveyProgress({
               {status.failed_personas.map((f) => (
                 <li
                   key={f.persona_uuid}
-                  className="px-3 py-2 border-l-2 border-l-terra/60"
+                  className="px-3 py-2"
                 >
                   <p className="text-caption text-graphite font-mono">
                     {f.persona_uuid.slice(0, 8)}…
@@ -314,6 +316,24 @@ export function SurveyProgress({
 // 보조
 // ============================================================
 
+function IconWarning() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="w-3.5 h-3.5 shrink-0 text-warning"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M8 2.6l6.2 10.4H1.8L8 2.6z" />
+      <path d="M8 6.6v3.1M8 11.6v.02" />
+    </svg>
+  );
+}
+
 function Stat({
   label,
   value,
@@ -323,11 +343,11 @@ function Stat({
   label: string;
   value: string;
   suffix?: string;
-  highlight?: "terra" | "azure";
+  highlight?: "danger" | "azure";
 }) {
   const accentColor =
-    highlight === "terra"
-      ? "text-terra"
+    highlight === "danger"
+      ? "text-danger"
       : highlight === "azure"
         ? "text-graphite"
         : "text-ink";
@@ -344,22 +364,3 @@ function Stat({
   );
 }
 
-function StatusBadge({ status }: { status: SurveyStatusResponse["survey_status"] }) {
-  const map: Record<
-    SurveyStatusResponse["survey_status"],
-    { label: string; cls: string }
-  > = {
-    draft: { label: "초안", cls: "bg-parchment text-graphite" },
-    running: { label: "진행 중", cls: "bg-terra/20 text-terra border border-terra/40" },
-    completed: { label: "완료", cls: "bg-azure/30 text-graphite border border-azure" },
-    failed: { label: "실패", cls: "bg-terra/15 text-terra border border-terra/40" },
-  };
-  const v = map[status];
-  return (
-    <span
-      className={`inline-flex items-center text-caption font-medium px-2.5 py-0.5 rounded-full ${v.cls}`}
-    >
-      {v.label}
-    </span>
-  );
-}

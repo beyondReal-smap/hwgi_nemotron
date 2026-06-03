@@ -9,7 +9,7 @@ export function ReportPanel({ markdown }: Props) {
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-ink px-4 py-3 sm:px-5 sm:py-4">
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="text-title text-ink">
           FP·기획자용 인사이트 리포트
         </h2>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createSegment, type PersonaFilterRequest, type Segment } from "@/lib/api";
 
 /**
@@ -26,6 +26,8 @@ export function SaveSegmentModal({
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+  const previousFocusRef = useRef<Element | null>(null);
 
   // 열릴 때 초기화
   useEffect(() => {
@@ -50,6 +52,17 @@ export function SaveSegmentModal({
       document.body.style.overflow = prevOverflow;
     };
   }, [open, saving, onClose]);
+
+  // 초기 포커스(입력란) + 닫을 때 이전 포커스 복원 (a11y-005 / F006)
+  useEffect(() => {
+    if (!open) return;
+    previousFocusRef.current = document.activeElement;
+    nameInputRef.current?.focus();
+    return () => {
+      const prev = previousFocusRef.current;
+      if (prev instanceof HTMLElement) prev.focus();
+    };
+  }, [open]);
 
   if (!open) return null;
 
@@ -112,7 +125,7 @@ export function SaveSegmentModal({
         </div>
 
         {/* 헤더 — SectionCard 패턴 */}
-        <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-4 py-3 sm:px-5 sm:py-4 shrink-0">
+        <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4 shrink-0">
           <h2 id="save-segment-title" className="text-title text-ink">
             세그먼트로 저장
           </h2>
@@ -126,13 +139,13 @@ export function SaveSegmentModal({
           <div>
             <label className="text-overline text-dusty">이름 *</label>
             <input
+              ref={nameInputRef}
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="예: 30대 워킹맘 수도권"
               maxLength={100}
               disabled={saving}
-              autoFocus
               className="mt-1 w-full min-h-[44px] px-3 py-2 bg-snow border border-onyx/15 rounded-[9.6px]
                          text-[16px] sm:text-body-sm text-ink placeholder:text-stone
                          focus:outline-none focus:ring-2 focus:ring-azure focus:border-onyx/30

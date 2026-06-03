@@ -14,8 +14,8 @@ type Props = {
 export function PopulationStatsPanel({ stats }: Props) {
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-4 py-3 sm:px-5 sm:py-4">
-        <h2 className="text-title text-ink">📊 전국 모집단 통계</h2>
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
+        <h2 className="text-title text-ink">전국 모집단 통계</h2>
         <p className="text-body-sm text-dusty mt-1">
           전체 {stats.total_scored.toLocaleString()}명의 페르소나를 스코어링하여
           산출한 인구통계 분포 (Nemotron 카테고리형 컬럼 전체)
@@ -44,13 +44,16 @@ export function PopulationStatsPanel({ stats }: Props) {
 
         {/* 현황(overview)과 동일한 차트 카드로 통일 — DemographicGroup → DemographicColumn 어댑터.
             (total_unique/truncated_to는 차트 카드 subText에 미표시, 스타일 일관 우선) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-          {stats.demographics.map((g) => (
-            <DemographicCard
-              key={g.column}
-              dem={{ column: g.column, label: g.label, bins: g.bins }}
-            />
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {stats.demographics
+            // 병역(military_status)은 분석 결과 차트에서 제외 (A/B 결과 패널과 동일 정책)
+            .filter((g) => g.column !== "military_status")
+            .map((g) => (
+              <DemographicCard
+                key={g.column}
+                dem={{ column: g.column, label: g.label, bins: g.bins }}
+              />
+            ))}
         </div>
       </div>
     </section>
@@ -116,15 +119,15 @@ function RawStatsBox({ stats }: { stats: PopulationStats }) {
 
 const FLAG_META: Record<string, { label: string; tone: "warn" | "info" }> = {
   distribution_narrow: {
-    label: "⚠️ 핵심층 공허 — 제품 매력도 낮음",
+    label: "핵심층 공허 — 제품 매력도 낮음",
     tone: "warn",
   },
   core_low_lift: {
-    label: "⚠️ 핵심 cohort 리프트 낮음 — 모집단 평균과 차이 작음",
+    label: "핵심 cohort 리프트 낮음 — 모집단 평균과 차이 작음",
     tone: "warn",
   },
   mode_inconsistent: {
-    label: "ℹ️ cohort 컷 모드 혼재",
+    label: "cohort 컷 모드 혼재",
     tone: "info",
   },
 };
@@ -136,20 +139,57 @@ function QualityFlagBadges({ flags }: { flags?: string[] }) {
       {flags.map((f) => {
         const meta = FLAG_META[f];
         if (!meta) return null;
-        const tone =
-          meta.tone === "warn"
-            ? "bg-terra/15 text-terra border-terra/30"
-            : "bg-azure/20 text-ink border-azure/30";
+        const isWarn = meta.tone === "warn";
+        const tone = isWarn
+          ? "bg-warning/12 text-ink border-warning/40"
+          : "bg-info/12 text-ink border-info/40";
         return (
           <span
             key={f}
-            className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-overline font-medium border ${tone}`}
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-[5px] text-overline font-medium border ${tone}`}
           >
+            <FlagIcon warn={isWarn} />
             {meta.label}
           </span>
         );
       })}
     </div>
+  );
+}
+
+/** 품질 플래그 아이콘 — 경고(삼각형)/정보(원) 모양으로 색 없이도 구분. */
+function FlagIcon({ warn }: { warn: boolean }) {
+  if (warn) {
+    return (
+      <svg
+        viewBox="0 0 12 12"
+        className="w-3 h-3 shrink-0 text-warning"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M6 1.9l4.6 8H1.4z" />
+        <path d="M6 5.2v2.1M6 8.9v.02" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      className="w-3 h-3 shrink-0 text-info"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <circle cx="6" cy="6" r="4.6" />
+      <path d="M6 5.4v2.4M6 3.9v.02" />
+    </svg>
   );
 }
 
@@ -251,6 +291,14 @@ function ScoreDistributionBar({
     { score: interestMin, color: "bg-graphite", label: "관심", text: "text-graphite" },
   ];
 
+  // 스크린리더 요약: role='img' aria-label에 전체 인원·점수 범위·cohort 컷을 상세화.
+  // 하단 sr-only에 bin별 인원/비중을 텍스트로 제공해 그래프를 못 보는 사용자도 데이터 접근 가능.
+  const histogramLabel =
+    `점수 히스토그램 (전체 모집단). 표시 인원 ${totalSeen.toLocaleString()}명, ` +
+    `점수 범위 ${xMin}점부터 ${xMax}점. ` +
+    `코호트 컷오프: 핵심 ≥${coreMin.toFixed(1)}점, 타겟 ≥${targetMin.toFixed(1)}점, ` +
+    `관심 ≥${interestMin.toFixed(1)}점.`;
+
   return (
     <div className="border-t border-parchment px-4 py-3 sm:px-5 sm:py-4">
       <h3 className="text-heading text-ink mb-1">점수 분포</h3>
@@ -260,7 +308,8 @@ function ScoreDistributionBar({
       <div
         className="relative flex items-end gap-1 h-32"
         role="img"
-        aria-label="점수 히스토그램 (전체 모집단)"
+        aria-label={histogramLabel}
+        aria-describedby="score-distribution-sr-data"
       >
         {bins.map((b, i) => {
           const binStart = binStarts[i];
@@ -308,6 +357,23 @@ function ScoreDistributionBar({
             </div>
           );
         })}
+      </div>
+      <div id="score-distribution-sr-data" className="sr-only">
+        <p>
+          점수 분포 데이터 (구간별 인원과 비중). 전체 표시 인원{" "}
+          {totalSeen.toLocaleString()}명.
+        </p>
+        <ul>
+          {bins.map((b) => {
+            const share = totalSeen > 0 ? (b.count / totalSeen) * 100 : 0;
+            return (
+              <li key={b.label}>
+                {b.label}점 구간: {b.count.toLocaleString()}명 (
+                {share.toFixed(2)}%)
+              </li>
+            );
+          })}
+        </ul>
       </div>
       <div className="flex justify-between text-caption text-stone mt-1.5 num-tabular">
         <span>{xMin}점</span>

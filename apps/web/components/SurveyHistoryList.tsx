@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { ConfirmModal } from "@/components/ConfirmModal";
 import { AlertModal } from "@/components/AlertModal";
+import { StatusBadge } from "@/components/StatusBadge";
 
 /**
  * 마법사로 만든 설문 목록 — `/surveys?mode=history`에서 표시.
@@ -82,7 +83,7 @@ export function SurveyHistoryList() {
 
   return (
     <section className="bg-vellum border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
+      <header className="bg-snow border-b border-parchment px-5 py-4 flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <h2 className="text-title text-ink">설문 이력</h2>
           <p className="text-body-sm text-dusty mt-1">
@@ -210,7 +211,7 @@ function SurveyCard({
             {survey.title}
           </Link>
         </div>
-        <StatusBadge status={survey.status} />
+        <StatusBadge status={survey.status} className="shrink-0" />
       </header>
 
       <div className="p-4 flex-1 flex flex-col gap-2">
@@ -286,21 +287,6 @@ function ActionLinks({ survey }: { survey: SurveySummary }) {
         </Link>
       ))}
     </>
-  );
-}
-
-function StatusBadge({ status }: { status: SurveyStatus }) {
-  const map: Record<SurveyStatus, { label: string; cls: string }> = {
-    draft: { label: "초안", cls: "bg-parchment text-graphite" },
-    running: { label: "진행 중", cls: "bg-terra/20 text-terra border border-terra/40" },
-    completed: { label: "완료", cls: "bg-azure/30 text-graphite border border-azure" },
-    failed: { label: "실패", cls: "bg-terra/15 text-terra border border-terra/40" },
-  };
-  const v = map[status];
-  return (
-    <span className={`inline-flex items-center text-caption font-medium px-2 py-0.5 rounded-full shrink-0 ${v.cls}`}>
-      {v.label}
-    </span>
   );
 }
 

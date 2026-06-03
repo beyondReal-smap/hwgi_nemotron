@@ -82,9 +82,9 @@ function AnalysisHeader({ detail }: { detail: AnalysisDetail }) {
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
-      <header className="bg-snow border-b border-parchment border-l-4 border-l-terra px-5 py-3.5">
+      <header className="bg-snow border-b border-parchment px-5 py-3.5">
         <h1 className="text-title text-ink">
-          📋 {detail.selling_points.summary || "(요약 없음)"}
+          {detail.selling_points.summary || "(요약 없음)"}
         </h1>
         <p className="text-caption text-dusty mt-1 num-tabular">
           분석 {detail.id.slice(0, 8)}… · {formatDate(detail.created_at)}
