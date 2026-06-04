@@ -17,6 +17,7 @@ from time import perf_counter
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
+from openai import UnprocessableEntityError
 
 from models.schemas import (
     ABTestRequest,
@@ -36,6 +37,7 @@ from services.abtest_persistence import persist_abtest
 from services.comparison import build_comparison, recommend_variant
 from services.llm import embed_text, extract_selling_points
 from services.opinions import generate_persona_opinions
+from services.pii_mask import mask_pii
 from services.scoring import build_query_text, score_personas
 from services.store import get_store
 
@@ -120,6 +122,11 @@ async def _analyze_one_variant(
 @router.post("/abtest", response_model=ABTestResponse)
 async def abtest(req: ABTestRequest) -> ABTestResponse:
     """A/B 두 안 동시 분석 + 비교 표 + (Phase 3) LLM 리포트."""
+    # PII 마스킹 — 입력 경계에서 한 번 처리해 LLM·영속 저장(abtests.jsonl)·응답 모두에 PII가 남지 않게 한다.
+    req.company_context = mask_pii(req.company_context)
+    req.variant_a.text = mask_pii(req.variant_a.text)
+    req.variant_b.text = mask_pii(req.variant_b.text)
+
     overall_t0 = perf_counter()
     timings: dict[str, int] = {}
 
@@ -159,6 +166,12 @@ async def abtest(req: ABTestRequest) -> ABTestResponse:
         )
     except HTTPException:
         raise
+    except UnprocessableEntityError as e:
+        logger.warning("A/B 분석 입력 거부(PII 등): %s", e)
+        raise HTTPException(
+            status_code=422,
+            detail="입력에 처리할 수 없는 개인정보(주민등록번호·카드번호 등)가 포함되어 있습니다. 해당 정보를 제거한 뒤 다시 시도해 주세요.",
+        ) from e
     except Exception as e:
         logger.exception("A/B 분석 실패")
         raise HTTPException(status_code=502, detail=f"A/B 분석 오류: {e}") from e
@@ -199,6 +212,12 @@ async def abtest(req: ABTestRequest) -> ABTestResponse:
         company_insights_md, fp_strategy_md = await asyncio.gather(
             insights_task, strategy_task
         )
+    except UnprocessableEntityError as e:
+        logger.warning("A/B 리포트 입력 거부(PII 등): %s", e)
+        raise HTTPException(
+            status_code=422,
+            detail="입력에 처리할 수 없는 개인정보(주민등록번호·카드번호 등)가 포함되어 있습니다. 해당 정보를 제거한 뒤 다시 시도해 주세요.",
+        ) from e
     except Exception as e:
         logger.exception("A/B 리포트 LLM 생성 실패")
         raise HTTPException(status_code=502, detail=f"LLM(리포트) 오류: {e}") from e

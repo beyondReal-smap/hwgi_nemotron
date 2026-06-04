@@ -20,9 +20,16 @@
 
 from __future__ import annotations
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from openai import BadRequestError, UnprocessableEntityError
+from tenacity import (
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from models.schemas import PersonaHit, PopulationStats, SellingPoints
+from services.pii_mask import mask_pii
 
 from .clients import (
     anthropic_client,
@@ -79,7 +86,11 @@ __all__ = [
 # 공개 wrapper — provider 인자를 받아 get_llm_service에 위임
 # ============================================================
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
+# 4xx(PII 차단·잘못된 요청 등 클라이언트 오류)는 재시도해도 동일 실패 → 즉시 전파.
+# 연결 오류·5xx·타임아웃 같은 일시적 장애만 재시도한다.
+_NO_4XX_RETRY = retry_if_not_exception_type((UnprocessableEntityError, BadRequestError))
+
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8), retry=_NO_4XX_RETRY)
 def extract_selling_points(
     product_text: str,
     provider: LLMProvider = DEFAULT_PROVIDER,
@@ -93,13 +104,14 @@ def extract_selling_points(
     카피 모드 안전망: key_benefits를 강제로 빈 배열로 덮어쓴다. 카피 한 줄에는
     명시된 보장 혜택이 없으므로 LLM이 추론한 값(예: '전면적 케어')은 모두 hallucination.
     """
+    product_text = mask_pii(product_text)  # PII(주민번호·카드번호 등) 마스킹 → sLLM 차단 회피 + 보안
     sp = get_llm_service(provider).extract_selling_points(product_text, input_mode)
     if input_mode == "marketing":
         sp.key_benefits = []
     return sp
 
 
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4))
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4), retry=_NO_4XX_RETRY)
 def extract_filter_from_query(
     query: str, provider: LLMProvider = DEFAULT_PROVIDER,
 ) -> dict:
@@ -107,7 +119,7 @@ def extract_filter_from_query(
     return get_llm_service(provider).extract_filter_from_query(query)
 
 
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4))
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4), retry=_NO_4XX_RETRY)
 def generate_persona_answer(
     *,
     profile: str,
@@ -139,7 +151,7 @@ def generate_persona_answer(
     )
 
 
-@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4))
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4), retry=_NO_4XX_RETRY)
 def generate_survey_questions(
     *,
     title: str,
@@ -161,7 +173,7 @@ def generate_survey_questions(
     )
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8), retry=_NO_4XX_RETRY)
 def generate_report(
     sp: SellingPoints,
     top_personas: list[PersonaHit],
@@ -172,7 +184,7 @@ def generate_report(
     return get_llm_service(provider).generate_report(sp, top_personas, population)
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8), retry=_NO_4XX_RETRY)
 def generate_overall_commentary(
     stats: dict,
     provider: LLMProvider = DEFAULT_PROVIDER,

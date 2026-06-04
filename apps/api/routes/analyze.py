@@ -8,11 +8,13 @@ from time import perf_counter
 
 import numpy as np
 from fastapi import APIRouter, HTTPException
+from openai import UnprocessableEntityError
 
 from models.schemas import AnalyzeRequest, AnalyzeResponse
 from services.llm import embed_text, extract_selling_points, generate_report
 from services.opinions import generate_persona_opinions
 from services.persistence import persist_analysis
+from services.pii_mask import mask_pii
 from services.scoring import build_query_text, score_personas
 from services.store import get_store
 
@@ -24,6 +26,8 @@ router = APIRouter(prefix="/api", tags=["analyze"])
 @router.post("/analyze", response_model=AnalyzeResponse)
 async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
     """상품설명서·약관 → 타겟 페르소나 + 반응도 + 페르소나별 의견 + 리포트."""
+    # PII 마스킹 — 입력 경계에서 한 번 처리해 LLM·영속 저장(analyses.jsonl)·응답 모두에 PII가 남지 않게 한다.
+    req.product_text = mask_pii(req.product_text)
     elapsed: dict[str, int] = {}
     overall_t0 = perf_counter()
 
@@ -33,6 +37,12 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         sp = await asyncio.to_thread(
             extract_selling_points, req.product_text, req.llm_provider
         )
+    except UnprocessableEntityError as e:
+        logger.warning("분석 입력 거부(PII 등): %s", e)
+        raise HTTPException(
+            status_code=422,
+            detail="입력에 처리할 수 없는 개인정보(주민등록번호·카드번호 등)가 포함되어 있습니다. 해당 정보를 제거한 뒤 다시 시도해 주세요.",
+        ) from e
     except Exception as e:
         logger.exception("selling_points 추출 실패")
         raise HTTPException(status_code=502, detail=f"LLM(소구점) 오류: {e}") from e

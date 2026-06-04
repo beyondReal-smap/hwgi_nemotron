@@ -10,9 +10,16 @@ from __future__ import annotations
 
 import json
 
-from tenacity import retry, stop_after_attempt, wait_exponential
+from openai import BadRequestError, UnprocessableEntityError
+from tenacity import (
+    retry,
+    retry_if_not_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from models.schemas import ABComparison, ABVariantResult
+from services.pii_mask import mask_pii
 from services.llm import (
     ABTEST_COMPANY_PROMPT,
     ABTEST_STRATEGY_PROMPT,
@@ -152,6 +159,10 @@ def _comparison_block(comp: ABComparison) -> str:
     return "\n".join(lines)
 
 
+# 4xx(PII 차단 등 클라이언트 오류)는 재시도 무의미 → 즉시 전파
+_NO_4XX_RETRY = retry_if_not_exception_type((UnprocessableEntityError, BadRequestError))
+
+
 def build_abtest_context(
     *,
     company_context: str,
@@ -169,6 +180,7 @@ def build_abtest_context(
     challenger_kind("internal" | "external")로 도전안의 성격을 명시해
     LLM이 내부 비교/경쟁 분석 관점을 구분하도록 한다.
     """
+    company_context = mask_pii(company_context)  # PII 마스킹 (sLLM 차단 회피 + 보안)
     mode_hint = INPUT_MODE_HINTS.get(input_mode, "")
     if baseline_variant == "A":
         baseline_label = variant_a.label
@@ -224,7 +236,7 @@ def build_abtest_context(
 # LLM 호출 — 당사 장단점 / FP 전략
 # ============================================================
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8), retry=_NO_4XX_RETRY)
 def generate_abtest_company_insights(
     *,
     company_context: str,
@@ -273,7 +285,7 @@ def generate_abtest_company_insights(
     return (completion.choices[0].message.content or "").strip()
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8))
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8), retry=_NO_4XX_RETRY)
 def generate_abtest_fp_strategy(
     *,
     company_context: str,
