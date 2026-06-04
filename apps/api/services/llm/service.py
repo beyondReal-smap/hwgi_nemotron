@@ -217,7 +217,7 @@ class AnthropicLLMService(BaseLLMService):
         context = _format_context_for_report(sp, top_personas, population)
         msg = anthropic_client().messages.create(
             model=CLAUDE_HAIKU,
-            max_tokens=1600,
+            max_tokens=2400,
             system=REPORT_PROMPT,
             messages=[{"role": "user", "content": context}],
         )
@@ -228,7 +228,7 @@ class AnthropicLLMService(BaseLLMService):
         context = _format_context_for_commentary(stats)
         msg = anthropic_client().messages.create(
             model=CLAUDE_HAIKU,
-            max_tokens=900,
+            max_tokens=1400,
             system=COMMENTARY_PROMPT,
             messages=[{"role": "user", "content": context}],
         )
@@ -374,7 +374,7 @@ class SLLMService(BaseLLMService):
         context = _format_context_for_report(sp, top_personas, population)
         completion = sllm_client().chat.completions.create(
             model=resolve_sllm_model(),
-            max_tokens=1600,
+            max_tokens=2400,
             temperature=0.4,
             messages=[
                 {"role": "system", "content": REPORT_PROMPT},
@@ -387,7 +387,7 @@ class SLLMService(BaseLLMService):
         context = _format_context_for_commentary(stats)
         completion = sllm_client().chat.completions.create(
             model=resolve_sllm_model(),
-            max_tokens=900,
+            max_tokens=1400,
             temperature=0.4,
             messages=[
                 {"role": "system", "content": COMMENTARY_PROMPT},

@@ -253,7 +253,7 @@ def generate_abtest_company_insights(
     if provider == "anthropic":
         msg = anthropic_client().messages.create(
             model=CLAUDE_HAIKU,
-            max_tokens=1600,
+            max_tokens=2600,
             system=ABTEST_COMPANY_PROMPT,
             messages=[{"role": "user", "content": context}],
         )
@@ -263,7 +263,7 @@ def generate_abtest_company_insights(
     # sLLM
     completion = sllm_client().chat.completions.create(
         model=resolve_sllm_model(),
-        max_tokens=1600,
+        max_tokens=2600,
         temperature=0.4,
         messages=[
             {"role": "system", "content": ABTEST_COMPANY_PROMPT},
@@ -302,7 +302,7 @@ def generate_abtest_fp_strategy(
     if provider == "anthropic":
         msg = anthropic_client().messages.create(
             model=CLAUDE_HAIKU,
-            max_tokens=2000,
+            max_tokens=3000,
             system=ABTEST_STRATEGY_PROMPT,
             messages=[{"role": "user", "content": context}],
         )
@@ -312,7 +312,7 @@ def generate_abtest_fp_strategy(
     # sLLM
     completion = sllm_client().chat.completions.create(
         model=resolve_sllm_model(),
-        max_tokens=2000,
+        max_tokens=3000,
         temperature=0.5,
         messages=[
             {"role": "system", "content": ABTEST_STRATEGY_PROMPT},
