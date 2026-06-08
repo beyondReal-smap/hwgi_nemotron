@@ -23,7 +23,7 @@ class AnalyzeRequest(BaseModel):
         description="상품설명서 + 약관 본문 (20-20000자)",
     )
     top_k: int = Field(100, ge=5, le=100, description="반환할 상위 페르소나 수")
-    llm_provider: Literal["anthropic", "sllm"] = Field(
+    llm_provider: Literal["anthropic", "sllm", "openai"] = Field(
         "sllm",
         description=(
             "사용할 LLM provider. anthropic=Claude Sonnet+Haiku, "
@@ -145,6 +145,19 @@ class RegionStat(BaseModel):
     count: int = Field(..., description="해당 지역에 속한 상위 페르소나 수")
     avg_score: float = Field(..., description="해당 지역 평균 반응도")
     top_persona_uuid: str | None = None
+    # per-capita(농도) — 옵셔널, 옛 이력 호환. 타겟 인원을 그 지역 전체 모집단 인원으로
+    # 나눈 농도를 전국 평균 농도와 비교한 배수. 인원 1위는 항상 대도시(인구 자체가 많음)라
+    # 뻔하지만, 농도 lift는 '인구 대비 반응이 진한' 숨은 공략 핫스팟을 드러낸다.
+    population_count: int | None = Field(
+        None, description="해당 지역 전체 모집단 인원 (농도 분모)"
+    )
+    lift_ratio: float | None = Field(
+        None,
+        description=(
+            "지역 타겟 농도 / 전국 평균 농도 — 1.0=전국 평균, >1=인구 대비 과집중. "
+            "분모(모집단 인원) 작은 소지역은 아티팩트 주의"
+        ),
+    )
 
 
 # ============================================================
@@ -183,6 +196,22 @@ class DistributionBin(BaseModel):
 
     label: str
     count: int
+    # baseline-lift (옵셔널, 옛 jsonl 호환). 타겟 cohort 분포를 '전체 100만 모집단'
+    # 분포와 비교해 '이 값이 전국 평균 대비 몇 배 몰렸나'를 보여주기 위한 메타.
+    # 절대 비율(흔한 통계)을 '과대/과소 표집'이라는 발견적 인사이트로 격상한다.
+    share: float | None = Field(
+        None, description="이 값이 타겟 cohort 전체에서 차지하는 비율 (count/target_total, 0~1)"
+    )
+    baseline_share: float | None = Field(
+        None, description="이 값이 전체 모집단에서 차지하는 비율 (0~1)"
+    )
+    lift_ratio: float | None = Field(
+        None,
+        description=(
+            "share / baseline_share — 1.0=전국과 동일, >1=과대표집(타겟 집중), "
+            "<1=과소표집. baseline 0이면 None"
+        ),
+    )
 
 
 class DemographicGroup(BaseModel):
@@ -201,6 +230,72 @@ class DemographicGroup(BaseModel):
         None,
         description="Top N으로 잘랐다면 N, 아니면 None (즉 bins가 전체)",
     )
+
+
+class ScoreDriver(BaseModel):
+    """점수 분해 한 항 (Score DNA) — core cohort 점수가 어느 요인에서 왔나.
+
+    score_all_personas의 가산식
+      raw = cosine_score + W_RULE_PT*(rule-0.5) + W_CAT_PT*(cat-0.5) + W_INSUR_PT*insur
+    의 각 항을 core cohort에서 평균내고 모집단 평균과의 delta를 함께 제공한다.
+    가산 구조라 항 합 = 점수(soft-ceiling 전)와 수학적으로 정합 — 휴리스틱 아님, LLM 0콜.
+    옛 분석 이력엔 부재(Optional).
+    """
+
+    key: str = Field(..., description="요인 식별자: cosine|rule|category|insurance")
+    label: str = Field(..., description="표시 라벨: 의미 적합도|인구통계 적합|관심사 적합|보험 관심")
+    core_contribution: float = Field(
+        ..., description="core cohort 평균에서 이 항이 차지하는 점수 기여(절대)"
+    )
+    pop_contribution: float = Field(
+        ..., description="전체 모집단 평균에서 이 항의 점수 기여(절대)"
+    )
+    delta: float = Field(
+        ...,
+        description="core_contribution - pop_contribution. core를 모집단 위로 끌어올린 정도(+/-)",
+    )
+
+
+class ConfidenceStats(BaseModel):
+    """점추정에 붙는 불확실성 — 평균 95% 신뢰구간 + 컷 민감도.
+
+    cohort 평균은 해석적 표준오차(std/√n, 95%=±1.96·SE)로 산출 — 1M 규모라 즉시·정확.
+    컷 민감도는 절대 점수 컷을 ±1점 흔들 때 인원 변화를 직접 카운트.
+    '점수 82±0.4', 'core 컷 81→80이면 +6,200명'처럼 정직성을 노출한다. 옛 이력 부재(Optional).
+    """
+
+    core_mean: float = Field(..., description="core cohort 평균 점수")
+    core_ci_low: float = Field(..., description="core 평균 95% 신뢰구간 하한")
+    core_ci_high: float = Field(..., description="core 평균 95% 신뢰구간 상한")
+    target_mean: float = Field(..., description="target cohort 평균 점수")
+    target_ci_low: float = Field(..., description="target 평균 95% 신뢰구간 하한")
+    target_ci_high: float = Field(..., description="target 평균 95% 신뢰구간 상한")
+    core_cut: float = Field(..., description="core 절대 점수 컷(기준)")
+    core_size: int = Field(..., description="현재 컷 기준 core 인원")
+    core_size_relaxed: int = Field(..., description="컷 -1점 시 core 인원(증가분 관찰)")
+    core_size_tightened: int = Field(..., description="컷 +1점 시 core 인원(감소분 관찰)")
+
+
+class SegmentFinding(BaseModel):
+    """교차 세그먼트 발굴 1건 — 단변량 분포가 못 잡는 상호작용 조합.
+
+    버려지던 cohort_indices(target) 위에서 2~3개 인구통계 차원을 groupby 교차해
+    '전국 대비 가장 진하게 몰린' 조합을 lift_ratio 순으로 추출한다. LLM 0콜.
+    예: {age_bucket:'40대', family_type:'배우자·자녀와 거주', province:'경기'} → 3.4배 집중.
+    """
+
+    dimensions: dict[str, str] = Field(
+        ..., description="조합을 이루는 차원별 값 {컬럼: 값}"
+    )
+    label: str = Field(..., description="사람이 읽는 한 줄 (예: '40대 · 유자녀 · 경기')")
+    target_count: int = Field(..., description="이 조합의 타겟 cohort 인원")
+    population_count: int = Field(..., description="이 조합의 전체 모집단 인원")
+    share: float = Field(..., description="타겟 cohort 내 이 조합의 비율(0~1)")
+    baseline_share: float = Field(..., description="전체 모집단 내 이 조합의 비율(0~1)")
+    lift_ratio: float = Field(
+        ..., description="share/baseline_share — 전국 대비 집중 배수(>1=과집중)"
+    )
+    avg_score: float = Field(..., description="이 조합 페르소나의 평균 반응도 점수")
 
 
 class PopulationStats(BaseModel):
@@ -279,6 +374,21 @@ class PopulationStats(BaseModel):
         ),
     )
 
+    # ------------------------------------------------------------
+    # 유리상자(Explainability) 신설 — 모두 Optional(옛 jsonl 호환)
+    # ------------------------------------------------------------
+    score_drivers: list[ScoreDriver] = Field(
+        default_factory=list,
+        description=(
+            "Score DNA — core cohort 점수가 의미/인구통계/관심사/보험관심 중 무엇에서 떴는지 "
+            "가산식 항 단위 분해. 비어 있으면 옛 이력 또는 0-쿼리."
+        ),
+    )
+    confidence: ConfidenceStats | None = Field(
+        None,
+        description="cohort 평균 95% 신뢰구간 + 컷 민감도. 옛 이력은 None.",
+    )
+
 
 # ============================================================
 # 최종 응답
@@ -318,9 +428,52 @@ class AnalyzeResponse(BaseModel):
         description="bottom_personas와 같은 순서로 매칭된 의견",
     )
     report_md: str = Field(..., description="FP/기획자용 마크다운 리포트 (provider별 생성; 현재 enforce_provider로 사내 sLLM 고정)")
+    segments: list[SegmentFinding] = Field(
+        default_factory=list,
+        description=(
+            "타겟 cohort 교차 세그먼트 발굴 — 단변량 분포가 못 잡는 상호작용 조합을 "
+            "전국 대비 집중 배수(lift) 순으로. LLM 0콜. 옛 이력은 빈 배열."
+        ),
+    )
     elapsed_ms: dict[str, int] = Field(
         ..., description="단계별 소요 ms: selling_points, embed, score, opinions, report"
     )
+
+
+# ============================================================
+# What-if 실험실 — 기 분석 위에서 타겟·가중치만 바꿔 즉시 재점수 (임베딩 0콜)
+# ============================================================
+
+class WhatIfRequest(BaseModel):
+    """POST /api/whatif 요청.
+
+    analysis_id의 저장된 selling_points를 베이스로, 아래 override 필드 중 지정된 것만
+    덮어써 재점수한다. None(미지정)은 원본 유지, 빈 배열([])은 명시적 해제.
+    target_keywords/summary는 바꾸지 않으므로 query 임베딩은 캐시 hit(0ms) → cosine 84ms +
+    rule/cat 재계산만으로 100만 분포·cohort·세그먼트가 즉시 갱신된다.
+    """
+
+    analysis_id: str = Field(..., description="기 분석 ID (저장된 selling_points 베이스)")
+    target_age_min: int | None = Field(None, ge=0, le=120)
+    target_age_max: int | None = Field(None, ge=0, le=120)
+    target_sex: list[str] | None = Field(None, description="None=원본 유지, []=성별 무관")
+    target_family_types: list[str] | None = None
+    target_education_levels: list[str] | None = None
+    target_occupations: list[str] | None = None
+    persona_category_weights: dict[str, float] | None = Field(
+        None, description="6개 카테고리 가중치 전체 교체 (None=원본 유지)"
+    )
+
+
+class WhatIfResponse(BaseModel):
+    """POST /api/whatif 응답 — 재점수된 모집단 통계 + 세그먼트 + 상위 페르소나(의견 제외)."""
+
+    population_stats: PopulationStats
+    segments: list[SegmentFinding] = Field(default_factory=list)
+    top_personas: list[PersonaHit] = Field(
+        default_factory=list, description="재점수 상위 페르소나(의견 미생성 — 분포 탐색용)"
+    )
+    elapsed_ms: dict[str, int] = Field(..., description="embed/score/segments/total")
 
 
 # ============================================================
@@ -340,7 +493,7 @@ class SimulateRequest(BaseModel):
     n_respondents: int = Field(
         5, ge=1, le=100, description="응답자 수 (top_personas 상위 N명, 최대 100명)"
     )
-    llm_provider: Literal["anthropic", "sllm"] = Field(
+    llm_provider: Literal["anthropic", "sllm", "openai"] = Field(
         "sllm",
         description="시뮬레이션에 사용할 LLM provider (anthropic 또는 sllm)",
     )
@@ -438,7 +591,7 @@ class ABTestRequest(BaseModel):
             "LLM이 외부 위협/벤치마크 관점을 적용할지, 내부 포트폴리오 관점을 적용할지 결정."
         ),
     )
-    llm_provider: Literal["anthropic", "sllm"] = Field(
+    llm_provider: Literal["anthropic", "sllm", "openai"] = Field(
         "sllm", description="사용 LLM provider"
     )
     top_k: int = Field(
@@ -473,6 +626,72 @@ class ComparisonRow(BaseModel):
     )
 
 
+class ABOverlap(BaseModel):
+    """A/B 두 안의 반응 코호트 겹침(잠식 신호). target 코호트(≥73) 기준.
+
+    겹침은 임베딩 의미 유사도 기반이라 실 구매 잠식이 아닌 '반응 겹침' 신호다.
+    """
+
+    a_to_b: float = Field(..., description="A 반응자 중 B에도 반응한 비율(0~1, 비대칭)")
+    b_to_a: float = Field(..., description="B 반응자 중 A에도 반응한 비율(0~1, 비대칭)")
+    jaccard: float = Field(..., description="두 안 반응자 합집합 대비 교집합(0~1, 대칭)")
+    a_size: int = Field(..., description="A target 코호트 인원")
+    b_size: int = Field(..., description="B target 코호트 인원")
+    relation: Literal["cannibal", "complementary", "neutral"] = Field(
+        ...,
+        description="겹침 해석: cannibal(잠식·같은 층)·complementary(보완·다른 층)·neutral(중간)",
+    )
+
+
+class OverlapSegment(BaseModel):
+    """A/B 반응층 3분할(스윙=교집합 / A전용 / B전용) 1개 + 인구통계 프로파일.
+
+    Jaccard 한 숫자를 '갈아탈 사람의 얼굴'로 풀기 위해, 겹침 교집합/차집합을
+    demographics로 분해한다. swing은 양쪽 다 반응(잠식 가능층), a_only/b_only는
+    각 안 고유 충성층. LLM 0콜(setdiff/intersect + 분포 집계).
+    """
+
+    key: Literal["swing", "a_only", "b_only"] = Field(
+        ..., description="swing=교집합(스윙층) / a_only=A전용 / b_only=B전용"
+    )
+    label: str = Field(..., description="표시 라벨")
+    size: int = Field(..., description="이 층 인원")
+    demographics: list[DemographicGroup] = Field(
+        default_factory=list, description="이 층의 인구통계 분포(전국 baseline-lift 포함)"
+    )
+
+
+class SwingPull(BaseModel):
+    """스윙층(양쪽 반응) 내부의 안별 끌림 강도 — 줄다리기 맵.
+
+    교집합 페르소나 각각에서 A 점수 vs B 점수를 직접 비교해, 이 스윙층이 평균적으로
+    어느 안으로 기우는지(mean_delta)와 A 선호 비율(a_lean_ratio)을 산출. '중복=무조건
+    잠식'이 아니라 '한쪽으로 기운 회수 가능층'임을 정량화한다.
+    """
+
+    swing_size: int = Field(..., description="스윙층(교집합) 인원")
+    a_mean: float = Field(..., description="스윙층의 A 평균 반응도 점수")
+    b_mean: float = Field(..., description="스윙층의 B 평균 반응도 점수")
+    a_lean_ratio: float = Field(
+        ..., description="스윙층 중 A 점수가 더 높은 인원 비율(0~1). 0.5=완전 박빙"
+    )
+    mean_delta: float = Field(..., description="a_mean - b_mean. 양수=A로 기움")
+
+
+class SplitRule(BaseModel):
+    """분기 운영 처방 1행 — 한 인구통계 축에서 A/B 각각의 대표 세그먼트.
+
+    split 추천 시 'A로 팔 사람 / B로 팔 사람'을 전용층 분포의 축별 최대 격차로
+    자동 분해한다. 집합연산+분포비교라 LLM 없이 골격이 선다.
+    """
+
+    dimension: str = Field(..., description="축 라벨 (예: 연령대, 가구 유형)")
+    a_segment: str = Field(..., description="A전용층에서 가장 우세한 값")
+    a_count: int = Field(..., description="A전용층 내 해당 값 인원")
+    b_segment: str = Field(..., description="B전용층에서 가장 우세한 값")
+    b_count: int = Field(..., description="B전용층 내 해당 값 인원")
+
+
 class ABComparison(BaseModel):
     """A vs B 정형 비교 데이터 (LLM 미사용, 순수 계산)."""
 
@@ -480,6 +699,28 @@ class ABComparison(BaseModel):
     category_diff: dict[str, dict[str, float]] = Field(
         default_factory=dict,
         description="페르소나 카테고리별 가중치 diff. {'family': {'a': 0.55, 'b': 0.20, 'delta': -0.35}, ...}",
+    )
+    overlap: ABOverlap | None = Field(
+        None,
+        description="A/B 반응층 겹침(잠식 신호). 구버전 이력엔 없을 수 있어 Optional.",
+    )
+    win_tally: dict[str, int] | None = Field(
+        None,
+        description=(
+            "핵심 수치 지표(평균점수·핵심/타겟 규모·가입의향·긍정비율) 승부 집계 "
+            "{'a': 4, 'b': 1, 'tie': 0}. 추천 확신도 스코어보드용. 구버전 이력은 None."
+        ),
+    )
+    overlap_segments: list[OverlapSegment] | None = Field(
+        None,
+        description="스윙/A전용/B전용 3층의 인구통계 분해(스윙층 X-레이). 구버전은 None.",
+    )
+    swing_pull: SwingPull | None = Field(
+        None, description="스윙층 내부 안별 끌림 강도(줄다리기 맵). 구버전은 None."
+    )
+    split_playbook: list[SplitRule] | None = Field(
+        None,
+        description="split 추천 시 'A로 팔 사람/B로 팔 사람' 분기 처방. 비-split이면 None.",
     )
 
 
@@ -515,4 +756,111 @@ class ABTestResponse(BaseModel):
             "단계별 ms: extract_a, extract_b, embed_a, embed_b, score_a, score_b, "
             "opinions_a, opinions_b, compare, insights, strategy, total"
         ),
+    )
+
+
+# ============================================================
+# 잠식 행렬 (Cannibalization Matrix) — N개 안의 반응 코호트 겹침
+# ============================================================
+
+
+class CannibalItemInput(BaseModel):
+    """잠식 분석 대상 안(案) 1개."""
+
+    label: str = Field(..., min_length=1, max_length=40, description="안의 별명 (UI 표시 기준)")
+    text: str = Field(
+        ..., min_length=20, max_length=20_000, description="안 본문(컨셉/카피/약관)"
+    )
+
+
+class CannibalRequest(BaseModel):
+    """POST /api/cannibal 요청 — N개 안의 반응 코호트 겹침 행렬."""
+
+    items: list[CannibalItemInput] = Field(
+        ..., min_length=2, max_length=8, description="비교할 안 목록 (2~8개)"
+    )
+    input_mode: ABTestInputMode = Field(
+        "concept", description="입력 성격: terms|marketing|concept (소구점 추출 가드)"
+    )
+    cohort_level: Literal["core", "target", "interest"] = Field(
+        "target", description="겹침 산출 기준 반응 코호트 (core≥81/target≥73/interest≥68)"
+    )
+    llm_provider: Literal["anthropic", "sllm", "openai"] = Field(
+        "sllm", description="소구점 추출에 사용할 LLM provider"
+    )
+
+
+class CannibalItemMeta(BaseModel):
+    """잠식 행렬 응답의 안별 메타 (행렬 행/열 인덱스 순서와 동일)."""
+
+    label: str = Field(..., description="안의 별명")
+    cohort_size: int = Field(..., description="해당 코호트 반응자 수")
+    summary: str = Field(..., description="소구점 한 줄 요약")
+
+
+class CoverageStep(BaseModel):
+    """포트폴리오 커버리지 — greedy union 라인업의 한 스텝."""
+
+    rank: int = Field(..., description="라인업 추가 순서(1=가장 큰 코호트)")
+    item_index: int = Field(..., description="안 인덱스")
+    label: str = Field(..., description="안 별명")
+    marginal: int = Field(..., description="이 안 추가로 새로 닿는 인원(marginal lift)")
+    cumulative: int = Field(..., description="누적 도달(합집합) 인원")
+
+
+class MultiplicityBin(BaseModel):
+    """노출 다중도 — 각 페르소나가 몇 개 안의 반응층에 속하나."""
+
+    overlap_count: int = Field(..., description="소속 안 개수(1=한 안에만, 2+=중복 노출)")
+    persona_count: int = Field(..., description="그런 페르소나 수")
+
+
+class ExclusiveProfile(BaseModel):
+    """전용층 — 오직 한 안에만 반응한 고유층의 프로파일."""
+
+    item_index: int = Field(..., description="안 인덱스")
+    label: str = Field(..., description="안 별명")
+    exclusive_size: int = Field(..., description="이 안에만 반응한 인원")
+    exclusive_ratio: float = Field(
+        ..., description="전용/전체코호트 비율 — 분모 아티팩트 보정용"
+    )
+    demographics: list[DemographicGroup] = Field(
+        default_factory=list, description="전용층 인구통계 분포"
+    )
+    districts: list[RegionStat] = Field(
+        default_factory=list, description="전용층 시군구 분포"
+    )
+
+
+class CannibalResponse(BaseModel):
+    """POST /api/cannibal 응답 — N×N 겹침 행렬(스칼라만, 인덱스 비노출)."""
+
+    cannibal_id: str = Field(..., description="영속화된 분석 id (이력 재조회용)")
+    items: list[CannibalItemMeta] = Field(
+        ..., description="안별 메타. 인덱스 순서가 행렬 행/열 순서와 일치."
+    )
+    directional_matrix: list[list[float]] = Field(
+        ...,
+        description="M[i][j]=|Ci∩Cj|/|Ci| — i안 반응자 중 j안에도 반응한 비율(비대칭). 대각선 1.",
+    )
+    jaccard_matrix: list[list[float]] = Field(
+        ..., description="J[i][j]=|Ci∩Cj|/|Ci∪Cj| — 대칭 겹침. 대각선 1."
+    )
+    cohort_level: str = Field(..., description="겹침 산출에 쓰인 코호트 레벨")
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="정직성 경고: small_cohort(소표본) 등. 겹침은 의미 유사도 기반이라 실 구매 잠식 아님.",
+    )
+    elapsed_ms: dict[str, int] = Field(
+        ..., description="단계별 ms: extract, embed, score, matrix, setops, total"
+    )
+    coverage: list[CoverageStep] | None = Field(
+        None,
+        description="포트폴리오 커버리지 라인업(greedy union 누적). 구버전 호환 Optional.",
+    )
+    multiplicity: list[MultiplicityBin] | None = Field(
+        None, description="노출 다중도 히스토그램(각 페르소나 소속 안 개수)."
+    )
+    exclusive_profiles: list[ExclusiveProfile] | None = Field(
+        None, description="안별 전용층 프로파일(setdiff demographics/시군구)."
     )

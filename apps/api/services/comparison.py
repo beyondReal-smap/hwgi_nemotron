@@ -10,21 +10,59 @@ winner 판단 기준:
 
 from __future__ import annotations
 
+import numpy as np
 
 from models.schemas import (
     ABComparison,
+    ABOverlap,
     ABVariantResult,
     ComparisonRow,
+    DemographicGroup,
+    OverlapSegment,
     PersonaHit,
     PersonaOpinion,
     PopulationStats,
+    SplitRule,
+    SwingPull,
 )
+from services.cannibalization import build_overlap_matrices
+from services.scoring import _build_demographics
+from services.store import PersonaStore
 
 # 의미 있는 차이로 인정하는 임계값
-SCORE_EPSILON = 2.0          # 평균 점수
+SCORE_EPSILON = 1.2          # 평균 점수 (v3: 2.0→1.2, score spread 20→12 축소에 비례)
 SIZE_REL_EPSILON = 0.05      # 규모 5% 이상
 INTENT_EPSILON = 0.3         # 가입의향 평균 ±0.3
 POSITIVE_RATIO_EPSILON = 0.10  # 긍정 비율 10%p
+
+# 반응층 겹침(잠식) 해석 임계 — Jaccard 기준. 휴리스틱 1차값.
+OVERLAP_CANNIBAL_MIN = 0.50     # 이상이면 같은 층(잠식 위험)
+OVERLAP_COMPLEMENT_MAX = 0.20   # 미만이면 다른 층(보완)
+# split 추천 판단 — 승부 비등 시 Jaccard 이 미만이면 '서로 다른 층' → split 정당
+SPLIT_OVERLAP_MAX = 0.30
+
+
+def _overlap_relation(jaccard: float) -> str:
+    """Jaccard 겹침 → cannibal / complementary / neutral."""
+    if jaccard >= OVERLAP_CANNIBAL_MIN:
+        return "cannibal"
+    if jaccard < OVERLAP_COMPLEMENT_MAX:
+        return "complementary"
+    return "neutral"
+
+
+def compute_ab_overlap(a_target_idx: np.ndarray, b_target_idx: np.ndarray) -> ABOverlap:
+    """A/B target 코호트 인덱스로 겹침 산출. 인덱스는 여기서만 소비(스칼라만 반환)."""
+    directional, jaccard, sizes = build_overlap_matrices([a_target_idx, b_target_idx])
+    jac = jaccard[0][1]
+    return ABOverlap(
+        a_to_b=directional[0][1],
+        b_to_a=directional[1][0],
+        jaccard=jac,
+        a_size=sizes[0],
+        b_size=sizes[1],
+        relation=_overlap_relation(jac),
+    )
 
 
 def _scoring_version(stats) -> str:
@@ -33,7 +71,8 @@ def _scoring_version(stats) -> str:
 
 
 def _ver_label(v: str) -> str:
-    return "신(하이브리드)" if v == "v2_hybrid" else "구(균등매핑)"
+    # v1만 균등매핑(구). v2_hybrid·v3 등 하이브리드 계열은 모두 신.
+    return "구(균등매핑)" if v == "v1" else "신(하이브리드)"
 
 
 # 점수 체계에 의존하는 비교 행 — 버전 불일치(구↔신) 시 직접 비교 보류.
@@ -126,7 +165,8 @@ def _winner_by_value(a: float | None, b: float | None, epsilon: float) -> str:
     """a, b 비교. None이면 'tie'. |a-b| < epsilon이면 'tie'. 크기 큰 쪽 승."""
     if a is None or b is None:
         return "tie"
-    if abs(a - b) < epsilon:
+    # 부동소수점 경계 보정 — abs(3.7-4.0)=0.29999…<0.3 으로 0.30 차이가 tie로 잘못 강등되는 것 방지.
+    if abs(a - b) < epsilon - 1e-9:
         return "tie"
     return "A" if a > b else "B"
 
@@ -203,11 +243,13 @@ def build_comparison(
     a: ABVariantResult,
     b: ABVariantResult,
     input_mode: str = "terms",
+    overlap: ABOverlap | None = None,
 ) -> ABComparison:
-    """ABVariantResult 두 개 → 비교 표 + 카테고리 diff.
+    """ABVariantResult 두 개 → 비교 표 + 카테고리 diff + (선택) 반응층 겹침.
 
     input_mode가 "marketing"이면 일부 행의 라벨을 카피 평가용으로 분기
     ('평균 가입의향' → '평균 관심도' 등).
+    overlap이 주어지면 '반응층 겹침' 행을 추가하고 ABComparison.overlap에 담는다.
     """
     is_marketing = input_mode == "marketing"
     intent_label = "평균 관심도 (의견 샘플)" if is_marketing else "평균 가입의향 (의견 샘플)"
@@ -419,6 +461,22 @@ def build_comparison(
         winner="tie",
     ))
 
+    # 10) 반응층 겹침 (잠식 신호) — overlap이 주어질 때만. 방향성을 A·B 칸에 매핑.
+    if overlap is not None:
+        rel_label = {
+            "cannibal": "잠식 위험(같은 층)",
+            "complementary": "보완(다른 층)",
+            "neutral": "부분 겹침",
+        }[overlap.relation]
+        rows.append(ComparisonRow(
+            key="cohort_overlap",
+            label="반응층 겹침",
+            a_value=f"→{b.label} {overlap.a_to_b * 100:.0f}%",
+            b_value=f"→{a.label} {overlap.b_to_a * 100:.0f}%",
+            delta=f"Jaccard {overlap.jaccard * 100:.0f}% · {rel_label}",
+            winner="tie",  # 겹침은 승패가 아닌 관계 지표
+        ))
+
     # 카테고리 가중치 diff (전 카테고리)
     a_w = a.selling_points.persona_category_weights or {}
     b_w = b.selling_points.persona_category_weights or {}
@@ -426,7 +484,8 @@ def build_comparison(
     for cat in sorted(set(a_w.keys()) | set(b_w.keys())):
         av = float(a_w.get(cat, 0.0))
         bv = float(b_w.get(cat, 0.0))
-        category_diff[cat] = {"a": av, "b": bv, "delta": bv - av}
+        # round(3): 0.030000000000000002 같은 부동소수점 노이즈 제거 (표시·다이버징 바 정합)
+        category_diff[cat] = {"a": round(av, 3), "b": round(bv, 3), "delta": round(bv - av, 3)}
 
     # 점수 체계 버전 불일치(구 v1 ↔ 신 v2) → 분포가 근본적으로 달라(균등 vs 종형)
     # 점수·인원 직접 비교가 왜곡됨. 해당 행 winner를 보류하고 맨 앞에 경고 행을 둔다.
@@ -446,14 +505,43 @@ def build_comparison(
             winner="tie",
         ))
 
-    return ABComparison(summary_table=rows, category_diff=category_diff)
+    # 승부 스코어보드 — 추천 확신도 가시화. recommend_variant와 동일한 핵심 수치 지표
+    # 집합에서 최종 winner를 집계한다(점수 체계 불일치로 tie 강등된 것까지 반영해
+    # 화면 표시와 정합). '5개 지표 중 A 4 : B 1'처럼 추천이 '데이터로 이긴 판정'으로 보이게.
+    _TALLY_KEYS = {"avg_score", "core_size", "target_size", "avg_intent", "positive_ratio"}
+    win_tally = {"a": 0, "b": 0, "tie": 0}
+    for r in rows:
+        if r.key not in _TALLY_KEYS:
+            continue
+        if r.winner == "A":
+            win_tally["a"] += 1
+        elif r.winner == "B":
+            win_tally["b"] += 1
+        else:
+            win_tally["tie"] += 1
+
+    return ABComparison(
+        summary_table=rows,
+        category_diff=category_diff,
+        overlap=overlap,
+        win_tally=win_tally,
+    )
 
 
-def recommend_variant(a: ABVariantResult, b: ABVariantResult, comp: ABComparison) -> str:
-    """비교 표 winner 분포 → 'A' / 'B' / 'split'.
+def recommend_variant(
+    a: ABVariantResult,
+    b: ABVariantResult,
+    comp: ABComparison,
+    overlap: ABOverlap | None = None,
+) -> str:
+    """비교 표 winner 분포 + 반응층 겹침 → 'A' / 'B' / 'split'.
 
-    규칙: 수치 비교 가능한 항목들(평균점수/규모/가입의향/긍정비율)에서
-    한쪽이 절대 다수면 그쪽 추천. 균등하거나 분기 항목이 많으면 'split'.
+    규칙:
+    - 수치 항목(평균점수/규모/가입의향/긍정비율)에서 한쪽이 3승 이상 우세면 그쪽.
+    - 승부 비등 시 반응층 겹침으로 분기:
+      · 겹침 낮음(Jaccard < SPLIT_OVERLAP_MAX) → 서로 다른 층 → 'split'(둘 다 분기 운영)
+      · 겹침 높음(같은 층) → 잠식 → 미세 우위 쪽으로 통합. 그마저 tie면 'split'.
+    - overlap 미제공(구 이력 등)이면 종전대로 비등 시 'split'.
     """
     numeric_keys = {
         "avg_score",
@@ -470,4 +558,116 @@ def recommend_variant(a: ABVariantResult, b: ABVariantResult, comp: ABComparison
         return "A"
     if b_wins - a_wins >= 3:
         return "B"
+
+    # 승부 비등 — 겹침으로 split(보완) vs 통합(잠식) 구분
+    if overlap is None or overlap.jaccard < SPLIT_OVERLAP_MAX:
+        return "split"
+    # 겹침 높음(같은 층) + 비등 → 잠식. 미세 우위 쪽 하나로 통합.
+    avg = next((r for r in comp.summary_table if r.key == "avg_score"), None)
+    if avg is not None and avg.winner in ("A", "B"):
+        return avg.winner
     return "split"
+
+
+# ============================================================
+# 스윙층 X-레이 + 줄다리기 맵 + 분기 처방 (LLM 0콜)
+# ============================================================
+
+# 분기 처방에 쓸 인구통계 축 (column명; demographics의 column 키와 일치). age는 age_bucket이
+# DemographicGroup(column="age")로 노출되므로 "age".
+_SPLIT_AXES: tuple[str, ...] = (
+    "age",
+    "family_type",
+    "province",
+    "marital_status",
+    "education_level",
+)
+
+
+def _build_split_playbook(
+    a_only_demo: list[DemographicGroup], b_only_demo: list[DemographicGroup]
+) -> list[SplitRule]:
+    """A전용/B전용 전용층 분포에서 축별 대표 세그먼트가 갈리는 행만 처방으로 추출.
+
+    각 축에서 A전용 1위 값과 B전용 1위 값이 다를 때만(=그 축이 A/B를 가르는 변별축)
+    처방 행을 만든다. 같은 값이 양쪽 1위면 변별력이 없어 스킵.
+    """
+    a_map = {g.column: g for g in a_only_demo}
+    b_map = {g.column: g for g in b_only_demo}
+    rules: list[SplitRule] = []
+    for col in _SPLIT_AXES:
+        ga, gb = a_map.get(col), b_map.get(col)
+        if not ga or not gb or not ga.bins or not gb.bins:
+            continue
+        a_top = max(ga.bins, key=lambda x: x.count)
+        b_top = max(gb.bins, key=lambda x: x.count)
+        if a_top.label == b_top.label:
+            continue  # 변별 안 됨
+        rules.append(
+            SplitRule(
+                dimension=ga.label,
+                a_segment=a_top.label,
+                a_count=int(a_top.count),
+                b_segment=b_top.label,
+                b_count=int(b_top.count),
+            )
+        )
+    return rules
+
+
+def build_overlap_breakdown(
+    a_idx: np.ndarray,
+    b_idx: np.ndarray,
+    a_scores: np.ndarray,
+    b_scores: np.ndarray,
+    store: PersonaStore,
+    *,
+    recommended: str,
+) -> tuple[list[OverlapSegment], SwingPull | None, list[SplitRule] | None]:
+    """A/B target 코호트를 스윙(교집합)/A전용/B전용 3층으로 분해.
+
+    - overlap_segments: 3층 각각의 demographics(전국 baseline-lift 포함)
+    - swing_pull: 스윙층 내부에서 A 점수 vs B 점수 끌림 강도(줄다리기)
+    - split_playbook: recommended == "split"일 때만, 전용층 축별 분기 처방
+
+    인덱스는 np.where 산출이라 오름차순·유일 → assume_unique 안전. LLM 0콜.
+    """
+    swing = np.intersect1d(a_idx, b_idx, assume_unique=True)
+    a_only = np.setdiff1d(a_idx, b_idx, assume_unique=True)
+    b_only = np.setdiff1d(b_idx, a_idx, assume_unique=True)
+
+    df = store.df
+    a_only_demo = _build_demographics(df, a_only, store) if a_only.size else []
+    b_only_demo = _build_demographics(df, b_only, store) if b_only.size else []
+    segments = [
+        OverlapSegment(
+            key="swing",
+            label="스윙층 (양쪽 반응)",
+            size=int(swing.size),
+            demographics=_build_demographics(df, swing, store) if swing.size else [],
+        ),
+        OverlapSegment(
+            key="a_only", label="A 전용층", size=int(a_only.size), demographics=a_only_demo
+        ),
+        OverlapSegment(
+            key="b_only", label="B 전용층", size=int(b_only.size), demographics=b_only_demo
+        ),
+    ]
+
+    swing_pull: SwingPull | None = None
+    if swing.size:
+        a_s = a_scores[swing]
+        b_s = b_scores[swing]
+        swing_pull = SwingPull(
+            swing_size=int(swing.size),
+            a_mean=float(a_s.mean()),
+            b_mean=float(b_s.mean()),
+            a_lean_ratio=float((a_s > b_s).mean()),
+            mean_delta=float(a_s.mean() - b_s.mean()),
+        )
+
+    split_playbook: list[SplitRule] | None = None
+    if recommended == "split":
+        split_playbook = _build_split_playbook(a_only_demo, b_only_demo)
+
+    return segments, swing_pull, split_playbook

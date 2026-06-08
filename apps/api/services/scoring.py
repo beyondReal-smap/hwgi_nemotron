@@ -16,11 +16,13 @@ import pandas as pd
 
 from models.schemas import (
     CohortStat,
+    ConfidenceStats,
     DemographicGroup,
     DistributionBin,
     PersonaHit,
     PopulationStats,
     RegionStat,
+    ScoreDriver,
     SellingPoints,
 )
 from services.store import FilterParams, PersonaStore
@@ -33,26 +35,35 @@ DEFAULT_MID_K = 30          # 중위 페르소나 수 (median 근처 — 평균 
 DEFAULT_BOTTOM_K = 30       # 하위 페르소나 수 (반대 반응자)
 
 # ============================================================
-# 하이브리드 점수 매핑 캘리브레이션 (v2_hybrid, 2026-05-29 확정)
+# 하이브리드 점수 매핑 캘리브레이션 (v3, 2026-06-04 확정 / 이전 v2_hybrid 2026-05-29)
 # ============================================================
-# 배경: 이전 v1은 cosine을 percentile-rank로 [0,1] 균등 매핑 → 모든 분석이 균등분포
-#   U(20,90)가 되어 cohort 인원이 항상 71,429/214,286/357,143로 고정. cosine magnitude
-#   (제품 매력도)를 100% 폐기하는 문제.
-# v2: 분석 내 z-score(종형 안정화) + 글로벌 제품 오프셋(매력도 부분 반영) 하이브리드.
-#   score = clip( z*SIGMA_T + (MU_BASE + BETA*(c_mean - MU_G))
-#                 + W_RULE_PT*(rule-0.5) + W_CAT_PT*(cat-0.5), 0, 100 )
-# 상수는 measure_cosine_dist.py(.archive/2026-05-29_scoring-cosine-measure/) 측정으로 확정.
-#   - 제품별 cosine 평균 0.14~0.32 (range 0.18) >> 분석내 std ~0.03 → 변별력 충분
-#   - BETA=100 시뮬레이션: 자동차 ≥65≈6.8만 vs 여행 ≈57만 (~8배), 극단 포화 없음
+# 배경: v1은 cosine을 percentile-rank로 [0,1] 균등 매핑 → 모든 분석이 U(20,90) 균등분포라
+#   cohort 인원이 71,429/214,286/357,143로 고정, cosine magnitude(제품 매력도)를 폐기.
+# v2_hybrid: 분석 내 z-score(종형) + 글로벌 제품 오프셋(매력도) 하이브리드. 단 SIGMA_T=11·
+#   BETA=100·보너스(24/12)의 합이 상위권에서 z 꼬리(z≈4)와 곱해져 clip 전 점수가 130~150까지
+#   치솟아, 상위 수십만 명이 100 천장에 hard-clip → 변별력 소실(top30 score range=0,
+#   A/B 비교표가 양 제품 100.0 동률). 캘리브레이션 당시 center만 본 시뮬이라 z*SIGMA_T 꼬리
+#   + 보너스 합산 상한 검증을 놓친 것이 원인.
+# v3 (천장 포화 해소): 두 차례 백테스트(.collab-loop/20260604-score-ceiling-saturation/)로 확정.
+#   score = clip( _soft_ceiling( z*SIGMA_T + min(center, CENTER_CAP) + W_RULE_PT*(rule-0.5)
+#                                + W_CAT_PT*(cat-0.5) + W_INSUR_PT*insur ), 0, 100 )
+#   - SIGMA_T 11→6.5  : z 꼬리 기여폭 절반 축소 (상위 30위 z*SIGMA_T +44→+26pt)
+#   - 보너스 24/12→14/7: z 독립 상수 가산 +18→+10.5pt
+#   - CENTER_CAP=88   : 초고매력 제품(c_mean 높음)의 center 폭주 차단
+#   - _soft_ceiling(knee=90, tanh): 90 초과분만 점근 압축 → 100 미도달, 단조증가라 순위 보존
+#   - 컷 재산정 85/75/65→81/73/68 (_COHORT_SPECS): v3 분포의 p99/p90/p74 = 원래 의도 복원
+#   검증: 100 포화 13,517→0명, top30 변별 0→2.79, core 인원 12만→2.7만, 매력도 A>B 5/5 보존.
 MU_G = 0.20        # 글로벌 cosine 중심 (제품평균들의 중앙)
 MU_BASE = 55.0     # 평균적 제품(c_mean=MU_G)의 중심 점수
-SIGMA_T = 11.0     # within 점수 spread (분석 간 분포 모양 일정)
+SIGMA_T = 6.5      # within 점수 spread (v3: 11→6.5, 상위권 천장 이탈 방지)
 BETA = 100.0       # 제품 매력도(c_mean - MU_G) 반영 강도
-W_RULE_PT = 24.0   # rule 가산 보너스 스케일 (완전일치 +12, floor 0.1 → -9.6)
-W_CAT_PT = 12.0    # cat 가산 보너스 스케일 (±6)
+CENTER_CAP = 88.0  # center 상한 (v3 신설: 초고매력 제품 center 폭주 차단)
+SOFT_KNEE = 90.0   # soft-ceiling knee (v3 신설: 이 점수 위만 tanh 점근 압축)
+W_RULE_PT = 14.0   # rule 가산 보너스 스케일 (v3: 24→14, 완전일치 +7, floor 0.1 → -5.6)
+W_CAT_PT = 7.0     # cat 가산 보너스 스케일 (v3: 12→7, ±3.5)
 W_INSUR_PT = 4.0   # 보험 관심자(fin_interest_insurance) 가산 — 보험 반응도 분석 부스트 (통합 데이터 있을 때만)
 
-SCORING_VERSION = "v2_hybrid"
+SCORING_VERSION = "v3"
 
 # (구) v1 가중치 — 더 이상 점수 결합에 사용하지 않음. _rule_bonus/_category_bonus의
 # 내부 차원 가중치(0.35/0.15/...)는 그대로 유지되며, 결합만 가산 보너스로 바뀜.
@@ -314,11 +325,19 @@ def score_personas(
     list[RegionStat],
     list[RegionStat],
     PopulationStats,
+    dict[str, np.ndarray],
+    np.ndarray,
 ]:
     """100만 행 전체 스코어링 + 상/중/하 페르소나 + 지역 집계 + 모집단 통계.
 
     Returns:
-        (top_personas, mid_personas, bottom_personas, province_stats, district_stats, population_stats)
+        (top_personas, mid_personas, bottom_personas, province_stats, district_stats,
+         population_stats, cohort_indices, all_scores)
+
+    cohort_indices({core/target/interest -> 반응자 인덱스 배열})와 all_scores(0-100,
+    length=total)는 score_all_personas가 이미 산출한 것을 그대로 통과시킨다. 잠식 겹침·
+    세그먼트 발굴·What-if 재계산 등 후처리용이며, 통계만 쓰는 호출자는 마지막 두 값을
+    무시하면 된다.
 
     설계:
       1) score_all_personas로 전체 점수 + cohort 통계 산출
@@ -326,11 +345,11 @@ def score_personas(
          하위 bottom_k 인덱스 추출
       3) 상위 N명 기준으로 시도/시군구 집계
     """
-    # 1) 전체 스코어링 + cohort 통계
-    all_scores, population_stats = score_all_personas(sp, query_vec, store)
+    # 1) 전체 스코어링 + cohort 통계 + 코호트 인덱스(겹침 분석용으로 통과)
+    all_scores, population_stats, cohort_indices = score_all_personas(sp, query_vec, store)
 
     if all_scores.max() == 0:
-        return [], [], [], [], [], population_stats
+        return [], [], [], [], [], population_stats, cohort_indices, all_scores
 
     n = len(all_scores)
 
@@ -403,6 +422,8 @@ def score_personas(
         province_stats,
         district_stats,
         population_stats,
+        cohort_indices,
+        all_scores,
     )
 
 
@@ -413,11 +434,11 @@ def score_personas(
 # Cohort 정의 — 절대 점수 컷만 사용. percentile 폴백은 적용하지 않는다.
 # (식별자, 라벨, 절대 점수 임계값, 참조용 percentile 표기)
 #
-# 임계값(85/75/65)은 cosine을 percentile rank로 [0,1] 균등 매핑한 뒤 결합식
-# 0.7*cosine + 0.2*rule + 0.1*cat을 적용한 분포(μ≈48, σ≈20.6) 기준 합리화한 값:
-# p99≈85, p90≈75, p74≈65에 해당하여 절대 컷이 분포 의미와 일치한다.
-# percentile mapping은 batch별로 분포 모양이 일정(균등 σ=0.289)이라 임계값이
-# 입력별로 출렁이지 않고 안정적으로 동작.
+# 임계값(v3: 81/73/68)은 v3 분포(SIGMA_T=6.5·CENTER_CAP·soft-ceiling)의 p99/p90/p74에
+# 해당하도록 백테스트로 재산정한 값 — 원래 의도(상위 1%/10%/26%)를 복원한다.
+# (v2_hybrid의 85/75/65는 천장 포화로 core가 12만까지 부풀어 분포 의미가 깨졌었다.)
+# 근거: .collab-loop/20260604-score-ceiling-saturation/backtest_cuts.py (제품 횡단 percentile 평균).
+# 절대 컷이라 제품 매력도가 인원에 반영된다(고매력 제품일수록 컷 통과 인원 多).
 #
 # 과거에는 인원 부족/과다 시 percentile 폴백을 적용했으나, 폴백이 들어가면
 # raw 분포에서 ≥85인 인원이 그대로 노출되지 못하고 "상위 N% 폴백"으로 축소되어
@@ -425,9 +446,9 @@ def score_personas(
 # percentile 필드(두 번째 숫자)는 CohortStat.percentile로 그대로 전달되어
 # 옛 분석 이력과 호환되는 라벨 참조용으로만 남는다.
 _COHORT_SPECS: list[tuple[str, str, float, float]] = [
-    ("core",     "핵심 타겟", 85.0, 0.5),
-    ("target",   "타겟층",    75.0, 5.0),
-    ("interest", "관심층",    65.0, 20.0),
+    ("core",     "핵심 타겟", 81.0, 0.5),   # v3: 85→81 (분포 p99)
+    ("target",   "타겟층",    73.0, 5.0),   # v3: 75→73 (p90)
+    ("interest", "관심층",    68.0, 20.0),  # v3: 65→68 (p74)
 ]
 
 # Nemotron 카테고리형 컬럼별 표시 정책
@@ -448,19 +469,115 @@ _DEMOGRAPHIC_SPECS: list[tuple[str, str, int | None]] = [
 ]
 
 
+def _soft_ceiling(x: np.ndarray, knee: float = SOFT_KNEE, ceil: float = 100.0) -> np.ndarray:
+    """knee 초과분만 tanh로 [knee, ceil] 점근 압축. 단조증가 → 순위 보존, ceil 미도달.
+
+    v3: hard clip(상한 100)의 천장 포화로 상위 수십만 명이 동률 100이 되어 변별이
+    사라지던 문제를, knee(90) 위를 곡선 압축해 살리되 100에는 닿지 않게 한다.
+    knee 이하 구간은 불변이라 중위 분포·cohort 컷 의미를 그대로 보존한다.
+    """
+    out = x.astype(np.float64, copy=True)
+    over = out > knee
+    span = ceil - knee
+    out[over] = knee + span * np.tanh((out[over] - knee) / span)
+    return out
+
+
+# Score DNA 항 라벨 — 사용자에게 노출되는 요인 이름.
+_DRIVER_LABELS: dict[str, str] = {
+    "cosine": "의미 적합도",
+    "rule": "인구통계 적합",
+    "category": "관심사 적합",
+    "insurance": "보험 관심",
+}
+
+
+def _compute_score_drivers(
+    term_arrays: dict[str, np.ndarray] | None, core_idx: np.ndarray
+) -> list[ScoreDriver]:
+    """가산식 항별 core 평균 기여 vs 모집단 평균 기여(delta) 분해.
+
+    가산 구조라 항 합이 raw_score(soft-ceiling 전)와 같으므로 휴리스틱이 아니라 정확.
+    term_arrays 없음(0-쿼리)이거나 core 공허면 빈 리스트.
+    """
+    if term_arrays is None or len(core_idx) == 0:
+        return []
+    drivers: list[ScoreDriver] = []
+    for key in ("cosine", "rule", "category", "insurance"):
+        arr = term_arrays.get(key)
+        if arr is None:
+            continue
+        core_c = float(arr[core_idx].mean())
+        pop_c = float(arr.mean())
+        drivers.append(
+            ScoreDriver(
+                key=key,
+                label=_DRIVER_LABELS[key],
+                core_contribution=core_c,
+                pop_contribution=pop_c,
+                delta=core_c - pop_c,
+            )
+        )
+    return drivers
+
+
+def _compute_confidence(
+    all_scores: np.ndarray,
+    core_idx: np.ndarray,
+    target_idx: np.ndarray,
+    core_cut: float,
+) -> ConfidenceStats | None:
+    """cohort 평균 95% 신뢰구간(해석적 SE) + 컷 ±1점 민감도.
+
+    평균의 CI는 std/√n 표준오차로 충분히 정확(1M 규모). 컷 민감도는 절대 컷을
+    ±1점 흔들 때 통과 인원을 직접 카운트해 '컷 한 칸이 인원에 미치는 영향'을 노출.
+    """
+    if len(core_idx) == 0 or len(target_idx) == 0:
+        return None
+
+    def _ci(idx: np.ndarray) -> tuple[float, float, float]:
+        vals = all_scores[idx]
+        m = float(vals.mean())
+        n = int(vals.size)
+        se = float(vals.std()) / (n ** 0.5) if n > 0 else 0.0
+        return m, m - 1.96 * se, m + 1.96 * se
+
+    cm, cl, ch = _ci(core_idx)
+    tm, tl, th = _ci(target_idx)
+    return ConfidenceStats(
+        core_mean=cm,
+        core_ci_low=cl,
+        core_ci_high=ch,
+        target_mean=tm,
+        target_ci_low=tl,
+        target_ci_high=th,
+        core_cut=core_cut,
+        core_size=int(len(core_idx)),
+        core_size_relaxed=int((all_scores >= core_cut - 1.0).sum()),
+        core_size_tightened=int((all_scores >= core_cut + 1.0).sum()),
+    )
+
+
 def score_all_personas(
     sp: SellingPoints,
     query_vec: np.ndarray,
     store: PersonaStore,
-) -> tuple[np.ndarray, PopulationStats]:
+) -> tuple[np.ndarray, PopulationStats, dict[str, np.ndarray]]:
     """100만 행 전체에 점수 계산 + cohort 통계 집계.
 
     Returns:
-        (all_scores 0-100 (length=total), PopulationStats)
+        (all_scores 0-100 (length=total), PopulationStats,
+         cohort_indices: {core/target/interest -> 반응자 인덱스 배열})
 
+    cohort_indices는 이미 내부에서 산출되며, 잠식 행렬 등 집합 연산용으로 회수한다.
+    통계만 쓰는 호출자(score_personas 등)는 3번째 값을 무시하면 된다.
     참고: 후처리(get_rows 등)는 호출자가 score 인덱싱으로 수행.
     """
     df = store.df
+
+    # 가산식 항 분해(Score DNA)용 — q_norm!=0일 때만 채운다. 각 배열은 raw_score에
+    # 더해진 '점수 단위 기여'(중립 0.5 차감·가중 후)라 합치면 soft-ceiling 전 raw와 같다.
+    term_arrays: dict[str, np.ndarray] | None = None
 
     # 1) 코사인 (전체 100만)
     q_norm = np.linalg.norm(query_vec)
@@ -478,8 +595,8 @@ def score_all_personas(
         if c_std <= 0:
             c_std = 1e-6  # 모든 cosine 동일(degenerate) → z=0, center만 남음
         z = (cosine_all - c_mean) / c_std
-        center = MU_BASE + BETA * (c_mean - MU_G)  # 제품 매력도 오프셋
-        cosine_score = z * SIGMA_T + center        # clip 전 (rule/cat 가산 후 clip)
+        center = min(MU_BASE + BETA * (c_mean - MU_G), CENTER_CAP)  # 매력도 오프셋(v3: 상한 88)
+        cosine_score = z * SIGMA_T + center        # soft-ceiling/clip 전 (rule/cat 가산 후)
 
         # 2) 룰 보너스 (전체 100만, 0~1)
         rule_all = _rule_bonus(df, sp)
@@ -496,16 +613,28 @@ def score_all_personas(
 
         # 5) 가산 보너스 결합 — 중립(0.5)이면 cosine_score 그대로 유지(spread 보존),
         #    타겟 일치자는 위로/비일치자는 아래로. (구 가중평균은 상수화 시 spread를 죽임)
-        all_scores = np.clip(
+        raw_score = (
             cosine_score
             + W_RULE_PT * (rule_all - 0.5)
             + W_CAT_PT * (cat_all - 0.5)
-            + W_INSUR_PT * insur,
-            0, 100,
-        ).astype(np.float32)
+            + W_INSUR_PT * insur
+        )
+        # 6) soft-ceiling(v3): 90 초과분만 점근 압축 → 100 천장 포화 방지(순위 보존).
+        #    clip은 하한 0 안전장치(상한 100은 soft-ceiling 점근선이라 실질 비활성).
+        all_scores = np.clip(_soft_ceiling(raw_score), 0, 100).astype(np.float32)
+
+        # 항 분해 회수 — 각 항을 raw_score에 더한 '점수 단위 기여'로 저장(중립 차감·가중 반영).
+        # cosine은 절대 점수(center 포함), rule/category는 ±편차, insurance는 부스트.
+        term_arrays = {
+            "cosine": cosine_score.astype(np.float32),
+            "rule": (W_RULE_PT * (rule_all - 0.5)).astype(np.float32),
+            "category": (W_CAT_PT * (cat_all - 0.5)).astype(np.float32),
+        }
+        if isinstance(insur, np.ndarray):  # fin_ 통합 데이터일 때만 보험 항 노출
+            term_arrays["insurance"] = (W_INSUR_PT * insur).astype(np.float32)
 
     # 4) cohort 분할 — 절대 점수 컷만 적용. percentile 폴백 미사용.
-    # abs_thr이 85→75→65로 단조 감소하므로 core ⊂ target ⊂ interest 위계가 자동 보장.
+    # abs_thr이 81→73→68로 단조 감소하므로 core ⊂ target ⊂ interest 위계가 자동 보장.
     cohorts: list[CohortStat] = []
     cohort_indices: dict[str, np.ndarray] = {}
     for name, label, abs_thr, pct in _COHORT_SPECS:
@@ -532,8 +661,8 @@ def score_all_personas(
     target_idx = cohort_indices["target"]
 
     score_distribution = _score_histogram(all_scores)
-    demographics = _build_demographics(df, target_idx)
-    districts_full = _aggregate_districts_full(df, all_scores, target_idx)
+    demographics = _build_demographics(df, target_idx, store)
+    districts_full = _aggregate_districts_full(df, all_scores, target_idx, store)
 
     # 6) raw 분포 통계 (PR-1) — 안 간 매력도 차이를 카드/비교표에서 노출하기 위한 메타.
     # raw score는 [52,78]로 좁아 cohort 인원만으로는 차이가 안 보임 → mean/std/p99 등 종합.
@@ -583,6 +712,13 @@ def score_all_personas(
     if len(modes) > 1:
         quality_flags.append("mode_inconsistent")
 
+    # 8) 유리상자 — Score DNA(항 분해) + 신뢰구간/컷 민감도. 둘 다 이미 계산된
+    #    배열(term_arrays/all_scores) 위 경량 집계라 LLM·임베딩 0콜.
+    score_drivers = _compute_score_drivers(term_arrays, core_idx)
+    confidence = _compute_confidence(
+        all_scores, core_idx, target_idx, _COHORT_SPECS[0][2]
+    )
+
     population = PopulationStats(
         total_scored=int(store.total),
         cohorts=cohorts,
@@ -601,17 +737,26 @@ def score_all_personas(
         target_lift=target_lift,
         quality_flags=quality_flags,
         scoring_version=SCORING_VERSION,
+        score_drivers=score_drivers,
+        confidence=confidence,
     )
-    return all_scores, population
+    return all_scores, population, cohort_indices
 
 
 def _aggregate_districts_full(
-    df: pd.DataFrame, all_scores: np.ndarray, target_idx: np.ndarray
+    df: pd.DataFrame,
+    all_scores: np.ndarray,
+    target_idx: np.ndarray,
+    store: PersonaStore | None = None,
 ) -> list[RegionStat]:
     """타겟 cohort 기준 전국 시군구별 집계.
 
     name 형식: "시도-시군구" (예: "경기-광명시", "서울-서초구").
     지도 choropleth + Top N 표용. count 내림차순.
+
+    store가 주어지면 시군구별 population_count(전체 모집단 인원)와 lift_ratio
+    (인구 대비 타겟 농도 / 전국 평균 농도)를 함께 채운다 — '인원' 1위가 늘 대도시인
+    한계를 넘어 '인구 대비 반응이 진한' 숨은 핫스팟을 농도 모드로 드러내기 위함.
 
     score_personas의 _aggregate_region은 상위 50명 카드 기준이라 sparse하지만
     이쪽은 타겟층 5만 명이라 전국 거의 모든 시군구가 포함됨.
@@ -636,28 +781,63 @@ def _aggregate_districts_full(
         .to_dict()
     )
     grouped = grouped.sort_values("count", ascending=False)
-    return [
-        RegionStat(
-            name=str(r["region"]),
-            count=int(r["count"]),
-            avg_score=float(r["avg_score"]),
-            top_persona_uuid=top_uuids.get(r["region"]),
+
+    # per-capita 농도 baseline: 시군구별 전체 모집단 인원 + 전국 평균 타겟 농도.
+    pop_district = store.population_counts("district") if store is not None else None
+    global_rate = (
+        len(target_idx) / store.total if (store is not None and store.total) else None
+    )
+
+    out: list[RegionStat] = []
+    for _, r in grouped.iterrows():
+        region = str(r["region"])
+        count = int(r["count"])
+        pop_n: int | None = None
+        lift: float | None = None
+        if pop_district is not None:
+            try:
+                base = int(pop_district.get(region, 0))
+            except (TypeError, ValueError):
+                base = 0
+            if base > 0:
+                pop_n = base
+                if global_rate:
+                    concentration = count / base
+                    lift = concentration / global_rate if global_rate > 0 else None
+        out.append(
+            RegionStat(
+                name=region,
+                count=count,
+                avg_score=float(r["avg_score"]),
+                top_persona_uuid=top_uuids.get(region),
+                population_count=pop_n,
+                lift_ratio=float(lift) if lift is not None else None,
+            )
         )
-        for _, r in grouped.iterrows()
-    ]
+    return out
 
 
 def _build_demographics(
-    df: pd.DataFrame, target_idx: np.ndarray
+    df: pd.DataFrame, target_idx: np.ndarray, store: PersonaStore | None = None
 ) -> list[DemographicGroup]:
-    """Nemotron 카테고리형 컬럼별 분포를 _DEMOGRAPHIC_SPECS 순서로 생성."""
+    """Nemotron 카테고리형 컬럼별 분포를 _DEMOGRAPHIC_SPECS 순서로 생성.
+
+    store가 주어지면 각 막대에 baseline_share·lift_ratio(전체 100만 모집단 대비
+    과대/과소 표집 배수)를 함께 채운다. store가 없으면(구 호출 경로) lift 필드는
+    None으로 남아 옛 동작과 동일하다.
+    """
     if len(target_idx) == 0:
         return []
+
+    target_total = int(len(target_idx))
+    pop_total = int(store.total) if store is not None else None
 
     groups: list[DemographicGroup] = []
     for column, label, top_n in _DEMOGRAPHIC_SPECS:
         if column == "age_bucket":
             bins = _age_buckets(df["age"], target_idx)
+            pop_counts = _population_age_buckets(df) if store is not None else None
+            bins = _enrich_bins_with_lift(bins, target_total, pop_counts, pop_total)
             groups.append(
                 DemographicGroup(
                     column="age",
@@ -675,6 +855,8 @@ def _build_demographics(
         series = df[column].fillna("(미상)") if df[column].dtype == object else df[column]
         full_unique = int(series.iloc[target_idx].nunique())
         bins = _value_counts(series, target_idx, top_n=top_n)
+        pop_counts = store.population_counts(column) if store is not None else None
+        bins = _enrich_bins_with_lift(bins, target_total, pop_counts, pop_total)
         groups.append(
             DemographicGroup(
                 column=column,
@@ -685,6 +867,65 @@ def _build_demographics(
             )
         )
     return groups
+
+
+# baseline-lift 계산용 헬퍼 — 전체 모집단 연령 버킷 분포를 df 식별자 기준 1회 캐시.
+# (_build_demographics가 매 분석마다 1M np.histogram을 반복하지 않도록)
+_POP_AGE_BUCKET_CACHE: dict[int, dict[str, int]] = {}
+
+
+def _population_age_buckets(df: pd.DataFrame) -> dict[str, int]:
+    """전체 모집단의 연령 버킷별 인원 ({라벨: 인원}). _age_buckets와 동일 edge/label."""
+    key = id(df)
+    cached = _POP_AGE_BUCKET_CACHE.get(key)
+    if cached is None:
+        ages = df["age"].to_numpy()
+        edges = [0, 20, 30, 40, 50, 60, 70, 200]
+        labels = ["20세 미만", "20대", "30대", "40대", "50대", "60대", "70대+"]
+        counts, _ = np.histogram(ages, bins=edges)
+        cached = {labels[i]: int(counts[i]) for i in range(len(labels))}
+        _POP_AGE_BUCKET_CACHE[key] = cached
+    return cached
+
+
+def _enrich_bins_with_lift(
+    bins: list[DistributionBin],
+    target_total: int,
+    pop_counts,  # pd.Series | dict[str, int] | None
+    pop_total: int | None,
+) -> list[DistributionBin]:
+    """각 막대에 share·baseline_share·lift_ratio를 채워 새 막대 리스트 반환.
+
+    lift = (타겟 내 비율) / (전체 모집단 내 비율). 전국 대비 과대/과소 표집 배수.
+    두 비율 모두 '전체 행' 기준 분모(target_total / pop_total = store.total)를 써
+    NaN 라벨이 있어도 일관되게 계산된다. pop_counts/pop_total이 없으면 share만 채움.
+    """
+    if target_total <= 0:
+        return bins
+    out: list[DistributionBin] = []
+    for b in bins:
+        share = b.count / target_total
+        baseline_share: float | None = None
+        lift: float | None = None
+        if pop_counts is not None and pop_total:
+            try:
+                base_n = int(pop_counts.get(b.label, 0))
+            except (TypeError, ValueError):
+                base_n = 0
+            if base_n > 0:
+                baseline_share = base_n / pop_total
+                if baseline_share > 0:
+                    lift = share / baseline_share
+        out.append(
+            b.model_copy(
+                update={
+                    "share": float(share),
+                    "baseline_share": float(baseline_share) if baseline_share is not None else None,
+                    "lift_ratio": float(lift) if lift is not None else None,
+                }
+            )
+        )
+    return out
 
 
 def _score_histogram(scores: np.ndarray) -> list[DistributionBin]:

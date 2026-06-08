@@ -20,6 +20,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+
 from openai import BadRequestError, UnprocessableEntityError
 from tenacity import (
     retry,
@@ -57,6 +59,7 @@ from .schemas import _anthropic_to_openai_tool
 from .service import (
     AnthropicLLMService,
     BaseLLMService,
+    OpenAILLMService,
     SLLMService,
     get_llm_service,
 )
@@ -75,10 +78,11 @@ __all__ = [
     # schemas (외부 호출)
     "_anthropic_to_openai_tool",
     # service
-    "BaseLLMService", "AnthropicLLMService", "SLLMService", "get_llm_service",
+    "BaseLLMService", "AnthropicLLMService", "SLLMService", "OpenAILLMService", "get_llm_service",
     # wrapper
     "extract_selling_points", "extract_filter_from_query", "generate_persona_answer",
-    "generate_survey_questions", "generate_report", "generate_overall_commentary",
+    "generate_survey_questions", "generate_report", "stream_report", "generate_overall_commentary",
+    "generate_survey_placeholders",
 ]
 
 
@@ -108,7 +112,11 @@ def extract_selling_points(
     sp = get_llm_service(provider).extract_selling_points(product_text, input_mode)
     if input_mode == "marketing":
         sp.key_benefits = []
-    return sp
+    # target_*(가구/직업/성별/학력)를 데이터셋 실제값으로 정규화 → scoring._rule_bonus의
+    # 하드 isin/substring 매칭에 환각값('부부'·'1인 가구'·'IT'·'은퇴')이 직격해 차원이
+    # 0매칭으로 희석되던 결함 차단 (페르소나 탐색과 동일한 매칭 보증을 분석계열에도 부여).
+    from services.query_normalization import normalize_selling_points
+    return normalize_selling_points(sp)
 
 
 @retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4), retry=_NO_4XX_RETRY)
@@ -184,6 +192,20 @@ def generate_report(
     return get_llm_service(provider).generate_report(sp, top_personas, population)
 
 
+def stream_report(
+    sp: SellingPoints,
+    top_personas: list[PersonaHit],
+    population: PopulationStats,
+    provider: LLMProvider = DEFAULT_PROVIDER,
+) -> Iterator[str]:
+    """리포트 토큰 스트리밍 generator. get_llm_service() 위임.
+
+    재시도 데코레이터를 붙이지 않는다 — generator는 호출 시점이 아니라 소비 시점에 실행돼
+    @retry로 감싸도 효과가 없고, 스트림 도중 끊기면 이미 받은 토큰은 호출부가 보존한다.
+    """
+    return get_llm_service(provider).stream_report(sp, top_personas, population)
+
+
 @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, max=8), retry=_NO_4XX_RETRY)
 def generate_overall_commentary(
     stats: dict,
@@ -191,3 +213,11 @@ def generate_overall_commentary(
 ) -> str:
     """설문 차트 리포트 최상단 총평 마크다운 생성. get_llm_service() 위임."""
     return get_llm_service(provider).generate_overall_commentary(stats)
+
+
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=1, max=4), retry=_NO_4XX_RETRY)
+def generate_survey_placeholders(
+    category: str, provider: LLMProvider = DEFAULT_PROVIDER,
+) -> dict:
+    """설문 작성 폼 placeholder 예시 1세트 생성. get_llm_service() 위임."""
+    return get_llm_service(provider).generate_survey_placeholders(category)

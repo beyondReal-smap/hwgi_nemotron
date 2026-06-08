@@ -102,10 +102,15 @@ def health() -> dict[str, bool | str]:
     return {"ok": True, "service": "personafit-api"}
 
 
+from routes.admin import router as admin_router  # noqa: E402
 from routes.abtest import router as abtest_router  # noqa: E402
 from routes.abtests import router as abtests_router  # noqa: E402
+from routes.cannibal import router as cannibal_router  # noqa: E402
+from routes.cannibals import router as cannibals_router  # noqa: E402
 from routes.analyses import router as analyses_router  # noqa: E402
 from routes.analyze import router as analyze_router  # noqa: E402
+from routes.analyze_stream import router as analyze_stream_router  # noqa: E402
+from routes.whatif import router as whatif_router  # noqa: E402
 from routes.dataset import router as dataset_router  # noqa: E402
 from routes.extract import router as extract_router  # noqa: E402
 from routes.products import router as products_router  # noqa: E402
@@ -119,8 +124,12 @@ from routes.survey_run import router as survey_run_router  # noqa: E402
 from routes.surveys import router as surveys_router  # noqa: E402
 
 app.include_router(analyze_router)
+app.include_router(analyze_stream_router)
+app.include_router(whatif_router)
 app.include_router(abtest_router)
 app.include_router(abtests_router)
+app.include_router(cannibal_router)
+app.include_router(cannibals_router)
 app.include_router(extract_router)
 app.include_router(products_router)
 app.include_router(analyses_router)
@@ -133,3 +142,4 @@ app.include_router(survey_progress_router)
 app.include_router(survey_responses_router)
 app.include_router(survey_report_router)
 app.include_router(segments_router)
+app.include_router(admin_router)

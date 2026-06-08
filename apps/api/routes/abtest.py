@@ -34,7 +34,12 @@ from services.abtest_llm import (
     generate_abtest_fp_strategy,
 )
 from services.abtest_persistence import persist_abtest
-from services.comparison import build_comparison, recommend_variant
+from services.comparison import (
+    build_comparison,
+    build_overlap_breakdown,
+    compute_ab_overlap,
+    recommend_variant,
+)
 from services.llm import embed_text, extract_selling_points
 from services.opinions import generate_persona_opinions
 from services.pii_mask import mask_pii
@@ -62,8 +67,12 @@ async def _analyze_one_variant(
     top_k: int,
     timings: dict[str, int],
     timing_suffix: str,
-) -> ABVariantResult:
+) -> tuple[ABVariantResult, np.ndarray, np.ndarray]:
     """단일 안 분석 — 소구점/임베딩/스코어링/의견 생성까지.
+
+    반환: (ABVariantResult, target 코호트 인덱스 배열, 전체 100만 점수 배열).
+    인덱스·점수 배열은 A/B 겹침(잠식)·스윙층 끌림 계산용으로 라우트 메모리에서만
+    소비하며, ABVariantResult(응답·영속 모델)에는 담지 않는다.
 
     input_mode("terms"|"marketing"|"concept")가 selling_points 추출 시
     LLM이 hallucination 없이 입력의 본질만 추출하도록 가드 prefix를 결정한다.
@@ -86,9 +95,17 @@ async def _analyze_one_variant(
     top_personas: list[PersonaHit]
     province_stats: list[RegionStat]
     population_stats: PopulationStats
-    top_personas, _mid, _bottom, province_stats, _district, population_stats = (
-        await asyncio.to_thread(score_personas, sp, query_vec, store)
-    )
+    cohort_indices: dict[str, np.ndarray]
+    (
+        top_personas,
+        _mid,
+        _bottom,
+        province_stats,
+        _district,
+        population_stats,
+        cohort_indices,
+        all_scores,
+    ) = await asyncio.to_thread(score_personas, sp, query_vec, store)
     timings[f"score_{timing_suffix}"] = int((perf_counter() - t0) * 1000)
 
     if not top_personas:
@@ -109,13 +126,17 @@ async def _analyze_one_variant(
     )
     timings[f"opinions_{timing_suffix}"] = int((perf_counter() - t0) * 1000)
 
-    return ABVariantResult(
-        label=label,
-        selling_points=sp,
-        top_personas=sliced_top,
-        province_stats=province_stats,
-        population_stats=population_stats,
-        top_opinions=top_opinions,
+    return (
+        ABVariantResult(
+            label=label,
+            selling_points=sp,
+            top_personas=sliced_top,
+            province_stats=province_stats,
+            population_stats=population_stats,
+            top_opinions=top_opinions,
+        ),
+        cohort_indices["target"],  # 겹침 계산용 — 응답엔 미포함
+        all_scores,  # 스윙층 끌림(per-persona A vs B 점수) 계산용 — 응답엔 미포함
     )
 
 
@@ -143,26 +164,32 @@ async def abtest(req: ABTestRequest) -> ABTestResponse:
     )
 
     # 1) A·B 동시 분석 (소구점·임베딩·스코어링·의견 모두 병렬)
+    # 각 안은 (ABVariantResult, target 코호트 인덱스)를 반환 — 인덱스는 겹침 계산용.
     try:
-        variant_a_result, variant_b_result = await asyncio.gather(
-            _analyze_one_variant(
-                label=req.variant_a.label,
-                text=req.variant_a.text,
-                llm_provider=req.llm_provider,
-                input_mode=req.input_mode,
-                top_k=req.top_k,
-                timings=timings,
-                timing_suffix="a",
-            ),
-            _analyze_one_variant(
-                label=req.variant_b.label,
-                text=req.variant_b.text,
-                llm_provider=req.llm_provider,
-                input_mode=req.input_mode,
-                top_k=req.top_k,
-                timings=timings,
-                timing_suffix="b",
-            ),
+        (
+            (variant_a_result, a_target_idx, a_all_scores),
+            (variant_b_result, b_target_idx, b_all_scores),
+        ) = (
+            await asyncio.gather(
+                _analyze_one_variant(
+                    label=req.variant_a.label,
+                    text=req.variant_a.text,
+                    llm_provider=req.llm_provider,
+                    input_mode=req.input_mode,
+                    top_k=req.top_k,
+                    timings=timings,
+                    timing_suffix="a",
+                ),
+                _analyze_one_variant(
+                    label=req.variant_b.label,
+                    text=req.variant_b.text,
+                    llm_provider=req.llm_provider,
+                    input_mode=req.input_mode,
+                    top_k=req.top_k,
+                    timings=timings,
+                    timing_suffix="b",
+                ),
+            )
         )
     except HTTPException:
         raise
@@ -176,10 +203,24 @@ async def abtest(req: ABTestRequest) -> ABTestResponse:
         logger.exception("A/B 분석 실패")
         raise HTTPException(status_code=502, detail=f"A/B 분석 오류: {e}") from e
 
-    # 2) 비교 표 산출 (LLM 미사용)
+    # 2) 비교 표 산출 (LLM 미사용) — 반응층 겹침(잠식)을 함께 계산해 split/통합 추천에 반영
     t0 = perf_counter()
-    comparison = build_comparison(variant_a_result, variant_b_result, req.input_mode)
-    recommended = recommend_variant(variant_a_result, variant_b_result, comparison)
+    overlap = compute_ab_overlap(a_target_idx, b_target_idx)
+    comparison = build_comparison(variant_a_result, variant_b_result, req.input_mode, overlap)
+    recommended = recommend_variant(variant_a_result, variant_b_result, comparison, overlap)
+
+    # 2-b) 스윙층 X-레이 + 줄다리기 맵 + (split 시) 분기 처방 — Jaccard 한 숫자를
+    #      '갈아탈 사람의 얼굴'로 분해. recommended 확정 후 호출(playbook은 split일 때만).
+    store = get_store()
+    overlap_segments, swing_pull, split_playbook = build_overlap_breakdown(
+        a_target_idx, b_target_idx, a_all_scores, b_all_scores, store,
+        recommended=recommended,
+    )
+    comparison = comparison.model_copy(update={
+        "overlap_segments": overlap_segments,
+        "swing_pull": swing_pull,
+        "split_playbook": split_playbook,
+    })
     timings["compare"] = int((perf_counter() - t0) * 1000)
 
     # 3) 당사 장단점 + FP 전략 — 두 LLM 콜을 병렬 실행 (서로 독립)

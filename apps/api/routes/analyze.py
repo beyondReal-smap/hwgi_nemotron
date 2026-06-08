@@ -16,6 +16,7 @@ from services.opinions import generate_persona_opinions
 from services.persistence import persist_analysis
 from services.pii_mask import mask_pii
 from services.scoring import build_query_text, score_personas
+from services.segment_discovery import discover_segments
 from services.store import get_store
 
 logger = logging.getLogger("personafit.analyze")
@@ -77,11 +78,21 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         province_stats,
         district_stats,
         population_stats,
+        cohort_indices,
+        all_scores,
     ) = await asyncio.to_thread(score_personas, sp, query_vec, store)
     elapsed["score"] = int((perf_counter() - t0) * 1000)
 
     if not top_personas:
         raise HTTPException(status_code=422, detail="매칭된 페르소나가 없습니다. 입력 조건이 너무 좁습니다.")
+
+    # 3-b) 교차 세그먼트 발굴 — 버려지던 target cohort 인덱스 위에서 '숨은 황금 조합'을
+    #      lift 순으로 추출(LLM 0콜). score 직후 같은 인메모리 데이터를 재활용.
+    t0 = perf_counter()
+    segments = await asyncio.to_thread(
+        discover_segments, store, cohort_indices["target"], all_scores
+    )
+    elapsed["segments"] = int((perf_counter() - t0) * 1000)
 
     # 4) 페르소나 의견 생성 — 상/중/하 각 30명 병렬 (asyncio.gather로 3개 태스크 동시 실행).
     # top_k 슬라이스는 응답 표시용. 의견은 스코어링 결과 전체 30명에 대해 생성한다.
@@ -132,6 +143,7 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         mid_opinions=mid_opinions,
         bottom_opinions=bottom_opinions,
         report_md=report_md,
+        segments=segments,
         elapsed_ms=elapsed,
     )
 
@@ -148,6 +160,7 @@ async def analyze(req: AnalyzeRequest) -> AnalyzeResponse:
         "mid_opinions": [o.model_dump() for o in mid_opinions],
         "bottom_opinions": [o.model_dump() for o in bottom_opinions],
         "report_md": report_md,
+        "segments": [s.model_dump() for s in segments],
         "elapsed_ms": elapsed,
         "llm_provider": req.llm_provider,
     })
