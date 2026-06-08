@@ -19,6 +19,8 @@
 
 from __future__ import annotations
 
+import re
+
 # ============================================================
 # 가구 형태(family_type) — has_children / 1인가구 코드 매핑 (기존 유지)
 # ============================================================
@@ -80,6 +82,25 @@ SOLO_FAMILY_TYPES: list[str] = ["혼자 거주", "혼자 거주 (배우자 별�
 _SOLO_CUES = ("혼자", "1인", "1인가구", "싱글", "독신", "독거", "나홀로")
 _COHABITATION_CUES = ("동거", "함께사는", "같이사는", "가족과", "부모와", "배우자와", "자녀와")
 
+# 부모와 동거(캥거루족/본가) → 단일 부모 동거 3종으로 정밀 매핑.
+# 데이터의 '부모와 동거/어머니와 동거/아버지와 동거'는 모두 '동거'로 끝나고,
+# 다세대 복합형('배우자·자녀·부모와 거주' 등)은 '거주'를 써서 자연 분리된다.
+# 부정 룩비하인드로 '조부모'(외/친조부모 포함)·'시부모/시어머니/시아버지'를 배제해
+# 조부모·시부모 동거가 부모 동거로 오매핑되는 것을 막는다.
+PARENT_COHAB_FAMILY_TYPES: list[str] = ["부모와 동거", "어머니와 동거", "아버지와 동거"]
+
+_PARENT_COHAB_RE = re.compile(
+    r"(?:(?<!조)부모님?|(?<![시조])(?:어머니|엄마|모친)|(?<![시조])(?:아버지|아빠|부친))"
+    r"(?:와|과|랑)?"
+    r"(?:동거|함께사|같이사|함께살|같이살|같이지내|모시)"
+    r"|본가살이|본가에서|본가생활|본가살"
+)
+
+
+def _parent_cohabitation_hint(query: str | None) -> bool:
+    """쿼리가 '부모(조부모·시부모 제외) 동거'를 명시했는지. 공백 무시 매칭."""
+    return bool(_PARENT_COHAB_RE.search((query or "").replace(" ", "")))
+
 
 def family_types_for_has_children(has_children: bool | None, query: str | None = None) -> list[str]:
     """has_children·1인가구 단서를 데이터셋 family_type 목록으로 바꾼다.
@@ -90,6 +111,11 @@ def family_types_for_has_children(has_children: bool | None, query: str | None =
     q = (query or "").replace(" ", "")
     solo_hint = any(cue in q for cue in _SOLO_CUES)
     cohabitation_hint = any(cue in q for cue in _COHABITATION_CUES)
+
+    # '부모와 동거'는 자녀 동거 여부와 무관한 구체 가구 구조 → has_children 기반 broad
+    # 매핑(NON_SOLO 37종 등)보다 우선해 단일 부모 동거 3종으로 정밀화한다.
+    if _parent_cohabitation_hint(query):
+        return list(PARENT_COHAB_FAMILY_TYPES)
 
     if has_children is True:
         return list(CHILD_FAMILY_TYPES)
