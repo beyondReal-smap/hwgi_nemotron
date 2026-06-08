@@ -31,13 +31,15 @@ module.exports = {
       // 환경변수: .env가 main.py 안에서 load_dotenv로 로드되므로 별도 지정 불필요
       env: {
         PYTHONUNBUFFERED: "1",
-        // 임베딩 v2 — 금융·소비 프로파일 제외(2026-05-31 롤백). 금융 hot-deck 개인추정 신빙성
-        // 이슈로 fin_ 컬럼/임베딩 텍스트를 제거. parquet personas_1m.parquet(fin_ 드롭본)과 행순서 정합.
-        // 금융 복원: 이 줄 → "data/embeddings_1m_v3_fin.npy" + parquet 백업(.archive/2026-05-31_finance-rollback/) 복원 + PersonaFilterPanel SHOW_FINANCE_FILTER=true + pm2 restart.
-        PERSONAS_NPY: path.join(PROJECT_ROOT, "data/embeddings_1m_v2.npy"),
-        // Docker 컨테이너 메모리 한계 48GB + 다른 PM2 앱 누적 사용으로 임베딩을 RAM 상주
-        // 적재하면 OOM-killer SIGKILL 발생. mmap 모드로 페이지 캐시에 위임.
-        // 컨테이너 한계가 풀리면 이 줄 제거 → RAM 상주로 cold 40~80초 문제 해소.
+        // KURE-v1(1024d, nlpai-lab/KURE-v1) 한국어 특화 임베딩 (2026-06-08 전환).
+        // self-retrieval median rank 152→4 · Recall@10 0.14→0.63 (vs OpenAI text-embedding-3-small).
+        // ⚠️ 쿼리 임베딩은 llm/config.py EMBED_MODEL=KURE-v1과 차원(1024) 정합 필수 — 불일치 시 분석 전체 깨짐.
+        // 롤백: 이 줄 → "data/embeddings_1m_v2.npy" + llm/config EMBED_MODEL=OpenAI 복원 + EMBED_DEVICE 제거 + restart.
+        PERSONAS_NPY: path.join(PROJECT_ROOT, "data/embeddings_1m_kure.npy"),
+        // KURE 인코더(쿼리 in-process GPU 추론) 디바이스 고정 — GPU3 여유(39GB). sLLM은 GPU0~2 점유.
+        EMBED_DEVICE: "cuda:3",
+        // Docker 컨테이너 메모리 한계 + 다른 PM2 앱 누적으로 임베딩을 RAM 상주하면 OOM-killer SIGKILL.
+        // mmap 모드로 페이지 캐시에 위임. KURE는 4GB라 RAM 상주도 가능하나 v2와 동일 유지(보수적).
         PERSONAS_EMBED_MMAP: "1",
       },
       // 임베딩 6GB를 mmap이 아닌 RAM에 상주 적재(2026-05-28) + 요청 처리 시 cand_emb 일시 사본 등

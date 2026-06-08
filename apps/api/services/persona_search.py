@@ -195,7 +195,7 @@ def search_personas(query: str, limit: int = 20) -> dict:
         used_threshold: float | None = None
     else:
         q = (vec / q_norm).astype(np.float32)
-        cand_emb = store.embeddings[candidate_idx]  # (N, 1536)
+        cand_emb = store.embeddings[candidate_idx]  # (N, 1024)
         sims_cand = cand_emb @ q  # (N,)
         order = np.argsort(-sims_cand)
         sorted_idx = candidate_idx[order]

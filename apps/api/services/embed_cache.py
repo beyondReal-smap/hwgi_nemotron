@@ -7,7 +7,7 @@
 
 디스크 레이아웃:
   data/embed_cache/
-    └── {sha256[:2]}/{sha256}.npy    # 1536d float32 array (≈6KB/건)
+    └── {sha256[:2]}/{sha256}.npy    # 1024d float32 array (≈4KB/건)
 
 캐시 키:
   sha256(model + "|" + text)
@@ -39,7 +39,7 @@ import numpy as np
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 BASE_DIR = _PROJECT_ROOT / "data" / "embed_cache"
 
-# 인메모리 LRU 한도 — 1536d float32 × 4096 ≈ 24MB
+# 인메모리 LRU 한도 — 1024d float32 × 4096 ≈ 16MB
 _MEM_LIMIT = 4096
 _mem_cache: OrderedDict[str, np.ndarray] = OrderedDict()
 _lock = threading.Lock()

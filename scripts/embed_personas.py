@@ -34,13 +34,24 @@ load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / ".env")
 # 100만 행 batch: PERSONAS_PARQUET=data/personas_1m.parquet EMBEDDINGS_NPY=data/embeddings_1m.npy python scripts/embed_personas.py
 # 통합 임베딩(100만): EMBED_MODE=combined PERSONAS_PARQUET=data/personas_1m.parquet EMBEDDINGS_NPY=data/embeddings_1m_v2.npy python scripts/embed_personas.py
 EMBED_MODE = os.environ.get("EMBED_MODE", "single").lower()  # single | combined
+# 임베딩 백엔드: openai(text-embedding-3-small, 1536d) | kure(nlpai-lab/KURE-v1, 1024d, 로컬 GPU)
+EMBED_BACKEND = os.environ.get("EMBED_BACKEND", "openai").lower()
 INPUT_PATH = Path(os.environ.get("PERSONAS_PARQUET", "data/personas_100k.parquet"))
 OUTPUT_PATH = Path(os.environ.get("EMBEDDINGS_NPY", "data/embeddings_100k.npy"))
-MODEL = "text-embedding-3-small"
 # 금융·소비 프로파일 섹션 포함 여부 (AI Hub 통합 fin_ 컬럼 필요). 기본 off → 기존 동작 불변.
 EMBED_FINANCE = os.environ.get("EMBED_FINANCE", "0") == "1"
-DIM = 1536
-BATCH_SIZE = 100  # OpenAI 한 번에 최대 ~2048건 가능, 안정성 위해 100
+# 백엔드별 모델·차원·루프 청크 (KURE는 GPU라 큰 청크가 효율적)
+if EMBED_BACKEND == "kure":
+    MODEL = "nlpai-lab/KURE-v1"
+    DIM = 1024
+    BATCH_SIZE = 2048  # 루프/체크포인트 청크. encode 내부 미니배치는 KURE_ENCODE_BATCH.
+elif EMBED_BACKEND == "openai":
+    MODEL = "text-embedding-3-small"
+    DIM = 1536
+    BATCH_SIZE = 100  # OpenAI 한 번에 최대 ~2048건 가능, 안정성 위해 100
+else:
+    raise RuntimeError(f"알 수 없는 EMBED_BACKEND={EMBED_BACKEND} (openai | kure)")
+KURE_ENCODE_BATCH = int(os.environ.get("KURE_ENCODE_BATCH", "128"))  # KURE encode GPU 미니배치
 CHECKPOINT_EVERY = 10_000  # 매 10000건마다 .npy 저장
 
 # 통합 모드: 임베딩 입력에 포함할 텍스트 컬럼 → 한국어 섹션 라벨 (순서 유지)
@@ -124,6 +135,32 @@ def embed_batch(client: OpenAI, texts: list[str]) -> list[list[float]]:
     return [d.embedding for d in res.data]
 
 
+def load_kure_encoder():
+    """KURE-v1 로컬 GPU 인코더 로드 (fp16, max_seq 8192). GPU 선택은 CUDA_VISIBLE_DEVICES로."""
+    import torch
+    from sentence_transformers import SentenceTransformer
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dtype = torch.float16 if device == "cuda" else torch.float32
+    model = SentenceTransformer(MODEL, device=device, model_kwargs={"torch_dtype": dtype})
+    model.max_seq_length = 8192
+    print(f"   KURE 로드 완료 | model={MODEL} device={device} dtype={dtype}")
+    return model
+
+
+def embed_batch_kure(model, texts: list[str]) -> np.ndarray:
+    """KURE 배치 인코딩 — normalize_embeddings=True로 L2 정규화(dot=cosine), float32 반환."""
+    safe = [t if t and t.strip() else "(empty)" for t in texts]
+    emb = model.encode(
+        safe,
+        batch_size=KURE_ENCODE_BATCH,
+        normalize_embeddings=True,
+        convert_to_numpy=True,
+        show_progress_bar=False,
+    )
+    return emb.astype(np.float32)
+
+
 def resume_from_checkpoint(embeddings: np.ndarray) -> int:
     """기존 .npy 파일이 있으면 로드해서 이미 채워진 부분 복구. 시작 인덱스 반환."""
     if not OUTPUT_PATH.exists():
@@ -151,7 +188,7 @@ def main() -> None:
     print(f"📥 입력 로드: {INPUT_PATH}")
     df = pd.read_parquet(INPUT_PATH)
     n = len(df)
-    print(f"   {n:,}행 | EMBED_MODE={EMBED_MODE}")
+    print(f"   {n:,}행 | EMBED_BACKEND={EMBED_BACKEND} MODEL={MODEL} DIM={DIM} EMBED_MODE={EMBED_MODE}")
 
     if EMBED_MODE == "combined":
         missing = [c for c, _ in COMBINED_SECTIONS if c not in df.columns]
@@ -173,11 +210,16 @@ def main() -> None:
         print(f"✅ 이미 완료된 .npy 존재: {OUTPUT_PATH}")
         return
 
-    api_key = os.environ.get("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다 (.env 확인)")
+    if EMBED_BACKEND == "kure":
+        encoder = load_kure_encoder()
+        client = None
+    else:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY 환경변수가 설정되지 않았습니다 (.env 확인)")
+        encoder = None
+        client = OpenAI()
 
-    client = OpenAI()
     t0 = time.time()
     last_chk = start
 
@@ -187,8 +229,11 @@ def main() -> None:
             texts = [build_combined_text(df.iloc[k]) for k in range(i, end)]
         else:
             texts = df["persona"].iloc[i:end].tolist()
-        vecs = embed_batch(client, texts)
-        embeddings[i:end] = np.array(vecs, dtype=np.float32)
+        if EMBED_BACKEND == "kure":
+            embeddings[i:end] = embed_batch_kure(encoder, texts)
+        else:
+            vecs = embed_batch(client, texts)
+            embeddings[i:end] = np.array(vecs, dtype=np.float32)
 
         # 체크포인트
         if end - last_chk >= CHECKPOINT_EVERY or end == n:

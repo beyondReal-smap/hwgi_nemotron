@@ -28,7 +28,8 @@ def _re_escape(s: str) -> str:
 # 프로젝트 루트 기준 경로 (100만 행 인메모리 — npy 5.8GB / parquet 930MB)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DEFAULT_PARQUET = _PROJECT_ROOT / "data" / "personas_1m.parquet"
-DEFAULT_NPY = _PROJECT_ROOT / "data" / "embeddings_1m_v2.npy"
+# KURE-v1(1024d) 재임베딩 산출물. 이전 OpenAI 1536d(embeddings_1m_v2.npy)는 PERSONAS_NPY로 전환 가능.
+DEFAULT_NPY = _PROJECT_ROOT / "data" / "embeddings_1m_kure.npy"
 
 # 지역명 표기 단축 (도 → 약칭). 데이터셋 원본은 일부만 줄여져 있어 일관성 부여.
 # 광역시·특별시·강원·경기·제주는 이미 짧거나 통용 표기 그대로 유지.
@@ -222,11 +223,11 @@ class PersonaStore:
             return np.array([], dtype=np.int64), np.array([], dtype=np.float32)
         q = (query_vec / q_norm).astype(np.float32)
 
-        # 임베딩은 사전 L2 정규화됨(OpenAI text-embedding-3-small 반환 벡터, 실측 norm
-        # 0.9994~1.0005). 따라서 score_all_personas와 동일하게 dot만으로 코사인 유사도가 된다.
+        # 임베딩은 사전 L2 정규화됨(KURE-v1 인코딩 시 normalize_embeddings=True, norm≈1.0).
+        # 따라서 score_all_personas와 동일하게 dot만으로 코사인 유사도가 된다.
         # 후보별 norm 재계산(np.linalg.norm + 나눗셈)은 불필요한 연산이라 제거 — 일관성·속도.
         #
-        # 후보가 많으면 fancy-indexing 복사(self.embeddings[candidate_indices], (N,1536)
+        # 후보가 많으면 fancy-indexing 복사(self.embeddings[candidate_indices], (N,1024)
         # float32 수백 MB 신규 할당)가 GC 압박/지연 변동을 유발한다. 후보 비율이 임계
         # (전체의 50%) 이상이면 복사 없이 전체 매트릭스 dot 후 후보만 추려 더 안정적이다.
         # 임계 미만(좁은 검색 경로)은 현행 슬라이스 유지가 빠르다. 결과·정규화는 동일.
@@ -234,7 +235,7 @@ class PersonaStore:
             all_sims = self.embeddings @ q  # (total,) — 복사 없음(mmap 비활성 시 RAM 상주)
             sims = all_sims[candidate_indices]  # (N,)
         else:
-            cand_emb = self.embeddings[candidate_indices]  # (N, 1536)
+            cand_emb = self.embeddings[candidate_indices]  # (N, 1024)
             sims = cand_emb @ q  # (N,)
 
         # 상위 top_k 추출

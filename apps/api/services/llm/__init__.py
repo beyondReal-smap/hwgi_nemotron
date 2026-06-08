@@ -15,7 +15,7 @@
 설계 원칙:
 - 클라이언트는 앱 수명주기 싱글톤
 - tenacity로 재시도
-- 임베딩은 항상 OpenAI (sLLM 무관)
+- 임베딩은 KURE-v1 로컬 GPU 추론 (LLM provider 무관, lazy singleton)
 """
 
 from __future__ import annotations
@@ -53,7 +53,7 @@ from .config import (
     SELLING_POINTS_PROMPT,
     SLLM_BASE_URL,
 )
-from .embedding import embed_text
+from .embedding import embed_text, preload_embedder
 from .provider import DEFAULT_PROVIDER, LLMProvider, enforce_provider
 from .schemas import _anthropic_to_openai_tool
 from .service import (
@@ -74,7 +74,7 @@ __all__ = [
     # clients
     "anthropic_client", "sllm_client", "resolve_sllm_model", "openai_client",
     # embedding
-    "embed_text",
+    "embed_text", "preload_embedder",
     # schemas (외부 호출)
     "_anthropic_to_openai_tool",
     # service

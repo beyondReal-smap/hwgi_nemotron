@@ -38,10 +38,12 @@ SEED = 42
 @dataclass(frozen=True)
 class Provider:
     name: str
-    api_key_envs: tuple[str, ...]
-    base_url: str | None
-    query_model: str
-    passage_model: str
+    api_key_envs: tuple[str, ...] = ()
+    base_url: str | None = None
+    query_model: str = ""
+    passage_model: str = ""
+    # 로컬 sentence-transformers 모델(예: KURE-v1). 설정 시 API 대신 GPU 로컬 추론.
+    local_model: str | None = None
 
 
 OPENAI_PROVIDER = Provider(
@@ -58,6 +60,12 @@ UPSTAGE_PROVIDER = Provider(
     base_url="https://api.upstage.ai/v1",
     query_model="embedding-query",
     passage_model="embedding-passage",
+)
+
+# KURE-v1 — BAAI/bge-m3 한국어 파인튜닝, 1024차원, 로컬 GPU 추론(쿼리/본문 동일 모델).
+KURE_PROVIDER = Provider(
+    name="kure",
+    local_model="nlpai-lab/KURE-v1",
 )
 
 
@@ -141,6 +149,35 @@ def embed_texts(client: OpenAI, model: str, texts: list[str]) -> np.ndarray:
     return np.vstack(chunks)
 
 
+def embed_local(
+    model_name: str, corpus_texts: list[str], query_texts: list[str]
+) -> tuple[np.ndarray, np.ndarray]:
+    """로컬 sentence-transformers 모델(KURE-v1 등)로 corpus·query 인코딩.
+
+    normalize_embeddings=True로 L2 정규화 → API 경로와 동일하게 dot=cosine 성립(공정 비교).
+    GPU 선택은 호출 측 CUDA_VISIBLE_DEVICES로 제어(예: 여유 있는 GPU 1장 고정).
+    """
+    import torch
+    from sentence_transformers import SentenceTransformer
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = SentenceTransformer(model_name, device=device)
+    model.max_seq_length = 8192  # KURE-v1 / BGE-M3 최대 시퀀스 길이
+
+    def enc(texts: list[str]) -> np.ndarray:
+        safe = [t if t and t.strip() else "(empty)" for t in texts]
+        emb = model.encode(
+            safe,
+            batch_size=64,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            show_progress_bar=True,
+        )
+        return emb.astype(np.float32)
+
+    return enc(corpus_texts), enc(query_texts)
+
+
 def rank_of_target(scores: np.ndarray, target_idx: int) -> int:
     order = np.argsort(-scores, kind="mergesort")
     return int(np.where(order == target_idx)[0][0]) + 1
@@ -192,11 +229,14 @@ def run_provider(
     corpus_texts: list[str],
     query_texts: list[str],
 ) -> dict[str, object]:
-    client = make_client(provider)
     print(f"\n[{provider.name}] 임베딩 중...")
     t0 = time.perf_counter()
-    corpus_emb = embed_texts(client, provider.passage_model, corpus_texts)
-    query_emb = embed_texts(client, provider.query_model, query_texts)
+    if provider.local_model:
+        corpus_emb, query_emb = embed_local(provider.local_model, corpus_texts, query_texts)
+    else:
+        client = make_client(provider)
+        corpus_emb = embed_texts(client, provider.passage_model, corpus_texts)
+        query_emb = embed_texts(client, provider.query_model, query_texts)
     if corpus_emb.shape[1] != query_emb.shape[1]:
         raise RuntimeError(
             f"{provider.name} 차원 불일치: corpus={corpus_emb.shape[1]}, query={query_emb.shape[1]}"
@@ -233,7 +273,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sample-size", type=int, default=SAMPLE_SIZE)
     parser.add_argument("--seed", type=int, default=SEED)
-    parser.add_argument("--providers", nargs="+", default=["openai", "upstage"])
+    parser.add_argument("--providers", nargs="+", default=["openai", "kure"])
     args = parser.parse_args()
 
     if not DATA_PATH.exists():
@@ -251,6 +291,7 @@ def main() -> None:
     provider_map = {
         "openai": OPENAI_PROVIDER,
         "upstage": UPSTAGE_PROVIDER,
+        "kure": KURE_PROVIDER,
     }
 
     results: list[dict[str, object]] = []

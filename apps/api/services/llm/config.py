@@ -12,8 +12,13 @@ CLAUDE_SONNET = "claude-sonnet-4-6"
 CLAUDE_HAIKU = "claude-haiku-4-5"
 # OpenAI(상용) — 관리자 미설정 시 폴백. 실제 모델은 runtime_config의 openai_model이 우선.
 OPENAI_DEFAULT_MODEL = "gpt-5.4"
-EMBED_MODEL = "text-embedding-3-small"
-EMBED_DIM = 1536
+# 임베딩 — KURE-v1(BAAI/bge-m3 한국어 파인튜닝, 로컬 GPU 추론, 1024d). OpenAI text-embedding-3-small
+# 대비 한국어 self-retrieval 압도(1k 벤치 median rank 152→4, MRR 0.078→0.413)라 교체. MIT 라이선스.
+EMBED_MODEL = "nlpai-lab/KURE-v1"
+EMBED_DIM = 1024
+EMBED_MAX_SEQ = 8192  # KURE/bge-m3 최대 시퀀스 길이
+# KURE 추론 디바이스(빈 문자열이면 cuda 가용 시 cuda, 아니면 cpu). GPU 고정은 CUDA_VISIBLE_DEVICES로.
+EMBED_DEVICE = os.environ.get("EMBED_DEVICE", "")
 
 # sLLM (OpenAI 호환 vLLM) — base URL은 env(SLLM_BASE_URL)로 주입, 모델명은
 # resolve_sllm_model()로 lazy 결정. 운영 호스트(사내 IP)는 코드에 두지 않고 .env로만 주입한다.

@@ -43,6 +43,26 @@ async def lifespan(app: FastAPI):
         # 데이터 미준비 시에도 앱은 기동되어 /health 등은 응답하도록 (Phase 1 흐름 호환)
         logger.exception("페르소나 store 사전 로드 실패 — lazy 로드로 폴백")
 
+    # KURE 임베딩 인코더 사전 로드 — 첫 분석/검색의 모델 로드(~28초)를 startup에서 흡수.
+    # embed_text(쿼리)가 KURE in-process GPU 추론이라, 미리 로드해야 첫 요청이 끊기지 않는다.
+    try:
+        from services.llm.embedding import preload_embedder
+
+        preload_embedder()
+        logger.info("KURE 임베딩 인코더 사전 로드 완료")
+    except Exception:
+        logger.exception("임베딩 인코더 사전 로드 실패 — 첫 요청 시 lazy 로드로 폴백")
+
+    # 쿼리 임베딩 모델(KURE-v1) 사전 로드 — 첫 검색 요청의 모델 로드 지연(~28초)을 부팅에 흡수.
+    # GPU 미가용/로드 실패 시에도 앱은 기동(첫 요청 시 lazy 재시도).
+    try:
+        from services.llm import preload_embedder
+
+        preload_embedder()
+        logger.info("KURE 임베딩 모델 사전 로드 완료")
+    except Exception:
+        logger.exception("KURE 임베딩 모델 사전 로드 실패 — lazy 로드로 폴백")
+
     # 수동 재시작·크래시로 끊긴 설문(status='running')을 자동 이어 돌림.
     # completed 세션은 답변 캐시로 즉시 통과되므로 비용은 미완료분만 발생.
     try:
