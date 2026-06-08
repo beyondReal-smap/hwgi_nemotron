@@ -393,6 +393,12 @@ export function WhatIfLab({
             <legend className="text-body-sm text-ink font-semibold">
               관심사 가중치
             </legend>
+            <p className="text-caption text-dusty leading-relaxed">
+              타겟을 좁히는 <span className="text-graphite">필터가 아니라</span>{" "}
+              <span className="text-graphite font-medium">친화 재배치</span>입니다. 가중치를 높이면
+              그 관심사에 친한 층의 점수가 오르고 먼 층은 내려갑니다. 그래서 상품과 잘 맞는
+              관심사일수록 타겟이 늘고, 무관한 관심사는 오히려 줄어들 수 있습니다.
+            </p>
             {CATEGORY_KEYS.map((key) => (
               <RangeRow
                 key={key}
