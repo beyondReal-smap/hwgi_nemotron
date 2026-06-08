@@ -49,3 +49,7 @@ Thumbs.db
 
 # Archive (정리한 산출물 보관)
 .archive/
+
+# 로컬 에이전트 작업 산출물 (커밋 대상 아님)
+.claude/
+.collab-loop/

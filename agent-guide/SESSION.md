@@ -94,6 +94,32 @@ last-updated: 2026-06-03
 
 ## 최근 세션
 
+### 2026-06-08 — 와우 고도화 v2 (5대 묶음 풀 구현·배포)
+
+#### 세션 목표
+- 대표님 "미쳤다 수준 고도화" 요청 → 16에이전트 발굴 워크플로우(44아이디어) → 4묶음+SSE 전부 구현·배포.
+
+#### 구현 (5대 묶음)
+| 묶음 | 기능 | 핵심 |
+|------|------|------|
+| 🔬 유리상자 | Score DNA 워터폴·신뢰구간 | `scoring.py` 가산식 항분해(core vs pop delta), 해석적 CI+컷민감도. LLM 0콜 |
+| 👤 숫자→사람 | 세그먼트 발굴·VOC 이탈사유 | `segment_discovery.py` 신설(버려지던 cohort_indices 교차 lift), `ObjectionPanel` bottom_opinions 전면화 |
+| 🎯 처방 | 스윙층 X-레이·줄다리기·Split Playbook·승패도트 | `comparison.build_overlap_breakdown`(intersect/setdiff+`_build_demographics` 재사용) |
+| 🎛️ 손끝탐색 | What-if 실험실 | `whatif.py`(selling_points override→embed 캐시hit 0ms→재점수 2.3초), `WhatIfLab` 슬라이더 |
+| ⚡ SSE | 분석 스트리밍 | `analyze_stream.py`(첫결과 3초), `analyzeProductStream`+InputForm partial 렌더+fallback |
+
+- 백엔드 신규: segment_discovery·whatif·analyze_stream / 수정: scoring(all_scores 반환·8tuple)·comparison·analyze·abtest·schemas·main
+- 프론트 신규 7: ScoreDriverWaterfall·SegmentDiscoveryPanel·ObjectionPanel·WhatIfLab·SwingLayerXray·SplitPlaybook(+ReportSkeleton) / 수정: ABTestResultPanel·analyze/page·InputForm·lib/api
+
+#### 검증·배포
+- 100k 단위검증(가산식 항합=점수 정합, 컷민감도 단조, 3층분할 합 정합) + tsc·ruff·next build·schema:sync 통과
+- 배포: 백엔드 pm2 restart personafit-api(이 서버) + 프론트 tar→build→pm2 restart personafit-web(smap-v1)
+- **라이브 검증**: Score DNA delta+15.47, 세그먼트 lift 7.31배, What-if 2.3초, A/B 스윙 a_lean 75%, SSE 경유 첫결과 3초(nginx+next rewrites 버퍼링 통과 실증)
+
+#### 미확인·보류
+- 프론트 점진렌더 육안(playwright 불가 — 코드+빌드청크 검증 대체, 육안은 대표님)
+- 미커밋(대표님 요청 시), SSE 토큰 스트리밍(리포트 타이핑)은 후속 후보
+
 ### 2026-06-03
 
 #### 세션 목표
