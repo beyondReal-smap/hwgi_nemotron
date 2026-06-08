@@ -99,6 +99,13 @@ class PersonaStore:
         # (컬럼당 ~80ms)하지 않고 부팅 후 컬럼별 1회 계산해 재사용한다.
         self._nonempty_cache: dict[str, np.ndarray] = {}
         self._district_values_cache: set[str] | None = None
+        # 컬럼별 '전체 모집단' value_counts 캐시 — baseline-lift(타겟 cohort 분포를
+        # 모집단 분포와 비교한 과대/과소 표집 배수) 계산의 분모. 요청과 무관한 정적
+        # 통계라 부팅 후 컬럼별 1회만 집계한다.
+        self._population_counts_cache: dict[str, pd.Series] = {}
+        # 고유 직업명(~2120종)을 '|'로 합친 blob. 직업 카테고리 어근이 실제 직업명에
+        # substring으로 존재하는지 검증해(occupation_has_substring) 0매칭 어근을 걸러낸다.
+        self._occupation_blob: str | None = None
         # uuid → 행 위치(positional index) dict. uuid로 단건 조회 시 100만 행 boolean
         # 풀스캔(O(N)) 대신 O(1) iloc 조회를 제공한다. 부팅 후 1회 구축.
         self._uuid_to_pos: dict[str, int] = {
@@ -265,6 +272,40 @@ class PersonaStore:
                 cached = np.zeros(self.total, dtype=np.float32)
             self._nonempty_cache[col] = cached
         return cached
+
+    def population_counts(self, col: str) -> pd.Series:
+        """전체 모집단 기준 col 값 분포(value_counts). 부팅 후 컬럼별 1회 캐시.
+
+        baseline-lift 계산의 분모 — 타겟 cohort의 어떤 값이 모집단 대비 과대/과소
+        표집됐는지 배수로 보여주기 위해 필요하다. 결측 처리는 scoring._value_counts와
+        동일 규칙(object 컬럼만 '(미상)'으로 채우고, category/수치는 NaN 제외)이라
+        라벨이 타겟 분포와 정합한다.
+        """
+        cached = self._population_counts_cache.get(col)
+        if cached is None:
+            if col not in self.df.columns:
+                cached = pd.Series(dtype="int64")
+            else:
+                series = self.df[col]
+                if series.dtype == object:
+                    series = series.fillna("(미상)")
+                cached = series.value_counts()
+            self._population_counts_cache[col] = cached
+        return cached
+
+    def occupation_has_substring(self, root: str) -> bool:
+        """어근이 실제 직업명(KSCO) 중 하나에라도 substring으로 존재하는지 판정.
+
+        고유 직업명(~2120종)만 '|'로 join해 1회 캐시 → 100만 행 풀스캔을 회피한다.
+        직업 카테고리 어근('IT'·'생산직' 등)이 실제 직업명에 없으면(=isin/contains 0)
+        그 어근을 occupations에서 빼고 임베딩으로 강등하기 위한 검증 게이트.
+        """
+        if not root:
+            return False
+        if self._occupation_blob is None:
+            uniq = self.df["occupation"].dropna().astype(str).unique()
+            self._occupation_blob = "|".join(uniq)
+        return root in self._occupation_blob
 
 
 # ============================================================

@@ -22,7 +22,11 @@ import numpy as np
 from pydantic import BaseModel, Field
 
 from services.dataset_stats import count_by, occupations_grouped
-from services.query_normalization import family_types_for_has_children
+from services.query_normalization import (
+    normalize_extracted,
+    progressive_fallback,
+    snap_category_values,
+)
 from services.store import FilterParams, get_store
 
 # ============================================================
@@ -151,11 +155,9 @@ def filter_personas(req: PersonaFilterRequest) -> PersonaFilterResponse:
 
         t0 = time.perf_counter()
         try:
-            ex = extract_filter_from_query(req.query)
-            # has_children → family_types 자동 매핑 (extract 결과의 family_types는 쓰지 않고
-            # 동거/혼자 단서까지 반영하는 이 헬퍼로 단일화)
-            auto_family_types = family_types_for_has_children(ex.get("has_children"), req.query)
-            has_children = ex.get("has_children")
+            # 코드 정규화 일원화: family_types(has_children·1인가구→혼자 거주),
+            # age(세대 슬랭 MZ/Z/밀레니얼 등 보강), remaining_query(흡수 단서 제거)를 한 번에 처리.
+            ex = normalize_extracted(extract_filter_from_query(req.query), req.query, store)
 
             extracted = ExtractedFilter(
                 sex=ex.get("sex", []),
@@ -163,13 +165,15 @@ def filter_personas(req: PersonaFilterRequest) -> PersonaFilterResponse:
                 age_max=ex.get("age_max"),
                 provinces=ex.get("provinces", []),
                 marital_statuses=ex.get("marital_statuses", []),
-                has_children=has_children,
+                has_children=ex.get("has_children"),
                 employment_status=ex.get("employment_status"),
                 occupations=ex.get("occupations", []),
                 education_levels=ex.get("education_levels", []),
-                family_types=auto_family_types,
+                family_types=ex.get("family_types", []),
                 additional_filters=ex.get("additional_filters") or {},
-                remaining_query=ex.get("remaining_query", req.query),
+                # normalize가 흡수 단서를 제거한 잔여를 그대로 사용(빈 문자열이면 임베딩은 원문 fallback,
+                # 단 잔여가 비면 임계 컷은 적용 안 됨 → 메타 결과를 유사도 정렬만).
+                remaining_query=ex.get("remaining_query", ""),
             )
             # 잔여 텍스트가 너무 짧으면 원문으로 임베딩 (의미 손실 방지)
             embed_query_text = (
@@ -202,6 +206,29 @@ def filter_personas(req: PersonaFilterRequest) -> PersonaFilterResponse:
     merged_employment = extracted.employment_status if extracted else None
     merged_additional = extracted.additional_filters if extracted else None
 
+    # 구조화 필터(사이드바 명시값)는 normalize_extracted를 안 거친다 → 여기서 직업 어근확장 +
+    # 가구/학력 값 스내핑을 적용해 'IT'/'1인 가구' 같은 명시 입력의 isin/substring 0매칭(→AND 전멸)을
+    # 막는다. query 경로 추출값은 이미 정규화돼 있어 재적용해도 idempotent(안전).
+    merged_occupations = snap_category_values(merged_occupations, "occupation", store) or None
+    merged_family = snap_category_values(merged_family, "family_type") or None
+    merged_education = snap_category_values(merged_education, "education_level") or None
+
+    # 점진적 폴백용 — 병합 메타(LLM+명시) + 사용자 명시필터(완화 시 절대 보존할 바닥).
+    merged_meta = {
+        "age_min": merged_age_min, "age_max": merged_age_max,
+        "sex": merged_sex, "provinces": merged_provinces,
+        "marital_statuses": merged_marital, "family_types": merged_family,
+        "education_levels": merged_education, "occupations": merged_occupations,
+        "employment": merged_employment, "additional_filters": merged_additional,
+    }
+    explicit_meta = {
+        "age_min": req.age_min, "age_max": req.age_max,
+        "sex": req.sex or None, "provinces": req.provinces or None,
+        "family_types": req.family_types or None,
+        "education_levels": req.education_levels or None,
+        "occupations": req.occupations or None,
+    }
+
     # 2) 메타 필터 적용
     t0 = time.perf_counter()
     candidate_idx = store.filter_indices(FilterParams(
@@ -224,91 +251,22 @@ def filter_personas(req: PersonaFilterRequest) -> PersonaFilterResponse:
 
     meta_filter_total = int(len(candidate_idx))
 
-    # 폴백 헬퍼 — LLM이 좁은 라벨(직업·전공)을 너무 공격적으로 추출해 매칭이 0명일 때,
-    # 한 단계 또는 두 단계 더 시도해 사용자가 무조건 0명을 보지 않게 한다.
-    #
-    # 1단계: 좁은 라벨(occupations + bachelors_field)만 제거하고 그 키워드를 임베딩
-    #        텍스트에 합쳐, LLM의 나머지 메타(연령·지역·고용 등)는 유지한 채 시멘틱 검색.
-    # 2단계: 1단계도 0이면 LLM 추출 메타 전체를 해제하고 사용자가 사이드바에 직접
-    #        입력한 명시 필터만 유지한 채 원문 query를 임베딩으로 검색 (관대한 임계값).
-    # 두 단계 모두 사용자 명시 필터는 항상 보존된다.
-    def _try_keyword_fallback() -> tuple[np.ndarray, dict[int, float], float | None, str] | None:
-        if not req.query or extracted is None:
+    # 점진적 폴백 — 메타 매칭 0명일 때 약한 제약부터(occupation→학력→주거/전공→가구→혼인→지역→연령)
+    # 하나씩만 풀어 0을 벗어나는 즉시 멈춘다. 사용자 명시필터(explicit_meta)는 모든 단계에서
+    # 보존하므로, 기존처럼 '메타를 통째로 버려 연령·지역까지 잃는' 결함이 없다(메타 최대 보존).
+    def _run_fallback():
+        if not req.query:
             return None
         from services.llm import embed_text as _embed
-
-        def _emb_search(
-            cand_idx: np.ndarray, text_in: str, threshold: float,
-        ) -> tuple[np.ndarray, np.ndarray, float | None] | None:
-            if len(cand_idx) == 0 or not text_in.strip():
-                return None
-            vec = np.array(_embed(text_in), dtype=np.float32)
-            norm = float(np.linalg.norm(vec))
-            if norm == 0:
-                return None
-            q = (vec / norm).astype(np.float32)
-            sims = store.embeddings[cand_idx] @ q
-            order = np.argsort(-sims)
-            sorted_idx = cand_idx[order]
-            sorted_sims = sims[order]
-            keep = sorted_sims >= threshold
-            if keep.any():
-                return sorted_idx[keep], sorted_sims[keep], threshold
-            return None
-
-        # 1단계: 좁은 라벨(직업·전공) 제거 + 키워드를 임베딩 텍스트에 합쳐 재검색
-        narrowed_additional = dict(extracted.additional_filters or {})
-        keyword_frags: list[str] = list(extracted.occupations or [])
-        bf_vals = narrowed_additional.pop("bachelors_field", None)
-        if bf_vals:
-            keyword_frags.extend(bf_vals)
-        has_narrow_label = bool(extracted.occupations) or bool(bf_vals)
-
-        if has_narrow_label:
-            c1 = store.filter_indices(FilterParams(
-                age_min=merged_age_min, age_max=merged_age_max,
-                sex=merged_sex, provinces=merged_provinces,
-                marital_statuses=merged_marital, family_types=merged_family,
-                education_levels=merged_education,
-                occupations=req.occupations or None,  # LLM 추출 occupations는 폴백에서 제거
-                employment=merged_employment,
-                additional_filters=narrowed_additional or None,
-            ))
-            embed_text_in = " ".join([req.query.strip(), *keyword_frags]).strip()
-            r = _emb_search(c1, embed_text_in, 0.25)
-            if r is not None:
-                idx, sims, thr = r
-                kw_disp = ", ".join(keyword_frags) if keyword_frags else "키워드"
-                return (
-                    idx,
-                    {int(i): float(s) for i, s in zip(idx, sims, strict=False)},
-                    thr,
-                    f"직업·전공 라벨 매칭 0명 → '{kw_disp}' 키워드를 시멘틱 검색으로 보완",
-                )
-
-        # 2단계: LLM 추출 메타 전부 해제, 사용자 명시 메타만 유지 + 원문 임베딩
-        c2 = store.filter_indices(FilterParams(
-            age_min=req.age_min, age_max=req.age_max,
-            sex=req.sex or None, provinces=req.provinces or None,
-            family_types=req.family_types or None,
-            education_levels=req.education_levels or None,
-            occupations=req.occupations or None,
-        ))
-        r = _emb_search(c2, req.query, 0.20)
-        if r is not None:
-            idx, sims, thr = r
-            return (
-                idx,
-                {int(i): float(s) for i, s in zip(idx, sims, strict=False)},
-                thr,
-                "메타 조건 매칭 0명 → 자동 추출 메타 해제 후 원문 시멘틱 검색",
-            )
-        return None
+        return progressive_fallback(merged_meta, explicit_meta, store, _embed, req.query)
 
     if meta_filter_total == 0:
-        fb = _try_keyword_fallback()
-        if fb is not None:
-            candidate_idx, similarities, used_threshold, fallback_reason = fb
+        fb = _run_fallback()
+        if fb and len(fb["indices"]) > 0:
+            candidate_idx = fb["indices"]
+            similarities = fb["similarities"]
+            used_threshold = fb["threshold"]
+            fallback_reason = fb["fallback_reason"]
             fallback_applied = True
             # meta_filter_total은 '메타로는 0이었음'을 보존하기 위해 0 유지.
             # 임베딩 분기 진입은 fallback_applied로 차단된다.
@@ -389,10 +347,14 @@ def filter_personas(req: PersonaFilterRequest) -> PersonaFilterResponse:
                 and not short_residual_with_rich_meta
             )
             if has_semantic_residual or not has_extracted_meta:
-                used_threshold = QUERY_MATCH_THRESHOLD
                 keep_mask = sorted_sims >= QUERY_MATCH_THRESHOLD
-                candidate_idx = candidate_idx[keep_mask]
-                sorted_sims = sorted_sims[keep_mask]
+                if keep_mask.any() or not has_extracted_meta:
+                    # 자유어 검색(메타 없음)은 컷 필수(0도 진짜 무매칭). 메타가 있는데
+                    # 컷이 전부 지우면 컷을 해제해 메타 결과를 유사도 정렬만 유지한다 —
+                    # '주부'처럼 잔여어 임베딩 유사도가 낮아 0이 돼도 메타(무직 등)는 살린다.
+                    used_threshold = QUERY_MATCH_THRESHOLD
+                    candidate_idx = candidate_idx[keep_mask]
+                    sorted_sims = sorted_sims[keep_mask]
 
             similarities = {int(i): float(s) for i, s in zip(candidate_idx, sorted_sims, strict=False)}
         t_search = int((time.perf_counter() - t0) * 1000)
@@ -404,9 +366,12 @@ def filter_personas(req: PersonaFilterRequest) -> PersonaFilterResponse:
         # (이미 fallback_applied=True인 경우는 1단계 폴백 결과가 0건이 되는 코너 케이스인데,
         #  이때는 재호출하면 동일 결과만 반환하므로 빈 응답으로 종료한다.)
         if not fallback_applied:
-            fb = _try_keyword_fallback()
-            if fb is not None:
-                candidate_idx, similarities, used_threshold, fallback_reason = fb
+            fb = _run_fallback()
+            if fb and len(fb["indices"]) > 0:
+                candidate_idx = fb["indices"]
+                similarities = fb["similarities"]
+                used_threshold = fb["threshold"]
+                fallback_reason = fb["fallback_reason"]
                 fallback_applied = True
                 total = int(len(candidate_idx))
 

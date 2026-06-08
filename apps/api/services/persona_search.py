@@ -24,7 +24,7 @@ import time
 import numpy as np
 
 from services.llm import embed_text, extract_filter_from_query
-from services.query_normalization import family_types_for_has_children
+from services.query_normalization import normalize_extracted, progressive_fallback
 from services.store import FilterParams, get_store
 
 # 메타 추출이 비어 있을 때만 적용하는 fallback 임계값.
@@ -96,10 +96,12 @@ def search_personas(query: str, limit: int = 20) -> dict:
         ex = extract_filter_from_query(query)
     except Exception:
         ex = _empty_extracted(query)
+    # 코드 정규화: family_types(1인가구→혼자 거주)·age(세대 슬랭)·remaining_query 흡수 단서 제거
+    ex = normalize_extracted(ex, query, store)
     t_extract = int((time.perf_counter() - t0) * 1000)
 
-    # has_children → family_types 매핑
-    auto_family_types = family_types_for_has_children(ex.get("has_children"), query)
+    # 정규화가 채운 family_types 사용 (has_children + 1인가구 단서 반영)
+    auto_family_types = ex.get("family_types") or []
 
     # 2) 메타 필터 적용
     t0 = time.perf_counter()
@@ -124,27 +126,42 @@ def search_personas(query: str, limit: int = 20) -> dict:
         "family_types": auto_family_types,
     }
 
-    # 메타 필터로 0명이면 fallback: 자유어 임베딩 검색으로 전환 (사용자가 결과 0을 못 보게)
-    # → 메타 추출이 너무 공격적이었을 가능성을 흡수.
-    # 단, 메타가 0이면 자유어 검색 자체도 의미 없으므로 그냥 빈 응답을 돌려도 OK.
+    # 메타 필터로 0명이면 점진적 폴백: 약한 제약부터 하나씩 풀어(메타 보존) 0을 벗어난다.
+    # snap_to_valid가 isin 0을 대부분 차단하므로 여기 진입은 모순 조건 등 드문 케이스.
+    # search 경로는 사이드바 명시필터가 없어 explicit={}로 호출.
     if meta_filter_total == 0:
-        return {
-            "query": query,
-            "total_candidates": total_candidates,
-            "meta_filter_total": 0,
-            "match_total": 0,
-            "match_threshold": None,
-            "extracted_filter": extracted_filter,
-            "score_range": {"max": None, "min": None},
-            "elapsed_ms": {
-                "extract": t_extract,
-                "embed": 0,
-                "filter": t_filter,
-                "search": 0,
-                "total": int((time.perf_counter() - t_total) * 1000),
-            },
-            "results": [],
+        _merged = {
+            "age_min": ex.get("age_min"), "age_max": ex.get("age_max"),
+            "sex": ex.get("sex") or None, "provinces": ex.get("provinces") or None,
+            "marital_statuses": ex.get("marital_statuses") or None,
+            "family_types": auto_family_types or None,
+            "education_levels": ex.get("education_levels") or None,
+            "occupations": ex.get("occupations") or None,
+            "employment": ex.get("employment_status"),
+            "additional_filters": ex.get("additional_filters") or None,
         }
+        fb = progressive_fallback(_merged, {}, store, embed_text, query)
+        if len(fb["indices"]) > 0:
+            # 폴백이 메타 일부를 풀어 후보를 확보 → 아래 임베딩 정렬 흐름을 그대로 태운다.
+            candidate_idx = fb["indices"]
+        else:
+            return {
+                "query": query,
+                "total_candidates": total_candidates,
+                "meta_filter_total": 0,
+                "match_total": 0,
+                "match_threshold": None,
+                "extracted_filter": extracted_filter,
+                "score_range": {"max": None, "min": None},
+                "elapsed_ms": {
+                    "extract": t_extract,
+                    "embed": 0,
+                    "filter": t_filter,
+                    "search": 0,
+                    "total": int((time.perf_counter() - t_total) * 1000),
+                },
+                "results": [],
+            }
 
     # 3) 임베딩 정렬 + (필요 시) 임계값 컷
     # 임베딩에 넣을 텍스트 결정:
