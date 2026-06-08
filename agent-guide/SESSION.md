@@ -116,9 +116,20 @@ last-updated: 2026-06-03
 - 배포: 백엔드 pm2 restart personafit-api(이 서버) + 프론트 tar→build→pm2 restart personafit-web(smap-v1)
 - **라이브 검증**: Score DNA delta+15.47, 세그먼트 lift 7.31배, What-if 2.3초, A/B 스윙 a_lean 75%, SSE 경유 첫결과 3초(nginx+next rewrites 버퍼링 통과 실증)
 
+#### 후속 4종 (대표님 "남은 부분 수정" 요청)
+- **① 리포트 토큰 스트리밍**: `stream_report`(BaseLLMService 기본구현+SLLMService `stream=True` 오버라이드, `__init__` wrapper, analyze_stream `report_token` yield, InputForm 누적+120ms 스로틀) 구현. ⚠️ **실측: gemma-4-31B-it 게이트웨이가 `stream=True` 무시·단일청크 반환**(delta chunks=1) → 타이핑 효과 현재 비활성, graceful(1청크 정상표시). 게이트웨이 업글/OpenAI provider 시 코드변경 없이 자동 활성.
+- **② 분석 코파일럿**: `NextActionsPanel`(분석 결과로 다음분석 제안카드 3종, LLM 0콜 클라이언트규칙) + `personas/page` `?q=` 프리필(원클릭 자동탐색). SurveyCta 흡수.
+- **③ polish**: verifier 적대점검 P1 3건 수정 — SwingLayerXray 박빙모순(delta≈0 tie분기)·ScoreDriverWaterfall 음수delta 내러티브·WhatIfLab LLM가중치 0~1 클램프. +ObjectionPanel 죽은 이중sort 제거. 재배포(API재시작+smap-v1).
+
+#### 커밋·push (완료)
+- **의미 단위 9커밋 → origin/main push 완료**(`beyondReal-smap/hwgi_nemotron`, `beaa922..00b3357`).
+  - 와우 v2: `91fe891`(api) `76f5923`(web)
+  - 이전 보류분 7: `c002fad`겹침 / `7a3d133`멀티provider+admin / `d38af32`탐색 / `2d4dc61`설문 / `7ae5f51`UI wow+랜딩 / `a4b7570`data / `00b3357`docs+gitignore
+- 혼재파일(scoring/schemas/store 등)은 파일단위라 주의미 커밋에 귀속+메시지 명시. 산출물(`.claude/`·`.collab-loop/`)은 gitignore 처리(커밋 제외). push 대상 11(직전 미push 2 포함).
+
 #### 미확인·보류
 - 프론트 점진렌더 육안(playwright 불가 — 코드+빌드청크 검증 대체, 육안은 대표님)
-- 미커밋(대표님 요청 시), SSE 토큰 스트리밍(리포트 타이핑)은 후속 후보
+- SSE 리포트 토큰 타이핑(게이트웨이 한계로 대기), 코파일럿 Phase2+(승인형 연쇄) 후속 후보
 
 ### 2026-06-03
 
