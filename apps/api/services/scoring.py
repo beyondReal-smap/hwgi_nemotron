@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 import pandas as pd
 
@@ -25,6 +27,7 @@ from models.schemas import (
     ScoreDriver,
     SellingPoints,
 )
+from services.llm import embed_text
 from services.store import FilterParams, PersonaStore
 
 # 단계별 후보 수
@@ -216,50 +219,105 @@ def _occupation_match(df: pd.DataFrame, pattern: str) -> np.ndarray:
     return unique_match[codes].astype(np.float32)
 
 
-_CATEGORY_TO_PERSONA_COL = {
-    "professional": "professional_persona",
-    "sports": "sports_persona",
-    "arts": "arts_persona",
-    "travel": "travel_persona",
-    "culinary": "culinary_persona",
-    "family": "family_persona",
+# 카테고리 순서 — 친화도 행렬 컬럼 인덱스 ↔ 카테고리 키 (백엔드 persona_category_weights 키).
+_CATEGORY_ORDER: tuple[str, ...] = (
+    "professional",
+    "sports",
+    "arts",
+    "travel",
+    "culinary",
+    "family",
+)
+_CATEGORY_INDEX: dict[str, int] = {c: i for i, c in enumerate(_CATEGORY_ORDER)}
+
+# 6개 카테고리 '개념 문장' — persona 임베딩과 같은 공간에서 코사인을 재면 페르소나별
+# 카테고리 성향(친화도)을 얻는다. (구) non_empty 마스크(전원이 카테고리 텍스트를 100%
+# 채워 cat_all이 상수 1.0 → 가중치 무효)를 대체하는 변별 신호.
+_CATEGORY_CONCEPT_TEXT: dict[str, str] = {
+    "professional": "일과 직업, 커리어와 전문성, 직무 역량과 자기계발에 몰입하며 일에서 성취를 추구하는 사람",
+    "sports": "운동과 스포츠, 신체 활동과 체력 단련, 등산·헬스·구기 등 활동적인 야외 생활을 즐기는 사람",
+    "arts": "예술과 문화, 음악·미술·공연·전시 감상과 창작 등 문화예술 활동에 관심이 많은 사람",
+    "travel": "여행과 관광, 국내외 새로운 장소 탐방과 휴양·모험, 떠나는 경험 자체를 즐기는 사람",
+    "culinary": "요리와 미식, 맛집 탐방과 식도락, 음식을 만들고 맛보는 즐거움을 중시하는 사람",
+    "family": "가족과 가정, 자녀 양육과 부모 봉양, 가족과 함께 보내는 시간을 가장 소중히 여기는 사람",
 }
+
+# 친화도 행렬 1회 계산 직렬화 — 동시 첫 요청의 중복 embed/matmul 방지.
+_affinity_lock = threading.Lock()
+
+
+def _category_affinity_matrix(store: PersonaStore) -> np.ndarray:
+    """페르소나×카테고리 친화도 행렬 (N, 6), 카테고리별 백분위 정규화 [0,1] (평균 0.5).
+
+    persona 임베딩과 6개 카테고리 개념벡터의 코사인을 카테고리별 백분위 순위로 정규화한다.
+    백분위 정규화라 각 컬럼 평균이 정확히 0.5 → _category_bonus의 (cat-0.5) 가산 구조에서
+    가중치가 어떻든 모집단 평균 영향은 0(redistribution)이고, 가중 비중이 높은 카테고리에
+    강한 페르소나만 위로/약한 페르소나는 아래로 이동한다.
+
+    요청과 무관한 정적 속성이라 store 수명주기 동안 1회만 계산해 캐시(float32 N×6 ≈ 24MB).
+    개념 임베딩은 embed_text 영속 캐시 hit이 되므로 워밍업 후 임베딩 API 0콜.
+    """
+    cached = getattr(store, "_category_affinity_cache", None)
+    if cached is not None:
+        return cached
+    with _affinity_lock:
+        cached = getattr(store, "_category_affinity_cache", None)
+        if cached is not None:
+            return cached
+        # 6개 개념벡터(L2 정규화) → (1536, 6)
+        cols = []
+        for cat in _CATEGORY_ORDER:
+            v = np.asarray(embed_text(_CATEGORY_CONCEPT_TEXT[cat]), dtype=np.float32)
+            nrm = float(np.linalg.norm(v))
+            cols.append(v / nrm if nrm else v)
+        concept_mat = np.stack(cols, axis=1)  # (1536, 6)
+        # persona 임베딩은 사전 ~단위 정규화라 dot ≈ 코사인 (score_all_personas와 동일 전제).
+        raw = np.asarray(store.embeddings @ concept_mat, dtype=np.float32)  # (N, 6)
+        n = raw.shape[0]
+        ranks = np.arange(n, dtype=np.float32)
+        aff = np.empty_like(raw)
+        for j in range(raw.shape[1]):
+            order = np.argsort(raw[:, j], kind="stable")
+            col = np.empty(n, dtype=np.float32)
+            col[order] = (ranks + 0.5) / n  # 백분위 [0,1], 평균 0.5
+            aff[:, j] = col
+        store._category_affinity_cache = aff
+        return aff
 
 
 def _category_bonus(
     rows: pd.DataFrame, sp: SellingPoints, store: PersonaStore | None = None
 ) -> np.ndarray:
-    """카테고리 보너스 (0-1).
+    """카테고리 보너스 (0~1) — 개념벡터 친화도 가중합.
 
-    MVP에서는 카테고리별 임베딩을 만들지 않았으므로,
-    가중치가 높은 카테고리의 페르소나 텍스트가 비어있지 않은 경우 1.0,
-    아니면 0.5의 평탄한 보너스를 부여 (사실상 가중치만 가산).
+    persona 임베딩과 6개 카테고리 개념벡터의 코사인을 카테고리별 백분위로 정규화한
+    친화도 행렬(_category_affinity_matrix)을 사용자/LLM 가중치로 가중평균한다.
+    가중 비중이 높은 카테고리에 강한 페르소나가 위로 올라가므로, What-if 슬라이더·LLM
+    카테고리 가중치가 실제 점수·코호트·분포에 반영된다.
 
-    추후 카테고리별 임베딩을 추가하면 여기서 카테고리 코사인 유사도 가중합으로 교체.
-
-    store가 주어지고 rows가 전체 모집단(len == store.total)이면 store.nonempty_mask 캐시를
-    사용해 매 스코어링마다 반복되던 1M 행 str.len()(컬럼당 ~80ms)을 제거한다.
+    (구) non_empty 마스크는 모든 페르소나가 6개 카테고리 텍스트를 100% 채워 cat_all이
+    상수 1.0이 되는 degenerate 결함이 있어 친화도 방식으로 대체했다(2026-06-08).
     """
     weights = sp.persona_category_weights or {}
     if not weights:
         return np.full(len(rows), 0.5, dtype=np.float32)
 
-    use_cache = store is not None and len(rows) == store.total
-
-    # 가중치 합으로 정규화
     total_w = sum(weights.values()) or 1.0
-    weighted = np.zeros(len(rows), dtype=np.float32)
-    for cat, w in weights.items():
-        col = _CATEGORY_TO_PERSONA_COL.get(cat)
-        if not col or col not in rows.columns:
-            continue
-        if use_cache:
-            non_empty = store.nonempty_mask(col)
-        else:
-            non_empty = (rows[col].fillna("").str.len() > 0).to_numpy(dtype=np.float32)
-        weighted += (w / total_w) * non_empty
 
-    return weighted  # 0~1
+    # 친화도 행렬은 전체 모집단 기준 백분위 정규화라 rows가 전체일 때만 유효.
+    # (score_all_personas는 항상 store.df 전체로 호출 → 정상 경로.)
+    if store is not None and len(rows) == store.total:
+        aff = _category_affinity_matrix(store)  # (N, 6) in [0,1]
+        weighted = np.zeros(len(rows), dtype=np.float32)
+        for cat, w in weights.items():
+            j = _CATEGORY_INDEX.get(cat)
+            if j is None:
+                continue
+            weighted += np.float32(w / total_w) * aff[:, j]
+        return weighted  # 0~1, 평균 0.5
+
+    # 부분집합 폴백(현재 호출 경로엔 없음): 모집단 백분위 무효 → 중립 0.5.
+    return np.full(len(rows), 0.5, dtype=np.float32)
 
 
 def _compute_percentile_for_hits(
