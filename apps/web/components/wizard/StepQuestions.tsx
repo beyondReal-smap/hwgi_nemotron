@@ -144,7 +144,7 @@ export function StepQuestions({
 
   return (
     <>
-    <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.5fr] gap-5">
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_1.5fr] gap-5 items-start">
       {/* 좌측: 질문 리스트 */}
       <section className="bg-snow border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
         <header className="px-4 py-2.5 border-b border-parchment flex flex-col gap-2">
@@ -193,7 +193,7 @@ export function StepQuestions({
                          hover:bg-onyx active:bg-graphite transition-colors
                          disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
             >
-              {aiLoading ? "추천 중…" : "5문항 자동 생성"}
+              {aiLoading ? "추천 중…" : aiMode === "append" ? "5문항 추가 자동 생성" : "5문항 전체 자동 생성"}
             </button>
           </div>
           {aiError && (

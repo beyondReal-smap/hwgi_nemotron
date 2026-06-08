@@ -19,7 +19,7 @@ QuestionType = Literal["single_choice", "multi_choice", "scale", "open_ended", "
 SurveyStatus = Literal["draft", "running", "completed", "failed"]
 SessionStatus = Literal["pending", "running", "completed", "failed"]
 SamplingMode = Literal["all", "random_n", "proportional"]
-LLMProvider = Literal["anthropic", "sllm"]
+LLMProvider = Literal["anthropic", "sllm", "openai"]
 
 
 # ============================================================

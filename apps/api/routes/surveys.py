@@ -10,10 +10,12 @@
 
 from __future__ import annotations
 
+import logging
+import random
 import uuid as _uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
 from models.survey import (
@@ -24,7 +26,14 @@ from models.survey import (
     TargetFilter,
 )
 from services import survey_repo
-from services.llm import generate_survey_questions
+from services.llm import (
+    generate_survey_placeholders,
+    generate_survey_questions,
+    resolve_sllm_model,
+)
+from services.pii_mask import mask_pii
+
+logger = logging.getLogger("personafit.surveys")
 
 router = APIRouter(prefix="/api/surveys", tags=["surveys"])
 
@@ -86,6 +95,55 @@ def list_surveys_endpoint(
 ) -> SurveyListResponse:
     items, total = survey_repo.list_surveys(status=status, limit=limit, offset=offset)
     return SurveyListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+# 설문 placeholder 예시 — 작성 폼 입력칸 힌트를 매번 LLM으로 신선하게 생성.
+# ⚠️ 라우트 순서 주의: 정적 경로라 동적 "/{survey_id}"보다 먼저 등록해야 가로채이지 않는다.
+_PLACEHOLDER_CATEGORIES = [
+    "건강보험", "자동차보험", "연금·노후 준비", "신용카드 혜택", "대출·금융 상품",
+    "배달·외식", "카페·디저트", "간편식·밀키트", "여행·숙박", "온라인 쇼핑",
+    "모빌리티·대중교통", "OTT·구독 서비스", "헬스·운동", "주거·인테리어",
+    "교육·자기계발", "뷰티·화장품", "반려동물", "친환경·ESG 소비",
+]
+
+_FALLBACK_PLACEHOLDER = {
+    "title": "30대 직장인의 점심 식사 만족도",
+    "description": "사내 식당 메뉴 다양성 부족 가설을 검증",
+    "objective": "메뉴 다양성·가격·접근성 중 만족도를 좌우하는 핵심 요인을 파악",
+}
+
+
+@router.get("/placeholder-examples")
+def placeholder_examples(response: Response) -> dict:
+    """설문 작성 폼 placeholder 예시 1세트(제목·설명·목적). 매 호출 다른 분야로 생성.
+
+    placeholder는 부가 기능이라 LLM 실패 시 고정 폴백 예시로 graceful degradation한다.
+    매 호출 다른 예시를 보장하기 위해 캐시를 끈다(브라우저/프록시 GET 캐시 방지).
+    """
+    response.headers["Cache-Control"] = "no-store"
+    category = random.choice(_PLACEHOLDER_CATEGORIES)
+    try:
+        result = generate_survey_placeholders(category)
+        # 누락 필드는 폴백으로 보충 (부분 응답 방어)
+        return {k: (result.get(k) or _FALLBACK_PLACEHOLDER[k]) for k in _FALLBACK_PLACEHOLDER}
+    except Exception as e:
+        logger.warning("placeholder 생성 실패, 폴백 사용: %s", e)
+        return dict(_FALLBACK_PLACEHOLDER)
+
+
+@router.get("/sllm-model")
+def sllm_model_info() -> dict:
+    """현재 sLLM 게이트웨이가 실제 호스팅 중인 모델명 (SSOT).
+
+    프론트(설문 생성 폼)가 모델명을 하드코딩하지 않고 이 값을 단일 출처로 사용한다.
+    서버가 모델을 교체해도 자동으로 따라가 표시-실제 불일치를 원천 차단한다.
+    ⚠️ 라우트 순서 주의: 정적 경로라 동적 "/{survey_id}"보다 먼저 등록해야 가로채이지 않는다.
+    조회 실패(백엔드 미기동 등) 시 502 — 프론트는 폴백 라벨을 표시한다.
+    """
+    try:
+        return {"model": resolve_sllm_model()}
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
 
 
 @router.get("/{survey_id}", response_model=Survey)
@@ -189,12 +247,16 @@ def suggest_questions(req: SuggestQuestionsRequest) -> SuggestQuestionsResponse:
 
     try:
         raw = generate_survey_questions(
-            title=req.title,
-            description=req.description,
-            objective=req.objective,
-            target_summary=_target_summary(req.target_filter),
+            title=mask_pii(req.title),
+            description=mask_pii(req.description),
+            objective=mask_pii(req.objective),
+            target_summary=mask_pii(_target_summary(req.target_filter)),
             num=req.num,
-            existing_question_texts=req.existing_question_texts or None,
+            existing_question_texts=(
+                [mask_pii(t) for t in req.existing_question_texts]
+                if req.existing_question_texts
+                else None
+            ),
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI 추천 실패: {e}") from e

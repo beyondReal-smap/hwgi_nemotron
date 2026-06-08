@@ -812,3 +812,34 @@ def _format_context_for_commentary(stats: dict) -> str:
                 lines.append(f"  - {ans}")
 
     return "\n".join(lines)
+
+
+# ============================================================
+# 설문 placeholder 예시 생성 (Haiku/sLLM tool_use)
+# ============================================================
+
+_SURVEY_PLACEHOLDER_TOOL = {
+    "name": "submit_survey_placeholder",
+    "description": "설문 작성 폼의 입력 예시(placeholder)로 쓸 설문 1세트를 제출합니다.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "minLength": 6, "maxLength": 40,
+                      "description": "설문 제목 예시"},
+            "description": {"type": "string", "minLength": 10, "maxLength": 80,
+                            "description": "설명 예시"},
+            "objective": {"type": "string", "minLength": 12, "maxLength": 100,
+                          "description": "조사 목적 예시"},
+        },
+        "required": ["title", "description", "objective"],
+    },
+}
+
+
+def _build_placeholder_user_prompt(category: str) -> str:
+    """분야 힌트를 담은 user 메시지 — 매 호출 다른 분야로 다양성 확보."""
+    return (
+        f"이번에는 '{category}' 분야의 설문 예시 1세트를 만들어 "
+        f"submit_survey_placeholder 도구로 제출하세요. "
+        f"제목·설명·목적이 하나의 일관된 설문으로 연결되게 하세요."
+    )

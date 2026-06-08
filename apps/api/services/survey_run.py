@@ -115,7 +115,21 @@ async def run_survey(survey: Survey) -> None:
         survey_repo.update_survey(survey)
         return
 
-    # 1) survey 상태 running
+    # 1) survey 상태 running + 실제 호출 모델명 기록 (표시 SSOT)
+    # 실제 provider는 enforce_provider()가 서버 전역 설정으로 강제하므로(관리자 페이지에서 선택),
+    # 진행/리포트 화면(execution.model)·세션 기록(llm_model_used)이 실제 호출 모델을 가리키도록
+    # 전역 provider 기준으로 모델명을 정정한다. best-effort(실패해도 호출 자체는 정상).
+    from services.llm import enforce_provider
+    actual_provider = enforce_provider(survey.execution.llm_provider)
+    if actual_provider == "sllm":
+        try:
+            from services.llm import resolve_sllm_model
+            survey.execution.model = resolve_sllm_model()
+        except RuntimeError as e:
+            logger.warning("sLLM 모델명 resolve 실패 — execution.model 표시 갱신 건너뜀: %s", e)
+    elif actual_provider == "openai":
+        from services.runtime_config import load_llm_config
+        survey.execution.model = load_llm_config().get("openai_model") or survey.execution.model
     survey.status = "running"
     survey.updated_at = _now()
     survey_repo.update_survey(survey)

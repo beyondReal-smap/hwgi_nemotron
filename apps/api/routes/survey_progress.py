@@ -6,13 +6,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from models.survey import SurveyStatus
+from models.survey import Answer, Question, SurveyStatus
 from services import survey_repo
+from services.store import get_store
 from services.survey_run import run_survey
 
 logger = logging.getLogger("personafit.survey_progress")
@@ -113,6 +115,106 @@ def survey_status(survey_id: str) -> SurveyStatusResponse:
         total_tokens=total_tokens,
         failed_personas=failed[:50],  # 최대 50개만 (UI 부담 방지)
     )
+
+
+# ============================================================
+# 실시간 응답 라이브 피드 — '방금 답한 페르소나'가 흘러 들어오는 ticker
+# ============================================================
+
+
+class RecentAnswer(BaseModel):
+    """라이브 피드 한 줄 — 막 완료된 한 페르소나의 마지막 답변.
+
+    PII 보호(survey_response.md 집단성 원칙): UUID·이름 절대 비노출.
+    성별/나이/지역 + 답변 본문(요약)만 노출한다.
+    """
+
+    persona_summary: str = Field(..., description='식별 불가 한 줄 (예: "여 34 · 서울 강남구")')
+    question_text: str = Field(..., description="해당 답변의 질문")
+    answer_text: str = Field(..., description="렌더된 답변 (선택지/점수/자유응답)")
+    reasoning: str = Field("", description="간단한 응답 근거 (있으면)")
+    completed_at: str | None = Field(None, description="완료 시각 ISO")
+
+
+class RecentAnswersResponse(BaseModel):
+    items: list[RecentAnswer]
+    completed_total: int = Field(0, description="완료 세션 누적 수 (피드 갱신 트리거용)")
+
+
+def _persona_oneliner(row) -> str:
+    """페르소나 행 → PII 없는 한 줄 요약. 행 없으면 빈 표기."""
+    if row is None:
+        return "익명 응답자"
+    sex = str(row.get("sex", "") or "")
+    sex_short = {"남자": "남", "여자": "여"}.get(sex, sex)
+    age = row.get("age")
+    # NaN은 `is not None`을 통과하나 int(NaN)→ValueError(500). 안전 변환.
+    age_str = ""
+    if age is not None and age == age:  # NaN != NaN
+        try:
+            age_str = str(int(age))
+        except (ValueError, TypeError):
+            age_str = ""
+    province = str(row.get("province", "") or "")
+    district = str(row.get("district", "") or "")
+    # district는 "시도-시군구" 형식 → 시군구만 추출해 시도와 함께 표기
+    district_suffix = district.split("-", 1)[-1] if "-" in district else district
+    region = " ".join(p for p in (province, district_suffix) if p)
+    head = " ".join(s for s in (sex_short, age_str) if s)
+    return " · ".join(p for p in (head, region) if p) or "익명 응답자"
+
+
+def _render_answer(ans: Answer, q: Question | None) -> str:
+    """answer_value를 사람이 읽는 한 줄로. 유형별 분기."""
+    v = ans.answer_value
+    if isinstance(v, list):
+        text = " · ".join(str(x) for x in v)
+    elif isinstance(v, int) and q is not None and q.type in ("scale", "nps"):
+        text = f"{v}점"
+    else:
+        text = str(v)
+    return text[:120]
+
+
+@router.get("/{survey_id}/recent-answers", response_model=RecentAnswersResponse)
+def recent_answers(
+    survey_id: str, limit: int = Query(8, ge=1, le=20)
+) -> RecentAnswersResponse:
+    """막 완료된 페르소나들의 마지막 답변 N개 (완료 시각 내림차순).
+
+    진행 화면의 라이브 ticker용. status와 분리한 별도 경량 엔드포인트라 polling
+    부담을 status에 얹지 않는다. LLM 호출 0(저장된 세션 슬라이스), PII 비노출.
+    """
+    survey = survey_repo.get_survey(survey_id)
+    if survey is None:
+        raise HTTPException(status_code=404, detail="survey not found")
+
+    sessions = survey_repo.list_sessions(survey_id)
+    qmap: dict[str, Question] = {q.id: q for q in survey.questions}
+
+    completed = [
+        s for s in sessions
+        if s.status == "completed" and s.answers and s.completed_at is not None
+    ]
+    completed.sort(key=lambda s: s.completed_at or datetime.min, reverse=True)
+
+    store = get_store()
+    items: list[RecentAnswer] = []
+    for s in completed[:limit]:
+        ans = s.answers[-1]  # 가장 최근 답한 문항 = '방금 한 답'
+        q = qmap.get(ans.question_id)
+        row = store.get_row_by_uuid(s.persona_uuid)
+        items.append(
+            RecentAnswer(
+                persona_summary=_persona_oneliner(row),
+                question_text=(q.text if q is not None else ""),
+                answer_text=_render_answer(ans, q),
+                reasoning=(ans.reasoning or "")[:120],
+                completed_at=s.completed_at.isoformat() if s.completed_at else None,
+            )
+        )
+
+    return RecentAnswersResponse(items=items, completed_total=len(completed))
 
 
 class RetryResponse(BaseModel):

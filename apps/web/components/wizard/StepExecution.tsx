@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
-import type { LLMProvider } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { getSllmModel } from "@/lib/api";
 import type { WizardState } from "./types";
 
 /**
@@ -19,17 +19,6 @@ import type { WizardState } from "./types";
  *  - 예상 비용 = 모델별 단가
  */
 
-// 사내 sLLM(Qwen)을 기본·우선. 첫 항목이 각 provider의 기본 선택.
-const MODELS: Record<LLMProvider, { value: string; label: string; input_per_mtok: number; output_per_mtok: number }[]> = {
-  sllm: [
-    { value: "Qwen3.6-27B-FP8", label: "사내 sLLM (무료 · 기본)", input_per_mtok: 0, output_per_mtok: 0 },
-  ],
-  anthropic: [
-    { value: "claude-haiku-4-5", label: "Claude Haiku 4.5 (빠름·저렴)", input_per_mtok: 0.8, output_per_mtok: 4.0 },
-    { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (균형)", input_per_mtok: 3.0, output_per_mtok: 15.0 },
-  ],
-};
-
 const INPUT_TOKENS_PER_CALL = 300;
 const OUTPUT_TOKENS_PER_CALL = 100;
 
@@ -44,54 +33,37 @@ export function StepExecution({
     setState({ ...state, execution: { ...state.execution, ...p } });
   }
 
-  const totalCalls = state.targets.preview_persona_uuids.length * state.questions.length;
+  // 백엔드에서 실제 sLLM 모델명 조회. 실패 시 null → 일반 라벨로 폴백(호출/표시는
+  // 백엔드 run_survey가 실행 시점에 실제 모델명으로 정정하므로 기능엔 영향 없음).
+  const [sllmModel, setSllmModel] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getSllmModel()
+      .then((r) => alive && setSllmModel(r.model))
+      .catch(() => alive && setSllmModel(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const model = useMemo(
-    () =>
-      MODELS[state.execution.llm_provider].find((m) => m.value === state.execution.model) ??
-      MODELS[state.execution.llm_provider][0],
-    [state.execution.llm_provider, state.execution.model],
-  );
+  // 조회된 모델명을 execution.model에 반영 (생성 시점부터 실제 모델명 저장).
+  useEffect(() => {
+    if (sllmModel && state.execution.llm_provider === "sllm" && state.execution.model !== sllmModel) {
+      patch({ model: sllmModel });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sllmModel]);
+
+  const totalCalls = state.targets.preview_persona_uuids.length * state.questions.length;
 
   const inputTokens = totalCalls * INPUT_TOKENS_PER_CALL;
   const outputTokens = totalCalls * OUTPUT_TOKENS_PER_CALL;
   const totalTokens = inputTokens + outputTokens;
-  const costUsd =
-    (inputTokens / 1_000_000) * model.input_per_mtok +
-    (outputTokens / 1_000_000) * model.output_per_mtok;
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
       {/* 좌측: 실행 설정 */}
       <div className="flex flex-col gap-4">
-        {/* Provider — Anthropic 비활성. 사내 sLLM 단일 사용 안내. */}
-        <SubCard title="LLM Provider">
-          <p className="text-body-sm text-graphite">
-            <span className="text-ink font-medium">사내 sLLM</span>
-            <span className="text-dusty"> · 무료 · 사내 엔드포인트</span>
-          </p>
-        </SubCard>
-
-        {/* 모델 select */}
-        <SubCard title="모델">
-          <select
-            value={state.execution.model}
-            onChange={(e) => patch({ model: e.target.value })}
-            className="w-full px-3 py-2 bg-snow border border-onyx/15 rounded-[9.6px]
-                       text-body-sm text-ink focus:outline-none focus:ring-2 focus:ring-azure"
-          >
-            {MODELS[state.execution.llm_provider].map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-caption text-dusty mt-2 tabular-nums">
-            단가: input ${model.input_per_mtok.toFixed(2)} / 1M tok · output $
-            {model.output_per_mtok.toFixed(2)} / 1M tok
-          </p>
-        </SubCard>
-
         {/* Temperature */}
         <SubCard
           title="Temperature"
@@ -136,7 +108,7 @@ export function StepExecution({
 
       {/* 우측: 비용 산출 */}
       <div className="flex flex-col gap-4">
-        <SubCard title="예상 비용 산출">
+        <SubCard title="예상 사용량">
           {totalCalls === 0 ? (
             <p className="text-caption text-graphite bg-terra/10 border border-terra/30 rounded px-3 py-2">
               ⚠ 대상자(Step 2)와 질문(Step 3)을 먼저 확정하세요
@@ -177,24 +149,13 @@ export function StepExecution({
                 {totalTokens.toLocaleString()} tok
               </dd>
 
-              <dt className="text-dusty col-span-2 border-t border-parchment pt-2 mt-1">
-                예상 비용
-              </dt>
-              <dt className="text-ink font-medium">USD</dt>
-              <dd className="text-terra text-right font-mono tabular-nums font-semibold">
-                ${costUsd.toFixed(4)}
-              </dd>
-              <dt className="text-ink font-medium">KRW (≈)</dt>
-              <dd className="text-terra text-right font-mono tabular-nums font-semibold">
-                ₩{(costUsd * 1380).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-              </dd>
             </dl>
           )}
 
           <p className="text-caption text-dusty mt-3 pt-3 border-t border-parchment">
             추정 가정: 호출당 입력 {INPUT_TOKENS_PER_CALL} tok + 출력{" "}
             {OUTPUT_TOKENS_PER_CALL} tok. 실제 토큰은 ±30% 범위에서 변동할 수 있습니다.
-            동일 (페르소나·질문·모델) 조합은 캐싱되어 재실행 시 비용 0.
+            동일 (페르소나·질문) 조합은 캐싱되어 재실행 시 추가 호출이 없습니다.
           </p>
         </SubCard>
 
@@ -209,9 +170,6 @@ export function StepExecution({
             </li>
             <li>
               <strong className="text-ink">질문:</strong> {state.questions.length}개
-            </li>
-            <li>
-              <strong className="text-ink">모델:</strong> {model.label}
             </li>
           </ul>
         </SubCard>

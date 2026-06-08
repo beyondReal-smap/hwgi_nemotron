@@ -46,7 +46,7 @@ export function ReportChartScale({ q }: { q: QuestionReport }) {
               <span className="font-mono text-graphite">{q.scale_median.toFixed(1)}</span>
             </>
           )}
-          {" · 평균 자신감 "}
+          {" · 평균 확신도 "}
           <span className="font-mono text-graphite">{(q.avg_confidence * 100).toFixed(0)}%</span>
         </p>
       </header>

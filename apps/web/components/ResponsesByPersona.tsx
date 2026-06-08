@@ -167,11 +167,16 @@ function AnswerCard({
           <>
             <p className="text-body text-ink">
               <span className="font-medium">
-                {formatAnswerValue(answer.answer_value)}
+                {formatAnswerValue(answer.answer_value, question)}
               </span>
             </p>
+            {question.type === "scale" && question.scale_label_low && question.scale_label_high && (
+              <p className="text-caption text-stone mt-0.5">
+                {question.scale_min ?? 1} {question.scale_label_low} ~ {question.scale_max ?? 5} {question.scale_label_high}
+              </p>
+            )}
             <p className="text-caption text-dusty mt-1 tabular-nums">
-              자신감 <span className="font-mono text-terra">
+              확신도 <span className="font-mono text-terra">
                 {(answer.confidence * 100).toFixed(0)}%
               </span>
             </p>
@@ -217,7 +222,17 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   nps: "NPS",
 };
 
-function formatAnswerValue(v: string | number | string[]): string {
+// 답변값을 사람이 읽는 문자열로 — 척도·NPS는 숫자만 저장되므로 척도 기준/만점을 함께 표기
+function formatAnswerValue(v: string | number | string[], q: SurveyQuestion): string {
   if (Array.isArray(v)) return v.join(" · ");
+  if (q.type === "scale") {
+    const n = Number(v);
+    const max = q.scale_max ?? 5;
+    // 양 끝점은 해당 앵커 라벨을 병기 (중간값은 답변 아래 척도 안내로 맥락 제공)
+    if (n === q.scale_min && q.scale_label_low) return `${n} / ${max} · ${q.scale_label_low}`;
+    if (n === q.scale_max && q.scale_label_high) return `${n} / ${max} · ${q.scale_label_high}`;
+    return `${n} / ${max}`;
+  }
+  if (q.type === "nps") return `${Number(v)} / 10`;
   return String(v);
 }

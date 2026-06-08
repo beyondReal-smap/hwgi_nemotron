@@ -6,8 +6,8 @@ import type { PersonaWithSession, SurveyQuestion } from "@/lib/api";
 /**
  * 질문별 응답 뷰 — 질문 선택 → 모든 페르소나의 답변을 표/카드로 비교.
  *
- * 객관식·척도·NPS: 표 형태 (페르소나 + 답변 + 자신감)
- * 주관식: 카드 형태 (답변 텍스트 + 페르소나 라벨 + 자신감)
+ * 객관식·척도·NPS: 표 형태 (페르소나 + 답변 + 확신도)
+ * 주관식: 카드 형태 (답변 텍스트 + 페르소나 라벨 + 확신도)
  */
 export function ResponsesByQuestion({
   items,
@@ -68,7 +68,7 @@ export function ResponsesByQuestion({
         ) : selectedQuestion.type === "open_ended" ? (
           <OpenEndedList answers={answers} />
         ) : (
-          <ChoiceTable answers={answers} />
+          <ChoiceTable answers={answers} question={selectedQuestion} />
         )}
       </div>
     </section>
@@ -89,20 +89,29 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
 
 function ChoiceTable({
   answers,
+  question,
 }: {
   answers: { item: PersonaWithSession; answer: PersonaWithSession["session"]["answers"][number] }[];
+  question: SurveyQuestion;
 }) {
+  // 척도 양 끝 앵커 라벨 — 표 상단에 한 번 안내해 모든 숫자 응답의 맥락을 제공
+  const scaleHint =
+    question.type === "scale" && question.scale_label_low && question.scale_label_high
+      ? `척도 ${question.scale_min ?? 1} ${question.scale_label_low} ~ ${question.scale_max ?? 5} ${question.scale_label_high}`
+      : null;
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-body-sm">
         <caption className="sr-only sm:not-sr-only sm:px-3 sm:py-2 sm:text-left sm:text-caption sm:text-dusty">
           페르소나별 응답 · 좁은 화면에서는 좌우로 스크롤하세요
+          {scaleHint && <span className="text-stone">{" · "}{scaleHint}</span>}
         </caption>
         <thead className="bg-snow">
           <tr className="text-left text-overline text-dusty">
             <th scope="col" className="px-3 py-2">페르소나</th>
             <th scope="col" className="px-3 py-2">답변</th>
-            <th scope="col" className="px-3 py-2 text-right">자신감</th>
+            <th scope="col" className="px-3 py-2 text-right">확신도</th>
             <th scope="col" className="px-3 py-2">근거</th>
           </tr>
         </thead>
@@ -113,7 +122,7 @@ function ChoiceTable({
                 {item.sex} {item.age}세 · {item.province}
               </th>
               <td className="px-3 py-2 text-ink font-medium">
-                {formatValue(answer.answer_value)}
+                {formatAnswer(answer.answer_value, question)}
               </td>
               <td className="px-3 py-2 text-right text-terra font-mono tabular-nums">
                 {(answer.confidence * 100).toFixed(0)}%
@@ -138,7 +147,7 @@ function OpenEndedList({
 }: {
   answers: { item: PersonaWithSession; answer: PersonaWithSession["session"]["answers"][number] }[];
 }) {
-  // 자신감 내림차순 정렬
+  // 확신도 내림차순 정렬
   const sorted = [...answers].sort((a, b) => b.answer.confidence - a.answer.confidence);
 
   return (
@@ -173,7 +182,17 @@ function OpenEndedList({
   );
 }
 
-function formatValue(v: string | number | string[]): string {
+// 답변값을 사람이 읽는 문자열로 — 척도·NPS는 숫자만 저장되므로 척도 기준/만점을 함께 표기
+function formatAnswer(v: string | number | string[], q: SurveyQuestion): string {
   if (Array.isArray(v)) return v.join(" · ");
+  if (q.type === "scale") {
+    const n = Number(v);
+    const max = q.scale_max ?? 5;
+    // 양 끝점은 해당 앵커 라벨을 병기 (중간값은 캡션의 척도 안내로 맥락 제공)
+    if (n === q.scale_min && q.scale_label_low) return `${n} / ${max} · ${q.scale_label_low}`;
+    if (n === q.scale_max && q.scale_label_high) return `${n} / ${max} · ${q.scale_label_high}`;
+    return `${n} / ${max}`;
+  }
+  if (q.type === "nps") return `${Number(v)} / 10`;
   return String(v);
 }

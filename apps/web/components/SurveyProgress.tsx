@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  getRecentAnswers,
   retryFailedSessions,
   triggerSurveyRun,
+  type RecentAnswer,
   type SurveyStatusResponse,
 } from "@/lib/api";
 import { ConfirmModal } from "@/components/ConfirmModal";
@@ -78,12 +80,63 @@ export function SurveyProgress({
   }
 
   // pm2 재시작 등으로 background task가 끊긴 정황 감지:
-  // status가 running인데 일정 시간 동안 답변이 늘지 않으면 사용자에게 "강제 재시작" 권장.
+  // status가 running인데 답변이 늘지 않으면 사용자에게 "강제 재시작" 권장.
+  // 단, 설문 시작(진행 화면 진입) 직후에는 아직 토큰·완료가 0이라 이 조건을 그대로 충족한다 —
+  // 첫 응답이 나오기까지 시간이 걸리므로, 진입 후 STUCK_GRACE_MS 동안은 stuck 경고를 띄우지 않는다.
+  const mountedAtRef = useRef(Date.now());
+  const STUCK_GRACE_MS = 60_000; // 60초
   const isStuck =
     status.survey_status === "running" &&
     status.counts.completed + status.counts.failed === 0 &&
     status.counts.running > 0 &&
-    status.total_tokens === 0;
+    status.total_tokens === 0 &&
+    Date.now() - mountedAtRef.current > STUCK_GRACE_MS;
+
+  // 실시간 응답 라이브 피드 — '방금 답한 페르소나'가 위에서 흘러 들어오는 ticker.
+  // status polling(부모, 2초)과 분리된 별도 경량 엔드포인트를 같은 주기로 폴링한다.
+  // running 동안 + 완료 직후 짧은 꼬리(LIVE_TAIL_MS)까지 갱신해 마지막 응답까지 담는다.
+  // 부가 기능이므로 실패는 조용히 무시(진행 화면은 영향 없음).
+  const [recent, setRecent] = useState<RecentAnswer[]>([]);
+  // completed_total 증가분 감지용 — 증가했을 때만 새 항목 슬라이드-인을 트리거.
+  const liveTotalRef = useRef<number>(-1);
+  const [liveGrew, setLiveGrew] = useState(false);
+  const surveyId = status.survey_id;
+  const isLive =
+    status.survey_status === "running" || status.survey_status === "completed";
+
+  useEffect(() => {
+    if (!isLive) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // 완료 후에도 마지막 갱신을 보장하기 위한 짧은 꼬리 폴링.
+    const completedAt = status.survey_status === "completed" ? Date.now() : null;
+    const LIVE_POLL_MS = 2200;
+    const LIVE_TAIL_MS = 4000;
+
+    async function tick() {
+      try {
+        const r = await getRecentAnswers(surveyId);
+        if (cancelled) return;
+        if (liveTotalRef.current >= 0 && r.completed_total > liveTotalRef.current) {
+          setLiveGrew(true);
+        }
+        liveTotalRef.current = r.completed_total;
+        setRecent(r.items);
+      } catch {
+        // 라이브 피드는 부가 기능 — 실패는 무시(진행 화면 유지).
+      }
+      if (cancelled) return;
+      // 완료 후 꼬리 시간이 지나면 폴링 중단.
+      if (completedAt !== null && Date.now() - completedAt > LIVE_TAIL_MS) return;
+      timer = setTimeout(tick, LIVE_POLL_MS);
+    }
+
+    tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [surveyId, status.survey_status, isLive]);
 
   return (
     <>
@@ -212,6 +265,11 @@ export function SurveyProgress({
           </p>
         </div>
 
+        {/* 실시간 응답 라이브 피드 — running 또는 완료 직후, 응답이 1건이라도 있을 때만 노출 */}
+        {isLive && (
+          <LiveFeed items={recent} grew={liveGrew} running={status.survey_status === "running"} />
+        )}
+
         {/* 통계 4 카드 */}
         <ul className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Stat
@@ -318,6 +376,102 @@ export function SurveyProgress({
 // ============================================================
 // 보조
 // ============================================================
+
+/**
+ * 실시간 응답 라이브 피드 — 막 완료된 페르소나의 마지막 답변이 위에서 fade-slide-in으로 쌓이는 ticker.
+ * - items는 백엔드가 최신순(위→아래)으로 반환. key는 persona_summary + completed_at 조합으로 안정화.
+ * - grew(=completed_total 증가)일 때만 맨 위 새 행에 슬라이드-인 애니메이션을 적용.
+ * - prefers-reduced-motion에서는 애니메이션을 무효화(즉시 표시).
+ * - 응답이 0건이면 '수집 중…' placeholder(running일 때)만 노출.
+ */
+function LiveFeed({
+  items,
+  grew,
+  running,
+}: {
+  items: RecentAnswer[];
+  grew: boolean;
+  running: boolean;
+}) {
+  // 아직 완료 응답이 없으면: running이면 placeholder, 아니면 숨김.
+  if (items.length === 0) {
+    if (!running) return null;
+    return (
+      <section aria-label="실시간 응답">
+        <h3 className="text-body font-medium text-ink mb-2 flex items-center gap-1.5">
+          <LiveDot animate />
+          실시간 응답
+        </h3>
+        <div className="bg-snow border border-parchment rounded-[9.6px] px-4 py-6 text-center">
+          <p className="text-caption text-dusty">응답 수집 중…</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section aria-label="실시간 응답">
+      <style>{`
+        @keyframes liveRowIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .live-row-in { animation: liveRowIn 320ms ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .live-row-in { animation: none; }
+        }
+      `}</style>
+      <h3 className="text-body font-medium text-ink mb-2 flex items-center gap-1.5">
+        <LiveDot animate={running} />
+        실시간 응답
+      </h3>
+      <ul
+        className="max-h-72 overflow-auto bg-snow border border-parchment rounded-[9.6px] divide-y divide-parchment"
+        aria-live="polite"
+        aria-relevant="additions"
+      >
+        {items.map((it, i) => (
+          <li
+            key={`${it.persona_summary}|${it.completed_at ?? "—"}|${i}`}
+            // 맨 위 새 행에만 슬라이드-인(증가 감지 시). key가 바뀌면 React가 재마운트하여 재생.
+            className={`px-3.5 py-2.5 ${i === 0 && grew ? "live-row-in" : ""}`}
+          >
+            <p className="text-caption font-medium text-marine flex items-center gap-1.5">
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full bg-marine shrink-0"
+                aria-hidden
+              />
+              {it.persona_summary}
+            </p>
+            <p className="text-body-sm text-ink mt-1 leading-relaxed line-clamp-3">
+              {it.answer_text}
+            </p>
+            <p className="text-caption text-dusty mt-1 line-clamp-1">
+              {it.question_text}
+            </p>
+            {it.reasoning && (
+              <p className="text-overline text-stone mt-0.5 line-clamp-2">
+                {it.reasoning}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** 라이브 상태 표시 점 — marine 톤. running일 때만 점멸. */
+function LiveDot({ animate }: { animate: boolean }) {
+  return (
+    <span
+      className={`inline-block w-2 h-2 rounded-full bg-marine shrink-0 ${
+        animate ? "animate-pulse motion-reduce:animate-none" : ""
+      }`}
+      aria-hidden
+    />
+  );
+}
 
 function IconWarning() {
   return (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ReactMarkdown from "react-markdown";
+import { normalizeMarkdown } from "@/lib/markdown";
 import { SiteFooter } from "@/components/SiteHeader";
 import { ReportChartChoice } from "@/components/ReportChartChoice";
 import { ReportChartScale } from "@/components/ReportChartScale";
@@ -180,7 +181,7 @@ function OverallCommentaryCard({
                        prose-ul:my-2 prose-li:my-1 prose-li:text-graphite
                        prose-strong:text-ink prose-strong:font-semibold"
           >
-            <ReactMarkdown>{text}</ReactMarkdown>
+            <ReactMarkdown>{normalizeMarkdown(text)}</ReactMarkdown>
           </div>
         ) : (
           <p className="text-body-sm text-dusty">{placeholder}</p>

@@ -37,7 +37,7 @@ export function ReportChartChoice({ q }: { q: QuestionReport }) {
         </p>
         <h3 className="text-title text-ink">{q.text}</h3>
         <p className="text-body-sm text-dusty mt-1">
-          {q.total_responses.toLocaleString()}명 응답 · 평균 자신감{" "}
+          {q.total_responses.toLocaleString()}명 응답 · 평균 확신도{" "}
           <span className="font-mono text-terra">{(q.avg_confidence * 100).toFixed(0)}%</span>
         </p>
       </header>

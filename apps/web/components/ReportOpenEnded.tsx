@@ -33,7 +33,7 @@ export function ReportOpenEnded({ q }: { q: QuestionReport }) {
               자
             </>
           )}
-          {" · 평균 자신감 "}
+          {" · 평균 확신도 "}
           <span className="font-mono text-terra">{(q.avg_confidence * 100).toFixed(0)}%</span>
         </p>
       </header>
@@ -44,7 +44,7 @@ export function ReportOpenEnded({ q }: { q: QuestionReport }) {
         ) : (
           <>
             <p className="text-caption text-dusty mb-3">
-              자신감 상위 {samples.length}건 — 전체 응답은 응답 결과 페이지에서
+              확신도 상위 {samples.length}건 — 전체 응답은 응답 결과 페이지에서
             </p>
             <ul className="space-y-3">
               {samples.map((s, i) => (

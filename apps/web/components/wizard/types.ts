@@ -61,8 +61,10 @@ export const INITIAL_STATE: WizardState = {
   },
   questions: [],
   execution: {
+    // model은 비워두고 StepExecution이 백엔드(/api/surveys/sllm-model)에서 실제
+    // 모델명을 조회해 채운다 — 하드코딩 시 서버 모델 교체와 어긋남(실제 호출/표시 불일치).
     llm_provider: "sllm",
-    model: "Qwen3.6-27B-FP8",
+    model: "",
     temperature: 0.7,
     include_reasoning: true,
   },
