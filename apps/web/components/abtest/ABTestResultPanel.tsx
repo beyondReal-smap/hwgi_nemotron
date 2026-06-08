@@ -2,8 +2,10 @@
 
 import { memo } from "react";
 import ReactMarkdown from "react-markdown";
+import { normalizeMarkdown } from "@/lib/markdown";
 import type {
   ABChallengerKind,
+  ABOverlap,
   ABTestInputMode,
   ABTestResponse,
   ABVariantResult,
@@ -11,8 +13,13 @@ import type {
   PersonaOpinion,
 } from "@/lib/api";
 import { ComparisonTable } from "./ComparisonTable";
+import { CategoryDivergence } from "./CategoryDivergence";
+import { OverlapVenn } from "./OverlapVenn";
+import { SwingLayerXray } from "./SwingLayerXray";
+import { SplitPlaybook } from "./SplitPlaybook";
 import { DemographicCard } from "@/components/DistributionCharts";
 import { SentimentBadge } from "@/components/SentimentBadge";
+import type { ComparisonRow as ComparisonRowType } from "@/lib/api";
 
 type Props = {
   result: ABTestResponse;
@@ -52,6 +59,16 @@ export function ABTestResultPanel({ result }: Props) {
         challengerKind={challenger_kind}
         a={variant_a}
         b={variant_b}
+        overlap={comparison.overlap}
+        winTally={comparison.win_tally}
+        rows={comparison.summary_table}
+      />
+
+      {/* 분기 운영 처방전 — split 추천 시 'A로 팔 사람/B로 팔 사람' (비-split이면 자동 스킵) */}
+      <SplitPlaybook
+        rules={comparison.split_playbook}
+        labelA={variant_a.label}
+        labelB={variant_b.label}
       />
 
       {/* 좌우 분할 결과 */}
@@ -78,6 +95,30 @@ export function ABTestResultPanel({ result }: Props) {
         labelB={variant_b.label}
         comparison={comparison}
         inputMode={input_mode}
+      />
+
+      {/* 카테고리 성향 차이 — 버려지던 category_diff 시각화(빈 객체/전부 0이면 자동 스킵) */}
+      <CategoryDivergence
+        categoryDiff={comparison.category_diff}
+        labelA={variant_a.label}
+        labelB={variant_b.label}
+      />
+
+      {/* 반응 겹침 — 벤+막대(직관 시각화) */}
+      {comparison.overlap && (
+        <OverlapVenn
+          overlap={comparison.overlap}
+          labelA={variant_a.label}
+          labelB={variant_b.label}
+        />
+      )}
+
+      {/* 스윙층 X-레이 — 교집합/전용층 demographics + 줄다리기(데이터 없으면 자동 스킵) */}
+      <SwingLayerXray
+        segments={comparison.overlap_segments}
+        swingPull={comparison.swing_pull}
+        labelA={variant_a.label}
+        labelB={variant_b.label}
       />
 
       {/* 인구통계 분포 비교 — 각 안의 타겟층 기준 (현황·분석과 동일한 차트 카드) */}
@@ -173,12 +214,18 @@ function RecommendationCard({
   challengerKind,
   a,
   b,
+  overlap,
+  winTally,
+  rows,
 }: {
   recommended: "A" | "B" | "split";
   baseline: "A" | "B";
   challengerKind: ABChallengerKind;
   a: ABVariantResult;
   b: ABVariantResult;
+  overlap?: ABOverlap | null;
+  winTally?: { a: number; b: number; tie: number } | null;
+  rows: ComparisonRowType[];
 }) {
   const recommendedLabel =
     recommended === "A"
@@ -207,6 +254,25 @@ function RecommendationCard({
       : `타사 강점을 흡수해 기준안 '${baselineLabel}'을 보완하는 것이 적합합니다.`;
   }
 
+  // 반응층 겹침(잠식 신호) — split/통합 추천의 정량 근거. 의미 유사도 기반 신호.
+  const overlapPct = overlap ? Math.round(overlap.jaccard * 100) : 0;
+  const overlapNote = !overlap
+    ? null
+    : overlap.relation === "complementary"
+      ? {
+          icon: "🧩",
+          text: `반응층 겹침이 낮습니다(Jaccard ${overlapPct}%) — 서로 다른 고객층이라 분기 운영 시 시장이 확장됩니다.`,
+        }
+      : overlap.relation === "cannibal"
+        ? {
+            icon: "⚠️",
+            text: `두 안이 같은 반응층을 노립니다(Jaccard ${overlapPct}%) — 동시 운영 시 잠식 우려가 있어 하나로 통합하는 편이 효율적입니다.`,
+          }
+        : {
+            icon: "◐",
+            text: `반응층이 부분적으로 겹칩니다(Jaccard ${overlapPct}%).`,
+          };
+
   return (
     <section className="rounded-[9.6px] border border-parchment bg-snow/40 p-4 sm:p-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
@@ -219,6 +285,12 @@ function RecommendationCard({
             {recommendedLabel}
           </h2>
           <p className="text-body-sm text-graphite mt-1">{verdict}</p>
+          {overlapNote && (
+            <p className="text-caption text-dusty mt-1.5 flex items-start gap-1">
+              <span aria-hidden>{overlapNote.icon}</span>
+              <span>{overlapNote.text}</span>
+            </p>
+          )}
         </div>
         <RecommendationBadge value={recommended} />
       </div>
@@ -237,7 +309,141 @@ function RecommendationCard({
           challengerKind={challengerKind}
         />
       </div>
+
+      {/* 승부 스코어보드 — 핵심 5개 지표 집계(win_tally) + 지표별 승패 도트. 구 이력(undefined)은 숨김. */}
+      {winTally && (
+        <WinScoreboard tally={winTally} labelA={a.label} labelB={b.label} rows={rows} />
+      )}
     </section>
+  );
+}
+
+/**
+ * 승부 스코어보드 — 핵심 5개 수치 지표(win_tally)에서 A·B 승수를 집계해
+ * 추천이 '데이터로 이긴 판정'임을 가시화. 우세 승차로 확신도 게이지를 표기.
+ */
+// 승부 스코어보드의 도트로 표기할 핵심 5개 지표(win_tally 집계 대상과 동일).
+const _SCOREBOARD_METRICS: { key: string; label: string }[] = [
+  { key: "avg_score", label: "평균점수" },
+  { key: "core_size", label: "핵심규모" },
+  { key: "target_size", label: "타겟규모" },
+  { key: "avg_intent", label: "가입의향" },
+  { key: "positive_ratio", label: "긍정비율" },
+];
+
+function WinScoreboard({
+  tally,
+  labelA,
+  labelB,
+  rows,
+}: {
+  tally: { a: number; b: number; tie: number };
+  labelA: string;
+  labelB: string;
+  rows: ComparisonRowType[];
+}) {
+  const { a, b, tie } = tally;
+  // 지표별 승자 — 게이지(합산)가 못 드러내는 '어느 지표에서 이겼나'를 도트로 분해.
+  const metricWinner = (key: string): "A" | "B" | "tie" =>
+    rows.find((r) => r.key === key)?.winner ?? "tie";
+  const margin = Math.abs(a - b);
+  // 확신도: 승차 3+ = 명확한 우위, 1~2 = 근소 우위, 0 = 분기.
+  const confidence =
+    margin >= 3 ? "명확한 우위" : margin >= 1 ? "근소 우위" : "분기 (우열 불분명)";
+  // 우세측 색 — A=marine, B=terra, 동률/분기=azure.
+  const leader = a > b ? "A" : b > a ? "B" : "tie";
+  const leaderTone =
+    leader === "A" ? "text-marine" : leader === "B" ? "text-terra" : "text-ink";
+  const gaugeColor =
+    leader === "A"
+      ? "bg-marine"
+      : leader === "B"
+        ? "bg-terra"
+        : "bg-azure";
+  // 게이지 채움 — 승차 0~3+ 을 0~100%로(3 이상은 가득).
+  const gaugePct = Math.min(100, (margin / 3) * 100);
+
+  return (
+    <div className="mt-4 rounded-[7px] border border-parchment bg-vellum p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+        <p className="text-overline text-graphite">승부 스코어보드</p>
+        <span
+          className={`inline-flex items-center px-2 py-0.5 rounded-[5px] text-overline font-semibold border ${
+            leader === "A"
+              ? "bg-marine/15 text-marine border-marine/30"
+              : leader === "B"
+                ? "bg-terra/15 text-terra border-terra/30"
+                : "bg-azure/25 text-ink border-azure/40"
+          }`}
+        >
+          {confidence}
+        </span>
+      </div>
+
+      {/* 점수 — A : B (무승부) */}
+      <p className="text-body-sm text-graphite mb-2">
+        핵심 5개 지표 중{" "}
+        <span className="text-marine font-semibold num-tabular" title={labelA}>
+          A {a}
+        </span>{" "}
+        :{" "}
+        <span className="text-terra font-semibold num-tabular" title={labelB}>
+          B {b}
+        </span>
+        {tie > 0 && (
+          <span className="text-dusty">
+            {" "}
+            (무승부 <span className="num-tabular">{tie}</span>)
+          </span>
+        )}
+      </p>
+
+      {/* 확신 게이지 — 우세 승차를 폭으로 */}
+      <div
+        className="h-2 rounded-full bg-snow border border-parchment overflow-hidden"
+        role="img"
+        aria-label={`A ${a} 대 B ${b}, 무승부 ${tie}. ${confidence}`}
+      >
+        <div
+          className={`h-full rounded-full transition-[width] ${gaugeColor}`}
+          style={{ width: `${Math.max(leader === "tie" ? 0 : 8, gaugePct)}%`, opacity: 0.78 }}
+        />
+      </div>
+      <p className={`text-overline mt-1.5 ${leaderTone}`}>
+        {leader === "tie"
+          ? "양측이 팽팽합니다 — 단일 우위보다 타겟별 분기 검토가 적합합니다."
+          : `${leader === "A" ? labelA : labelB}가 ${margin}개 지표 앞섭니다.`}
+      </p>
+
+      {/* 지표별 승패 도트 — 합산 게이지가 못 보여주는 '어느 지표에서 갈렸나'를 분해 */}
+      <div className="mt-3 pt-2.5 border-t border-parchment flex flex-wrap gap-x-3 gap-y-1.5">
+        {_SCOREBOARD_METRICS.map((m) => {
+          const w = metricWinner(m.key);
+          return (
+            <span
+              key={m.key}
+              className="inline-flex items-center gap-1 text-overline text-graphite"
+              title={`${m.label}: ${w === "A" ? labelA : w === "B" ? labelB : "무승부"}`}
+            >
+              <span
+                aria-hidden
+                className={`w-2 h-2 rounded-full ${
+                  w === "A" ? "bg-marine" : w === "B" ? "bg-terra" : "bg-dusty/40"
+                }`}
+              />
+              {m.label}
+              <span
+                className={`font-semibold num-tabular ${
+                  w === "A" ? "text-marine" : w === "B" ? "text-terra" : "text-dusty"
+                }`}
+              >
+                {w === "tie" ? "—" : w}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -612,7 +818,7 @@ const MarkdownSection = memo(function MarkdownSection({
   subtitle: string;
   markdown: string;
 }) {
-  const normalized = stripLatexArrows(unwrapMarkdownFence(markdown));
+  const normalized = stripLatexArrows(normalizeMarkdown(markdown));
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
@@ -628,12 +834,6 @@ const MarkdownSection = memo(function MarkdownSection({
     </section>
   );
 });
-
-function unwrapMarkdownFence(markdown: string): string {
-  const trimmed = (markdown ?? "").trim();
-  const match = trimmed.match(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i);
-  return match ? match[1].trim() : trimmed;
-}
 
 /**
  * LLM이 화살표를 LaTeX($\rightarrow$ 등)로 출력하는 경우 유니코드 기호로 치환.

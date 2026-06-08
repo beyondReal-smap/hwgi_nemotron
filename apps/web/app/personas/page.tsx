@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
+import { CountUp } from "@/components/CountUp";
 import { PersonaFilterPanel } from "@/components/PersonaFilterPanel";
 import { PersonaCardGrid } from "@/components/PersonaCardGrid";
 import { PersonaDetailModal } from "@/components/PersonaDetailModal";
@@ -39,6 +40,18 @@ import {
 
 const PAGE_SIZE = 24;
 
+// 전체 모집단(스캔 대상 행 수). 백엔드 filter 응답엔 전체 행 필드가 없어 데이터셋 메타와
+// 동일한 상수를 funnel 1단계(분모)로 사용한다. — DatasetMeta.total_rows와 일치.
+const TOTAL_POPULATION = 1_000_000;
+
+// 원클릭 예시 쿼리 — 클릭 시 query 주입 + 디바운스 useEffect가 자동 검색 실행.
+const EXAMPLE_QUERIES = [
+  "은퇴 후 등산 좋아하는 60대 남성",
+  "수도권 워킹맘",
+  "MZ 1인가구",
+  "대학생 자취 1인가구",
+];
+
 const INITIAL_FILTER: PersonaFilterRequest = {
   age_min: null,
   age_max: null,
@@ -73,6 +86,14 @@ export default function PersonasPage() {
     getPersonaFacets()
       .then(setFacets)
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, []);
+
+  // 1-b) 코파일럿 등에서 ?q=... 로 진입 시 초기 검색어 주입 → 디바운스 useEffect가 자동 검색.
+  //      디바운스 타이머가 첫 렌더(INITIAL)에서 걸렸어도 setFilter 리렌더가 cleanup→재설정하므로
+  //      q 반영본으로 1회만 검색된다. window 접근은 클라이언트 전용이라 useEffect에서 안전.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setFilter((f) => ({ ...f, query: q, page: 1 }));
   }, []);
 
   // 2) 필터 변경 → 디바운스 후 fetch.
@@ -124,6 +145,11 @@ export default function PersonasPage() {
   function handleReset() {
     setFilter(INITIAL_FILTER);
     setSelected(new Set());
+  }
+
+  // 예시 쿼리 칩 클릭 — query만 주입하고 page를 1로. 디바운스 useEffect가 자동 검색.
+  function applyExampleQuery(q: string) {
+    setFilter((prev) => ({ ...prev, query: q, page: 1 }));
   }
 
   // PersonaCardItem(memo)의 onToggle prop이 매 렌더 새 참조가 되지 않도록 useCallback.
@@ -212,10 +238,22 @@ export default function PersonasPage() {
                     <>
                       {result.fallback_applied ? (
                         <>
-                          메타 조건 매칭{" "}
-                          <span className="font-mono text-graphite">0</span>
-                          명 →{" "}
-                          <span className="text-graphite">키워드 폴백 검색</span>으로{" "}
+                          {result.meta_filter_total > 0 ? (
+                            <>
+                              메타 일치{" "}
+                              <span className="font-mono text-graphite">
+                                {result.meta_filter_total.toLocaleString()}
+                              </span>
+                              명 → 일부 조건 완화 후{" "}
+                            </>
+                          ) : (
+                            <>
+                              메타 조건 매칭{" "}
+                              <span className="font-mono text-graphite">0</span>
+                              명 →{" "}
+                            </>
+                          )}
+                          <span className="text-graphite">시멘틱 폴백</span>으로{" "}
                           <span className="font-mono text-graphite">
                             {result.total.toLocaleString()}
                           </span>
@@ -275,6 +313,31 @@ export default function PersonasPage() {
                 {/* AI 자동 추출 메타 칩 — 자연어 쿼리가 LLM으로 분해된 결과 */}
                 {result?.extracted_filter && (
                   <ExtractedFilterChips ex={result.extracted_filter} />
+                )}
+
+                {/* 원클릭 예시 쿼리 — 검색어가 비었을 때만 노출(이미 입력 중이면 방해 안 함). */}
+                {!loading && !filter.query && (
+                  <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                    <span className="text-overline text-dusty mr-1">예시 검색</span>
+                    {EXAMPLE_QUERIES.map((q) => (
+                      <button
+                        key={q}
+                        type="button"
+                        onClick={() => applyExampleQuery(q)}
+                        className="inline-flex items-center text-caption px-2.5 py-1 bg-snow border border-marine/40 text-marine
+                                   rounded-full hover:bg-marine/10 hover:border-marine transition-colors
+                                   focus:outline-none focus-visible:ring-2 focus-visible:ring-azure"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* 스캔 깔때기(funnel) — 100만 행을 매 검색마다 훑는다는 사실을 정직하게 시각화.
+                    백엔드가 보내주는 meta_filter_total/total/elapsed_ms를 살린다(추측 수치 없음). */}
+                {!loading && result && (
+                  <ScanFunnel result={result} />
                 )}
               </header>
 
@@ -604,6 +667,107 @@ function ExtractedFilterChips({ ex }: { ex: ExtractedFilter }) {
           <span className="text-dusty">키워드</span>
           <span className="text-ink">{ex.remaining_query}</span>
         </span>
+      )}
+    </div>
+  );
+}
+
+// 스캔 깔때기 — [전체 1,000,000행] → [메타 후보 N] → [임베딩 통과 M].
+// '매번 100만 개를 수십 ms에 훑는다'를 정직하게 보여준다. 모든 수치는 백엔드 응답에서
+// 가져오며(meta_filter_total/total/elapsed_ms), 없는 단계는 막대 폭 0 또는 생략한다.
+function ScanFunnel({ result }: { result: PersonaFilterResponse }) {
+  // 단계 값 — 폴백(메타 0명) 경로에서도 안전하게.
+  const metaN = result.meta_filter_total ?? 0;
+  const matchM = result.total ?? 0;
+
+  // 막대 폭(%): 전체 모집단 대비. 임베딩 통과는 메타 후보 대비로 환산하면 너무 좁아
+  // 시각상 사라지므로, 동일 분모(전체)로 그리되 최소 가시폭을 보장한다.
+  const pct = (n: number) => (TOTAL_POPULATION > 0 ? (n / TOTAL_POPULATION) * 100 : 0);
+  // 0이 아닌 값은 최소 1.5%는 보이게(읽힘 보장). 0이면 0폭.
+  const barW = (n: number) => (n <= 0 ? 0 : Math.max(1.5, Math.min(100, pct(n))));
+
+  // elapsed_ms 분해 — extract(옵셔널)/filter/search. 0/undefined면 생략.
+  const e = result.elapsed_ms;
+  const timeSteps: { key: string; label: string; ms: number }[] = [];
+  if (typeof e.extract === "number" && e.extract > 0)
+    timeSteps.push({ key: "extract", label: "메타 추출", ms: e.extract });
+  if (e.filter > 0) timeSteps.push({ key: "filter", label: "필터 스캔", ms: e.filter });
+  if (e.search > 0) timeSteps.push({ key: "search", label: "임베딩", ms: e.search });
+
+  // 깔때기 3단계. 메타 후보가 0이면(폴백) 2단계만 의미 있으나 레이아웃은 유지.
+  const stages: {
+    key: string;
+    label: string;
+    count: number;
+    width: number;
+    tone: "stone" | "azure" | "marine";
+  }[] = [
+    { key: "all", label: "전체 모집단", count: TOTAL_POPULATION, width: 100, tone: "stone" },
+    { key: "meta", label: "메타 후보", count: metaN, width: barW(metaN), tone: "azure" },
+    {
+      key: "match",
+      label: result.has_query ? "임베딩 통과" : "최종 매칭",
+      count: matchM,
+      width: barW(matchM),
+      tone: "marine",
+    },
+  ];
+
+  const toneBar: Record<string, string> = {
+    stone: "bg-stone/40",
+    azure: "bg-azure/55",
+    marine: "bg-marine",
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-parchment">
+      {/* 깔때기 막대 3단 */}
+      <ul className="flex flex-col gap-2" aria-label="스캔 깔때기 단계별 인원">
+        {stages.map((s) => (
+          <li key={s.key} className="flex items-center gap-3">
+            <span className="w-20 shrink-0 text-caption text-dusty">{s.label}</span>
+            <div className="flex-1 h-5 bg-vellum border border-parchment rounded-[5px] overflow-hidden">
+              <div
+                className={`h-full ${toneBar[s.tone]} rounded-[4px] transition-[width] duration-700`}
+                style={{ width: `${s.width}%` }}
+              />
+            </div>
+            <span className="w-24 shrink-0 text-right text-body-sm text-ink font-medium num-tabular">
+              {s.key === "all" ? (
+                <CountUp value={s.count} suffix="명" suffixClassName="text-dusty font-normal" />
+              ) : (
+                <>
+                  {s.count.toLocaleString()}
+                  <span className="text-dusty font-normal">명</span>
+                </>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/* 단계별 소요시간 — total만 보이던 것을 분해. */}
+      {timeSteps.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="text-overline text-dusty mr-0.5">소요</span>
+          {timeSteps.map((t) => (
+            <span key={t.key} className="text-caption text-graphite">
+              {t.label}{" "}
+              <span className="text-marine font-medium num-tabular">
+                {Math.round(t.ms).toLocaleString()}
+              </span>
+              <span className="text-dusty">ms</span>
+            </span>
+          ))}
+          <span className="text-caption text-stone">·</span>
+          <span className="text-caption text-graphite">
+            합계{" "}
+            <span className="text-ink font-medium num-tabular">
+              {Math.round(e.total).toLocaleString()}
+            </span>
+            <span className="text-dusty">ms</span>
+          </span>
+        </div>
       )}
     </div>
   );

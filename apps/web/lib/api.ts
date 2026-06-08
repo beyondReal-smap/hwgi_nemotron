@@ -44,6 +44,15 @@ export type RegionStat = {
   count: number;
   avg_score: number;
   top_persona_uuid: string | null;
+  /**
+   * per-capita(농도) — 옵셔널, 옛 이력엔 없음. 해당 지역 전체 모집단 인원(분모).
+   */
+  population_count?: number | null;
+  /**
+   * 지역 타겟 농도 / 전국 평균 농도. 1.0=전국 평균, >1=인구 대비 과집중(숨은 핫스팟).
+   * 인원(count) 1위는 늘 대도시라 뻔하지만 lift는 의외의 소도시를 드러낸다.
+   */
+  lift_ratio?: number | null;
 };
 
 export type CohortStat = {
@@ -67,6 +76,14 @@ export type CohortStat = {
 export type DistributionBin = {
   label: string;
   count: number;
+  /**
+   * baseline-lift (옵셔널, 옛 이력엔 없음). 타겟 cohort 분포를 '전체 100만 모집단'
+   * 분포와 비교한 메타. 절대 비율(흔한 통계)을 '전국 대비 N배'(발견 인사이트)로 격상.
+   */
+  share?: number | null;          // 타겟 내 비율 (count/target_total)
+  baseline_share?: number | null; // 전체 모집단 내 비율
+  /** share / baseline_share. 1.0=전국 동일, >1=과대표집, <1=과소표집. */
+  lift_ratio?: number | null;
 };
 
 export type DemographicGroup = {
@@ -75,6 +92,45 @@ export type DemographicGroup = {
   bins: DistributionBin[];
   total_unique: number;
   truncated_to: number | null;
+};
+
+export type ScoreDriver = {
+  /** cosine | rule | category | insurance */
+  key: string;
+  label: string;
+  /** core cohort 평균에서 이 항의 점수 기여(절대) */
+  core_contribution: number;
+  /** 전체 모집단 평균에서 이 항의 점수 기여(절대) */
+  pop_contribution: number;
+  /** core_contribution - pop_contribution. core를 모집단 위로 끌어올린 정도 */
+  delta: number;
+};
+
+export type ConfidenceStats = {
+  core_mean: number;
+  core_ci_low: number;
+  core_ci_high: number;
+  target_mean: number;
+  target_ci_low: number;
+  target_ci_high: number;
+  core_cut: number;
+  core_size: number;
+  /** 컷 -1점 시 core 인원(증가분 관찰) */
+  core_size_relaxed: number;
+  /** 컷 +1점 시 core 인원(감소분 관찰) */
+  core_size_tightened: number;
+};
+
+export type SegmentFinding = {
+  dimensions: Record<string, string>;
+  label: string;
+  target_count: number;
+  population_count: number;
+  share: number;
+  baseline_share: number;
+  /** share/baseline_share — 전국 대비 집중 배수(>1=과집중) */
+  lift_ratio: number;
+  avg_score: number;
 };
 
 export type PopulationStats = {
@@ -101,6 +157,10 @@ export type PopulationStats = {
   quality_flags?: string[];
   /** 점수 산출 체계. "v2_hybrid"=z-score+제품오프셋. 옛 분석은 undefined → 구(균등매핑). */
   scoring_version?: string;
+  /** Score DNA — core 점수가 의미/인구통계/관심사/보험관심 중 무엇에서 떴는지 항 분해. 옛 이력은 빈 배열/undefined. */
+  score_drivers?: ScoreDriver[];
+  /** cohort 평균 95% 신뢰구간 + 컷 민감도. 옛 이력은 null/undefined. */
+  confidence?: ConfidenceStats | null;
 };
 
 export type PersonaOpinion = {
@@ -126,6 +186,8 @@ export type AnalyzeResponse = {
   mid_opinions?: PersonaOpinion[];
   bottom_opinions: PersonaOpinion[];
   report_md: string;
+  /** 타겟 cohort 교차 세그먼트 발굴(lift 순). LLM 0콜. 옛 이력은 빈 배열. */
+  segments?: SegmentFinding[];
   elapsed_ms: Record<string, number>;
 };
 
@@ -137,7 +199,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 // LLM provider 선택 (analyze · simulate 양쪽에서 공유)
 // ============================================================
 
-export type LLMProvider = "anthropic" | "sllm";
+export type LLMProvider = "anthropic" | "sllm" | "openai";
 
 export function analyzeProduct(
   productText: string,
@@ -156,6 +218,127 @@ export function analyzeProduct(
       }),
     },
     "분석 실패",
+  );
+}
+
+// ============================================================
+// 분석 SSE 스트리밍 — 단계별(소구점→스코어→의견→리포트) 부분 결과 흘려보내기
+// ============================================================
+
+/** /api/analyze/stream 의 SSE 프레임 — event별 data 구조. */
+export type AnalyzeStreamEvent =
+  | { event: "selling_points"; data: { selling_points: SellingPoints; elapsed_ms: Record<string, number> } }
+  | {
+      event: "score";
+      data: {
+        top_personas: PersonaHit[];
+        mid_personas: PersonaHit[];
+        bottom_personas: PersonaHit[];
+        province_stats: RegionStat[];
+        district_stats: RegionStat[];
+        population_stats: PopulationStats;
+        segments: SegmentFinding[];
+        elapsed_ms: Record<string, number>;
+      };
+    }
+  | {
+      event: "opinions";
+      data: {
+        top_opinions: PersonaOpinion[];
+        mid_opinions: PersonaOpinion[];
+        bottom_opinions: PersonaOpinion[];
+        elapsed_ms: Record<string, number>;
+      };
+    }
+  | { event: "report_token"; data: { chunk: string } }
+  | { event: "report"; data: { report_md: string; elapsed_ms: Record<string, number> } }
+  | { event: "done"; data: { analysis_id: string; elapsed_ms: Record<string, number> } }
+  | { event: "error"; data: { status?: number; detail: string } };
+
+function _parseSseFrame(frame: string): AnalyzeStreamEvent | null {
+  let event = "message";
+  let dataStr = "";
+  for (const line of frame.split("\n")) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    else if (line.startsWith("data:")) dataStr += line.slice(5).trim();
+  }
+  if (!dataStr) return null;
+  try {
+    return { event, data: JSON.parse(dataStr) } as AnalyzeStreamEvent;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 분석을 SSE로 스트리밍. 각 단계 프레임을 onEvent로 전달한다.
+ * 서버가 보낸 error 이벤트도 onEvent로 전달되며 스트림은 정상 종료된다(throw 아님).
+ * 네트워크/파싱 실패나 스트리밍 미지원 시에만 reject → 호출부가 블로킹 analyzeProduct로 폴백.
+ */
+export async function analyzeProductStream(
+  productText: string,
+  topK: number,
+  llmProvider: LLMProvider,
+  onEvent: (e: AnalyzeStreamEvent) => void,
+): Promise<void> {
+  const res = await fetch(`${BASE_URL}/api/analyze/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_text: productText, top_k: topK, llm_provider: llmProvider }),
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`스트리밍 분석 실패: HTTP ${res.status}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let sep: number;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      const ev = _parseSseFrame(frame);
+      if (ev) onEvent(ev);
+    }
+  }
+}
+
+// ============================================================
+// What-if 실험실 — 기 분석 위에서 타겟·가중치만 바꿔 즉시 재점수
+// ============================================================
+
+export type WhatIfRequest = {
+  analysis_id: string;
+  /** None(미전송)=원본 유지. [] (배열)=명시적 해제. */
+  target_age_min?: number | null;
+  target_age_max?: number | null;
+  target_sex?: string[] | null;
+  target_family_types?: string[] | null;
+  target_education_levels?: string[] | null;
+  target_occupations?: string[] | null;
+  persona_category_weights?: Record<string, number> | null;
+};
+
+export type WhatIfResponse = {
+  population_stats: PopulationStats;
+  segments?: SegmentFinding[];
+  top_personas: PersonaHit[];
+  elapsed_ms: Record<string, number>;
+};
+
+/** 임베딩 0콜(캐시 hit) 즉답 재점수 — 슬라이더 디바운스 호출용. */
+export function runWhatIf(req: WhatIfRequest): Promise<WhatIfResponse> {
+  return _jsonRequest<WhatIfResponse>(
+    `${BASE_URL}/api/whatif`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    },
+    "What-if 재점수 실패",
   );
 }
 
@@ -793,6 +976,19 @@ export function getSurvey(id: string): Promise<Survey> {
   );
 }
 
+// 현재 sLLM 게이트웨이가 호스팅 중인 실제 모델명 (백엔드 SSOT).
+// 생성 폼이 모델명을 하드코딩하지 않고 이 값을 사용 — 서버 모델 교체에 자동 적응.
+export function getSllmModel(): Promise<{ model: string }> {
+  return _jsonRequest<{ model: string }>(
+    `${BASE_URL}/api/surveys/sllm-model`,
+    { method: "GET" },
+    "sLLM 모델명 조회 실패",
+  );
+}
+
+// 관리자 LLM 설정은 app/admin-9f4a2c/cfg route handler가 서버사이드에서 ADMIN_TOKEN을
+// 주입해 처리한다(클라이언트 토큰 노출 방지). 관리자 페이지가 해당 경로를 직접 호출.
+
 export function updateSurvey(id: string, req: SurveyCreateRequest): Promise<Survey> {
   return _jsonRequest<Survey>(
     `${BASE_URL}/api/surveys/${encodeURIComponent(id)}`,
@@ -840,6 +1036,23 @@ export function suggestQuestions(
       body: JSON.stringify(req),
     },
     "AI 추천 실패",
+  );
+}
+
+// --- 설문 placeholder 예시 (작성 폼 입력칸 힌트, 매 호출 다른 분야) ---
+
+export type SurveyPlaceholders = {
+  title: string;
+  description: string;
+  objective: string;
+};
+
+export function fetchSurveyPlaceholders(): Promise<SurveyPlaceholders> {
+  return _jsonRequest<SurveyPlaceholders>(
+    `${BASE_URL}/api/surveys/placeholder-examples`,
+    // 매 호출 다른 예시를 받아야 하므로 브라우저 GET 캐시를 끈다.
+    { method: "GET", cache: "no-store" },
+    "예시 생성 실패",
   );
 }
 
@@ -964,6 +1177,32 @@ export function getSurveyStatus(id: string): Promise<SurveyStatusResponse> {
     `${BASE_URL}/api/surveys/${encodeURIComponent(id)}/status`,
     { method: "GET" },
     "진행률 조회 실패",
+  );
+}
+
+// 실시간 응답 라이브 피드 — '방금 답한 페르소나'가 흘러 들어오는 ticker용.
+// PII 비노출(성별/나이/지역 + 답변만). status와 분리한 별도 경량 엔드포인트.
+export type RecentAnswer = {
+  persona_summary: string; // "여 34 · 서울 강남구"
+  question_text: string;
+  answer_text: string;
+  reasoning: string;
+  completed_at: string | null;
+};
+
+export type RecentAnswersResponse = {
+  items: RecentAnswer[];
+  completed_total: number;
+};
+
+export function getRecentAnswers(
+  id: string,
+  limit = 8,
+): Promise<RecentAnswersResponse> {
+  return _jsonRequest<RecentAnswersResponse>(
+    `${BASE_URL}/api/surveys/${encodeURIComponent(id)}/recent-answers?limit=${limit}`,
+    { method: "GET" },
+    "실시간 응답 조회 실패",
   );
 }
 
@@ -1173,9 +1412,62 @@ export type ComparisonRow = {
   winner: "A" | "B" | "tie";
 };
 
+export type ABOverlap = {
+  /** A 반응자 중 B에도 반응한 비율(0~1, 비대칭) */
+  a_to_b: number;
+  /** B 반응자 중 A에도 반응한 비율(0~1, 비대칭) */
+  b_to_a: number;
+  /** 두 안 반응자 합집합 대비 교집합(0~1, 대칭) */
+  jaccard: number;
+  a_size: number;
+  b_size: number;
+  /** cannibal(잠식·같은 층) / complementary(보완·다른 층) / neutral(중간) */
+  relation: "cannibal" | "complementary" | "neutral";
+};
+
+/** A/B 반응층 3분할(스윙=교집합 / A전용 / B전용) 1개 + 인구통계 프로파일. */
+export type OverlapSegment = {
+  key: "swing" | "a_only" | "b_only";
+  label: string;
+  size: number;
+  demographics: DemographicGroup[];
+};
+
+/** 스윙층(양쪽 반응) 내부 안별 끌림 강도 — 줄다리기 맵. */
+export type SwingPull = {
+  swing_size: number;
+  a_mean: number;
+  b_mean: number;
+  /** 스윙층 중 A 점수가 더 높은 비율(0~1). 0.5=완전 박빙 */
+  a_lean_ratio: number;
+  /** a_mean - b_mean. 양수=A로 기움 */
+  mean_delta: number;
+};
+
+/** 분기 운영 처방 1행 — 한 인구통계 축에서 A/B 각각의 대표 세그먼트. */
+export type SplitRule = {
+  dimension: string;
+  a_segment: string;
+  a_count: number;
+  b_segment: string;
+  b_count: number;
+};
+
 export type ABComparison = {
   summary_table: ComparisonRow[];
   category_diff: Record<string, { a: number; b: number; delta: number }>;
+  overlap?: ABOverlap | null;
+  /**
+   * 핵심 수치 지표 승부 집계 (평균점수·핵심/타겟 규모·가입의향·긍정비율).
+   * 추천 확신도 스코어보드용. 구버전 이력은 undefined.
+   */
+  win_tally?: { a: number; b: number; tie: number } | null;
+  /** 스윙/A전용/B전용 3층 인구통계 분해(스윙층 X-레이). 구버전은 null/undefined. */
+  overlap_segments?: OverlapSegment[] | null;
+  /** 스윙층 내부 안별 끌림 강도(줄다리기 맵). 구버전은 null. */
+  swing_pull?: SwingPull | null;
+  /** split 추천 시 'A로 팔 사람/B로 팔 사람' 분기 처방. 비-split이면 null. */
+  split_playbook?: SplitRule[] | null;
 };
 
 export type ABTestResponse = {
@@ -1250,6 +1542,129 @@ export function runABTest(req: ABTestRequest): Promise<ABTestResponse> {
       body: JSON.stringify(req),
     },
     "A/B 분석 실패",
+  );
+}
+
+// ============================================================
+// 잠식 행렬 (Cannibalization Matrix) — N개 안의 반응 코호트 겹침
+// ============================================================
+
+export type CannibalItemInput = { label: string; text: string };
+
+export type CannibalCohortLevel = "core" | "target" | "interest";
+
+export type CannibalRequest = {
+  items: CannibalItemInput[];
+  input_mode: ABTestInputMode;
+  cohort_level: CannibalCohortLevel;
+  llm_provider: LLMProvider;
+};
+
+export type CannibalItemMeta = {
+  label: string;
+  cohort_size: number;
+  summary: string;
+};
+
+/** 포트폴리오 커버리지 — greedy union 라인업의 한 스텝. */
+export type CoverageStep = {
+  rank: number;
+  item_index: number;
+  label: string;
+  /** 이 안 추가로 새로 닿는 인원(marginal lift) */
+  marginal: number;
+  /** 누적 도달(합집합) 인원 */
+  cumulative: number;
+};
+
+/** 노출 다중도 — 각 페르소나가 몇 개 안의 반응층에 속하나. */
+export type MultiplicityBin = {
+  overlap_count: number;
+  persona_count: number;
+};
+
+/** 전용층 — 오직 한 안에만 반응한 고유층 프로파일. */
+export type ExclusiveProfile = {
+  item_index: number;
+  label: string;
+  exclusive_size: number;
+  /** 전용/전체코호트 비율 — 분모 아티팩트 보정용 */
+  exclusive_ratio: number;
+  demographics: DemographicGroup[];
+  districts: RegionStat[];
+};
+
+export type CannibalResponse = {
+  cannibal_id: string;
+  items: CannibalItemMeta[];
+  /** M[i][j] = |Ci∩Cj|/|Ci| — i안 반응자 중 j안에도 반응한 비율(비대칭). 대각선 1. */
+  directional_matrix: number[][];
+  /** J[i][j] = |Ci∩Cj|/|Ci∪Cj| — 대칭 겹침. 대각선 1. */
+  jaccard_matrix: number[][];
+  cohort_level: string;
+  warnings: string[];
+  elapsed_ms: Record<string, number>;
+  coverage?: CoverageStep[] | null;
+  multiplicity?: MultiplicityBin[] | null;
+  exclusive_profiles?: ExclusiveProfile[] | null;
+};
+
+export function runCannibalization(
+  req: CannibalRequest,
+): Promise<CannibalResponse> {
+  return _jsonRequest<CannibalResponse>(
+    `${BASE_URL}/api/cannibal`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    },
+    "겹침 분석 실패",
+  );
+}
+
+// --- 겹침 분석 이력 ---
+
+export type CannibalSummary = {
+  id: string;
+  created_at: string;
+  input_mode: ABTestInputMode;
+  cohort_level: CannibalCohortLevel;
+  item_count: number;
+  labels: string[];
+  total_ms: number;
+  llm_provider: LLMProvider;
+};
+
+export type CannibalsListResponse = {
+  total: number;
+  items: CannibalSummary[];
+};
+
+export function listCannibals(
+  limit = 50,
+  offset = 0,
+): Promise<CannibalsListResponse> {
+  return _jsonRequest<CannibalsListResponse>(
+    `${BASE_URL}/api/cannibals?limit=${limit}&offset=${offset}`,
+    { method: "GET" },
+    "겹침 분석 이력 조회 실패",
+  );
+}
+
+export function getCannibal(id: string): Promise<CannibalResponse> {
+  return _jsonRequest<CannibalResponse>(
+    `${BASE_URL}/api/cannibals/${encodeURIComponent(id)}`,
+    { method: "GET" },
+    "겹침 분석 이력 상세 실패",
+  );
+}
+
+export function deleteCannibal(id: string): Promise<void> {
+  return _jsonRequest<void>(
+    `${BASE_URL}/api/cannibals/${encodeURIComponent(id)}`,
+    { method: "DELETE" },
+    "겹침 분석 이력 삭제 실패",
   );
 }
 

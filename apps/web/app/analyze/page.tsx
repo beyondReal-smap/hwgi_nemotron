@@ -3,15 +3,18 @@
 import { useState } from "react";
 import { InputForm } from "@/components/InputForm";
 import { ScoreCard } from "@/components/ScoreCard";
+import { ScoreDriverWaterfall } from "@/components/ScoreDriverWaterfall";
+import { SegmentDiscoveryPanel } from "@/components/SegmentDiscoveryPanel";
+import { ObjectionPanel } from "@/components/ObjectionPanel";
+import { WhatIfLab } from "@/components/WhatIfLab";
 import { PersonaList } from "@/components/PersonaList";
 import { ReportPanel } from "@/components/ReportPanel";
 import { PopulationStatsPanel } from "@/components/PopulationStatsPanel";
+import { OpinionInsightsPanel } from "@/components/OpinionInsightsPanel";
 import dynamic from "next/dynamic";
 import { DistrictTopTable } from "@/components/DistrictTopTable";
-import {
-  PastSimulationsPanel,
-  SurveyCta,
-} from "@/components/PastSimulationsPanel";
+import { PastSimulationsPanel } from "@/components/PastSimulationsPanel";
+import { NextActionsPanel } from "@/components/NextActionsPanel";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { HistoryList } from "@/components/HistoryList";
 import { SiteFooter } from "@/components/SiteHeader";
@@ -174,6 +177,18 @@ export default function Page() {
             {showResult && result && (
               <>
                 <ScoreCard result={result} />
+                <ScoreDriverWaterfall stats={result.population_stats} />
+                <OpinionInsightsPanel
+                  opinions={[
+                    ...(result.top_opinions ?? []),
+                    ...(result.mid_opinions ?? []),
+                    ...(result.bottom_opinions ?? []),
+                  ]}
+                />
+                <ObjectionPanel
+                  personas={result.bottom_personas}
+                  opinions={result.bottom_opinions ?? []}
+                />
                 <PersonaList
                   personas={result.top_personas}
                   opinions={result.top_opinions ?? []}
@@ -205,9 +220,23 @@ export default function Page() {
                       />
                     </>
                   )}
+                <SegmentDiscoveryPanel segments={result.segments} />
+                {/* What-if는 저장된 분석(analysis_id)이 있어야 재점수 가능 — 스트리밍 done 후 활성 */}
+                {result.analysis_id !== "pending" && (
+                  <WhatIfLab
+                    analysisId={result.analysis_id}
+                    baseStats={result.population_stats}
+                    baseSellingPoints={result.selling_points}
+                  />
+                )}
                 <PopulationStatsPanel stats={result.population_stats} />
-                <ReportPanel markdown={result.report_md} />
-                <SurveyCta analysisId={result.analysis_id} />
+                {/* 리포트는 가장 오래 걸리는 단계 — 스트리밍 중이면 스켈레톤, 도착하면 교체 */}
+                {result.report_md ? (
+                  <ReportPanel markdown={result.report_md} />
+                ) : result.analysis_id === "pending" ? (
+                  <ReportSkeleton />
+                ) : null}
+                <NextActionsPanel result={result} />
                 {pastSimulations.length > 0 && (
                   <PastSimulationsPanel simulations={pastSimulations} />
                 )}
@@ -331,6 +360,33 @@ function EmptyState({ mode }: { mode: Mode }) {
         가능합니다.
       </p>
     </div>
+  );
+}
+
+// 스트리밍 분석에서 리포트 LLM(수십 초)이 도착하기 전 자리표시. 도착하면 ReportPanel로 교체.
+function ReportSkeleton() {
+  return (
+    <section
+      className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden"
+      aria-busy="true"
+      aria-live="polite"
+    >
+      <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
+        <h2 className="text-title text-ink">AI 리포트</h2>
+        <p className="text-body-sm text-dusty mt-1 flex items-center gap-2">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-azure animate-pulse motion-reduce:animate-none" />
+          FP·기획자용 종합 리포트를 작성하고 있습니다…
+        </p>
+      </header>
+      <div className="px-4 py-4 sm:px-5 sm:py-5 space-y-2.5">
+        {["w-3/4", "w-full", "w-5/6", "w-2/3", "w-full", "w-1/2"].map((w, i) => (
+          <div
+            key={i}
+            className={`h-3.5 ${w} rounded bg-snow border border-parchment animate-pulse motion-reduce:animate-none`}
+          />
+        ))}
+      </div>
+    </section>
   );
 }
 

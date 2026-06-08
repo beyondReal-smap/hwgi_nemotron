@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/whatif": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Whatif
+         * @description 저장된 분석의 selling_points에 override를 적용해 즉시 재점수.
+         */
+        post: operations["whatif_api_whatif_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/abtest": {
         parameters: {
             query?: never;
@@ -114,6 +134,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cannibal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cannibal
+         * @description N개 안의 반응 코호트 겹침 행렬(방향성 + Jaccard).
+         */
+        post: operations["cannibal_api_cannibal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cannibals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Endpoint
+         * @description 겹침 분석 이력 요약 리스트 (최신순).
+         */
+        get: operations["list_endpoint_api_cannibals_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete All Endpoint
+         * @description 전체 삭제.
+         */
+        delete: operations["delete_all_endpoint_api_cannibals_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cannibals/{cannibal_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Detail Endpoint
+         * @description 겹침 분석 단건 — CannibalResponse 호환 dict 반환.
+         */
+        get: operations["detail_endpoint_api_cannibals__cannibal_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Endpoint
+         * @description 단건 삭제.
+         */
+        delete: operations["delete_endpoint_api_cannibals__cannibal_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/extract-text": {
         parameters: {
             query?: never;
@@ -165,7 +253,7 @@ export interface paths {
         };
         /**
          * List Products
-         * @description 30개 상품 메타 + 각 상품의 약관 본문 가용 여부.
+         * @description insurance/ 폴더의 약관 PDF 목록. PDF는 항상 본문 추출 가능.
          */
         get: operations["list_products_api_products_get"];
         put?: never;
@@ -185,10 +273,7 @@ export interface paths {
         };
         /**
          * Get Product Body
-         * @description 특정 상품의 약관 본문 텍스트.
-         *
-         *     PDF가 data/products/pdfs/<id>.pdf 로 업로드되어 있어야 한다.
-         *     텍스트 캐시(bodies/<id>.txt)가 PDF보다 최신이면 캐시를 그대로 반환.
+         * @description 특정 약관 PDF의 본문 텍스트. 캐시(bodies/<id>.txt)가 최신이면 캐시 반환.
          */
         get: operations["get_product_body_api_products__product_id__body_get"];
         put?: never;
@@ -379,11 +464,7 @@ export interface paths {
          * Personas Filter
          * @description 메타 필터 + (옵션) 자연어 검색 + 페이지네이션 + 분포 통계.
          *
-         *     흐름:
-         *       1) store.filter_indices(meta) → 후보 인덱스
-         *       2) req.query 있으면 → 임베딩 후 그 인덱스 대상 cosine 정렬, similarity 부여
-         *                    없으면 → 인덱스 그대로 (정렬은 uuid asc로 안정)
-         *       3) 페이지 슬라이스 + 인구통계 분포(sex/age_bins/province) 집계
+         *     비즈니스 로직은 services.persona_filter.filter_personas. 라우트는 HTTP 변환만 담당.
          */
         post: operations["personas_filter_api_dataset_personas_filter_post"];
         delete?: never;
@@ -424,6 +505,54 @@ export interface paths {
         put?: never;
         /** Create Survey */
         post: operations["create_survey_api_surveys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/placeholder-examples": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Placeholder Examples
+         * @description 설문 작성 폼 placeholder 예시 1세트(제목·설명·목적). 매 호출 다른 분야로 생성.
+         *
+         *     placeholder는 부가 기능이라 LLM 실패 시 고정 폴백 예시로 graceful degradation한다.
+         *     매 호출 다른 예시를 보장하기 위해 캐시를 끈다(브라우저/프록시 GET 캐시 방지).
+         */
+        get: operations["placeholder_examples_api_surveys_placeholder_examples_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/surveys/sllm-model": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sllm Model Info
+         * @description 현재 sLLM 게이트웨이가 실제 호스팅 중인 모델명 (SSOT).
+         *
+         *     프론트(설문 생성 폼)가 모델명을 하드코딩하지 않고 이 값을 단일 출처로 사용한다.
+         *     서버가 모델을 교체해도 자동으로 따라가 표시-실제 불일치를 원천 차단한다.
+         *     ⚠️ 라우트 순서 주의: 정적 경로라 동적 "/{survey_id}"보다 먼저 등록해야 가로채이지 않는다.
+         *     조회 실패(백엔드 미기동 등) 시 502 — 프론트는 폴백 라벨을 표시한다.
+         */
+        get: operations["sllm_model_info_api_surveys_sllm_model_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -571,6 +700,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/surveys/{survey_id}/recent-answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Answers
+         * @description 막 완료된 페르소나들의 마지막 답변 N개 (완료 시각 내림차순).
+         *
+         *     진행 화면의 라이브 ticker용. status와 분리한 별도 경량 엔드포인트라 polling
+         *     부담을 status에 얹지 않는다. LLM 호출 0(저장된 세션 슬라이스), PII 비노출.
+         */
+        get: operations["recent_answers_api_surveys__survey_id__recent_answers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/surveys/{survey_id}/retry-failed": {
         parameters: {
             query?: never;
@@ -704,6 +856,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/llm-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Config
+         * @description 현재 전역 LLM 설정 + 선택 가능한 옵션.
+         */
+        get: operations["get_config_api_admin_llm_config_get"];
+        put?: never;
+        /**
+         * Set Config
+         * @description 전역 LLM provider/모델 갱신 — 모든 LLM 호출에 즉시 반영.
+         */
+        post: operations["set_config_api_admin_llm_config_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -724,6 +900,66 @@ export interface components {
                     [key: string]: number;
                 };
             };
+            /** @description A/B 반응층 겹침(잠식 신호). 구버전 이력엔 없을 수 있어 Optional. */
+            overlap?: components["schemas"]["ABOverlap"] | null;
+            /**
+             * Win Tally
+             * @description 핵심 수치 지표(평균점수·핵심/타겟 규모·가입의향·긍정비율) 승부 집계 {'a': 4, 'b': 1, 'tie': 0}. 추천 확신도 스코어보드용. 구버전 이력은 None.
+             */
+            win_tally?: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Overlap Segments
+             * @description 스윙/A전용/B전용 3층의 인구통계 분해(스윙층 X-레이). 구버전은 None.
+             */
+            overlap_segments?: components["schemas"]["OverlapSegment"][] | null;
+            /** @description 스윙층 내부 안별 끌림 강도(줄다리기 맵). 구버전은 None. */
+            swing_pull?: components["schemas"]["SwingPull"] | null;
+            /**
+             * Split Playbook
+             * @description split 추천 시 'A로 팔 사람/B로 팔 사람' 분기 처방. 비-split이면 None.
+             */
+            split_playbook?: components["schemas"]["SplitRule"][] | null;
+        };
+        /**
+         * ABOverlap
+         * @description A/B 두 안의 반응 코호트 겹침(잠식 신호). target 코호트(≥73) 기준.
+         *
+         *     겹침은 임베딩 의미 유사도 기반이라 실 구매 잠식이 아닌 '반응 겹침' 신호다.
+         */
+        ABOverlap: {
+            /**
+             * A To B
+             * @description A 반응자 중 B에도 반응한 비율(0~1, 비대칭)
+             */
+            a_to_b: number;
+            /**
+             * B To A
+             * @description B 반응자 중 A에도 반응한 비율(0~1, 비대칭)
+             */
+            b_to_a: number;
+            /**
+             * Jaccard
+             * @description 두 안 반응자 합집합 대비 교집합(0~1, 대칭)
+             */
+            jaccard: number;
+            /**
+             * A Size
+             * @description A target 코호트 인원
+             */
+            a_size: number;
+            /**
+             * B Size
+             * @description B target 코호트 인원
+             */
+            b_size: number;
+            /**
+             * Relation
+             * @description 겹침 해석: cannibal(잠식·같은 층)·complementary(보완·다른 층)·neutral(중간)
+             * @enum {string}
+             */
+            relation: "cannibal" | "complementary" | "neutral";
         };
         /**
          * ABTestRequest
@@ -764,7 +1000,7 @@ export interface components {
              * @default sllm
              * @enum {string}
              */
-            llm_provider: "anthropic" | "sllm";
+            llm_provider: "anthropic" | "sllm" | "openai";
             /**
              * Top K
              * @description 각 안에서 반환할 상위 페르소나 수 (A·B 동일)
@@ -872,7 +1108,7 @@ export interface components {
              * Llm Provider
              * @enum {string}
              */
-            llm_provider: "anthropic" | "sllm";
+            llm_provider: "anthropic" | "sllm" | "openai";
         };
         /**
          * ABTestVariantInput
@@ -974,7 +1210,7 @@ export interface components {
              * @default sllm
              * @enum {string}
              */
-            llm_provider: "anthropic" | "sllm";
+            llm_provider: "anthropic" | "sllm" | "openai";
         };
         /**
          * AnalyzeResponse
@@ -1025,9 +1261,14 @@ export interface components {
             bottom_opinions?: components["schemas"]["PersonaOpinion"][];
             /**
              * Report Md
-             * @description Claude(Haiku) 생성 FP/기획자용 마크다운 리포트
+             * @description FP/기획자용 마크다운 리포트 (provider별 생성; 현재 enforce_provider로 사내 sLLM 고정)
              */
             report_md: string;
+            /**
+             * Segments
+             * @description 타겟 cohort 교차 세그먼트 발굴 — 단변량 분포가 못 잡는 상호작용 조합을 전국 대비 집중 배수(lift) 순으로. LLM 0콜. 옛 이력은 빈 배열.
+             */
+            segments?: components["schemas"]["SegmentFinding"][];
             /**
              * Elapsed Ms
              * @description 단계별 소요 ms: selling_points, embed, score, opinions, report
@@ -1065,6 +1306,168 @@ export interface components {
         Body_parse_file_api_surveys_questions_parse_file_post: {
             /** File */
             file: string;
+        };
+        /**
+         * CannibalItemInput
+         * @description 잠식 분석 대상 안(案) 1개.
+         */
+        CannibalItemInput: {
+            /**
+             * Label
+             * @description 안의 별명 (UI 표시 기준)
+             */
+            label: string;
+            /**
+             * Text
+             * @description 안 본문(컨셉/카피/약관)
+             */
+            text: string;
+        };
+        /**
+         * CannibalItemMeta
+         * @description 잠식 행렬 응답의 안별 메타 (행렬 행/열 인덱스 순서와 동일).
+         */
+        CannibalItemMeta: {
+            /**
+             * Label
+             * @description 안의 별명
+             */
+            label: string;
+            /**
+             * Cohort Size
+             * @description 해당 코호트 반응자 수
+             */
+            cohort_size: number;
+            /**
+             * Summary
+             * @description 소구점 한 줄 요약
+             */
+            summary: string;
+        };
+        /**
+         * CannibalRequest
+         * @description POST /api/cannibal 요청 — N개 안의 반응 코호트 겹침 행렬.
+         */
+        CannibalRequest: {
+            /**
+             * Items
+             * @description 비교할 안 목록 (2~8개)
+             */
+            items: components["schemas"]["CannibalItemInput"][];
+            /**
+             * Input Mode
+             * @description 입력 성격: terms|marketing|concept (소구점 추출 가드)
+             * @default concept
+             * @enum {string}
+             */
+            input_mode: "terms" | "marketing" | "concept";
+            /**
+             * Cohort Level
+             * @description 겹침 산출 기준 반응 코호트 (core≥81/target≥73/interest≥68)
+             * @default target
+             * @enum {string}
+             */
+            cohort_level: "core" | "target" | "interest";
+            /**
+             * Llm Provider
+             * @description 소구점 추출에 사용할 LLM provider
+             * @default sllm
+             * @enum {string}
+             */
+            llm_provider: "anthropic" | "sllm" | "openai";
+        };
+        /**
+         * CannibalResponse
+         * @description POST /api/cannibal 응답 — N×N 겹침 행렬(스칼라만, 인덱스 비노출).
+         */
+        CannibalResponse: {
+            /**
+             * Cannibal Id
+             * @description 영속화된 분석 id (이력 재조회용)
+             */
+            cannibal_id: string;
+            /**
+             * Items
+             * @description 안별 메타. 인덱스 순서가 행렬 행/열 순서와 일치.
+             */
+            items: components["schemas"]["CannibalItemMeta"][];
+            /**
+             * Directional Matrix
+             * @description M[i][j]=|Ci∩Cj|/|Ci| — i안 반응자 중 j안에도 반응한 비율(비대칭). 대각선 1.
+             */
+            directional_matrix: number[][];
+            /**
+             * Jaccard Matrix
+             * @description J[i][j]=|Ci∩Cj|/|Ci∪Cj| — 대칭 겹침. 대각선 1.
+             */
+            jaccard_matrix: number[][];
+            /**
+             * Cohort Level
+             * @description 겹침 산출에 쓰인 코호트 레벨
+             */
+            cohort_level: string;
+            /**
+             * Warnings
+             * @description 정직성 경고: small_cohort(소표본) 등. 겹침은 의미 유사도 기반이라 실 구매 잠식 아님.
+             */
+            warnings?: string[];
+            /**
+             * Elapsed Ms
+             * @description 단계별 ms: extract, embed, score, matrix, setops, total
+             */
+            elapsed_ms: {
+                [key: string]: number;
+            };
+            /**
+             * Coverage
+             * @description 포트폴리오 커버리지 라인업(greedy union 누적). 구버전 호환 Optional.
+             */
+            coverage?: components["schemas"]["CoverageStep"][] | null;
+            /**
+             * Multiplicity
+             * @description 노출 다중도 히스토그램(각 페르소나 소속 안 개수).
+             */
+            multiplicity?: components["schemas"]["MultiplicityBin"][] | null;
+            /**
+             * Exclusive Profiles
+             * @description 안별 전용층 프로파일(setdiff demographics/시군구).
+             */
+            exclusive_profiles?: components["schemas"]["ExclusiveProfile"][] | null;
+        };
+        /** CannibalSummary */
+        CannibalSummary: {
+            /** Id */
+            id: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Input Mode
+             * @enum {string}
+             */
+            input_mode: "terms" | "marketing" | "concept";
+            /**
+             * Cohort Level
+             * @enum {string}
+             */
+            cohort_level: "core" | "target" | "interest";
+            /** Item Count */
+            item_count: number;
+            /** Labels */
+            labels: string[];
+            /** Total Ms */
+            total_ms: number;
+            /**
+             * Llm Provider
+             * @enum {string}
+             */
+            llm_provider: "anthropic" | "sllm" | "openai";
+        };
+        /** CannibalsListResponse */
+        CannibalsListResponse: {
+            /** Total */
+            total: number;
+            /** Items */
+            items: components["schemas"]["CannibalSummary"][];
         };
         /**
          * CohortStat
@@ -1156,6 +1559,97 @@ export interface components {
             winner: "A" | "B" | "tie";
         };
         /**
+         * ConfidenceStats
+         * @description 점추정에 붙는 불확실성 — 평균 95% 신뢰구간 + 컷 민감도.
+         *
+         *     cohort 평균은 해석적 표준오차(std/√n, 95%=±1.96·SE)로 산출 — 1M 규모라 즉시·정확.
+         *     컷 민감도는 절대 점수 컷을 ±1점 흔들 때 인원 변화를 직접 카운트.
+         *     '점수 82±0.4', 'core 컷 81→80이면 +6,200명'처럼 정직성을 노출한다. 옛 이력 부재(Optional).
+         */
+        ConfidenceStats: {
+            /**
+             * Core Mean
+             * @description core cohort 평균 점수
+             */
+            core_mean: number;
+            /**
+             * Core Ci Low
+             * @description core 평균 95% 신뢰구간 하한
+             */
+            core_ci_low: number;
+            /**
+             * Core Ci High
+             * @description core 평균 95% 신뢰구간 상한
+             */
+            core_ci_high: number;
+            /**
+             * Target Mean
+             * @description target cohort 평균 점수
+             */
+            target_mean: number;
+            /**
+             * Target Ci Low
+             * @description target 평균 95% 신뢰구간 하한
+             */
+            target_ci_low: number;
+            /**
+             * Target Ci High
+             * @description target 평균 95% 신뢰구간 상한
+             */
+            target_ci_high: number;
+            /**
+             * Core Cut
+             * @description core 절대 점수 컷(기준)
+             */
+            core_cut: number;
+            /**
+             * Core Size
+             * @description 현재 컷 기준 core 인원
+             */
+            core_size: number;
+            /**
+             * Core Size Relaxed
+             * @description 컷 -1점 시 core 인원(증가분 관찰)
+             */
+            core_size_relaxed: number;
+            /**
+             * Core Size Tightened
+             * @description 컷 +1점 시 core 인원(감소분 관찰)
+             */
+            core_size_tightened: number;
+        };
+        /**
+         * CoverageStep
+         * @description 포트폴리오 커버리지 — greedy union 라인업의 한 스텝.
+         */
+        CoverageStep: {
+            /**
+             * Rank
+             * @description 라인업 추가 순서(1=가장 큰 코호트)
+             */
+            rank: number;
+            /**
+             * Item Index
+             * @description 안 인덱스
+             */
+            item_index: number;
+            /**
+             * Label
+             * @description 안 별명
+             */
+            label: string;
+            /**
+             * Marginal
+             * @description 이 안 추가로 새로 닿는 인원(marginal lift)
+             */
+            marginal: number;
+            /**
+             * Cumulative
+             * @description 누적 도달(합집합) 인원
+             */
+            cumulative: number;
+        };
+        /**
          * DemographicGroup
          * @description Nemotron 인구통계 1개 컬럼의 분포.
          *
@@ -1199,6 +1693,57 @@ export interface components {
             label: string;
             /** Count */
             count: number;
+            /**
+             * Share
+             * @description 이 값이 타겟 cohort 전체에서 차지하는 비율 (count/target_total, 0~1)
+             */
+            share?: number | null;
+            /**
+             * Baseline Share
+             * @description 이 값이 전체 모집단에서 차지하는 비율 (0~1)
+             */
+            baseline_share?: number | null;
+            /**
+             * Lift Ratio
+             * @description share / baseline_share — 1.0=전국과 동일, >1=과대표집(타겟 집중), <1=과소표집. baseline 0이면 None
+             */
+            lift_ratio?: number | null;
+        };
+        /**
+         * ExclusiveProfile
+         * @description 전용층 — 오직 한 안에만 반응한 고유층의 프로파일.
+         */
+        ExclusiveProfile: {
+            /**
+             * Item Index
+             * @description 안 인덱스
+             */
+            item_index: number;
+            /**
+             * Label
+             * @description 안 별명
+             */
+            label: string;
+            /**
+             * Exclusive Size
+             * @description 이 안에만 반응한 인원
+             */
+            exclusive_size: number;
+            /**
+             * Exclusive Ratio
+             * @description 전용/전체코호트 비율 — 분모 아티팩트 보정용
+             */
+            exclusive_ratio: number;
+            /**
+             * Demographics
+             * @description 전용층 인구통계 분포
+             */
+            demographics?: components["schemas"]["DemographicGroup"][];
+            /**
+             * Districts
+             * @description 전용층 시군구 분포
+             */
+            districts?: components["schemas"]["RegionStat"][];
         };
         /**
          * ExecutionConfig
@@ -1210,7 +1755,7 @@ export interface components {
              * @default anthropic
              * @enum {string}
              */
-            llm_provider: "anthropic" | "sllm";
+            llm_provider: "anthropic" | "sllm" | "openai";
             /**
              * Model
              * @default claude-haiku-4-5
@@ -1287,6 +1832,35 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** LLMConfigUpdate */
+        LLMConfigUpdate: {
+            /**
+             * Provider
+             * @description sllm | anthropic | openai
+             */
+            provider: string;
+            /**
+             * Openai Model
+             * @default gpt-5.4
+             */
+            openai_model: string;
+        };
+        /**
+         * MultiplicityBin
+         * @description 노출 다중도 — 각 페르소나가 몇 개 안의 반응층에 속하나.
+         */
+        MultiplicityBin: {
+            /**
+             * Overlap Count
+             * @description 소속 안 개수(1=한 안에만, 2+=중복 노출)
+             */
+            overlap_count: number;
+            /**
+             * Persona Count
+             * @description 그런 페르소나 수
+             */
+            persona_count: number;
+        };
         /** OpenEndedSample */
         OpenEndedSample: {
             /** Persona Uuid */
@@ -1305,6 +1879,37 @@ export interface components {
             reasoning: string;
             /** Confidence */
             confidence: number;
+        };
+        /**
+         * OverlapSegment
+         * @description A/B 반응층 3분할(스윙=교집합 / A전용 / B전용) 1개 + 인구통계 프로파일.
+         *
+         *     Jaccard 한 숫자를 '갈아탈 사람의 얼굴'로 풀기 위해, 겹침 교집합/차집합을
+         *     demographics로 분해한다. swing은 양쪽 다 반응(잠식 가능층), a_only/b_only는
+         *     각 안 고유 충성층. LLM 0콜(setdiff/intersect + 분포 집계).
+         */
+        OverlapSegment: {
+            /**
+             * Key
+             * @description swing=교집합(스윙층) / a_only=A전용 / b_only=B전용
+             * @enum {string}
+             */
+            key: "swing" | "a_only" | "b_only";
+            /**
+             * Label
+             * @description 표시 라벨
+             */
+            label: string;
+            /**
+             * Size
+             * @description 이 층 인원
+             */
+            size: number;
+            /**
+             * Demographics
+             * @description 이 층의 인구통계 분포(전국 baseline-lift 포함)
+             */
+            demographics?: components["schemas"]["DemographicGroup"][];
         };
         /** ParseResult */
         ParseResult: {
@@ -1718,6 +2323,13 @@ export interface components {
              * @default v2_hybrid
              */
             scoring_version: string;
+            /**
+             * Score Drivers
+             * @description Score DNA — core cohort 점수가 의미/인구통계/관심사/보험관심 중 무엇에서 떴는지 가산식 항 단위 분해. 비어 있으면 옛 이력 또는 0-쿼리.
+             */
+            score_drivers?: components["schemas"]["ScoreDriver"][];
+            /** @description cohort 평균 95% 신뢰구간 + 컷 민감도. 옛 이력은 None. */
+            confidence?: components["schemas"]["ConfidenceStats"] | null;
         };
         /** ProductBody */
         ProductBody: {
@@ -1844,6 +2456,52 @@ export interface components {
             open_ended_length_max?: number | null;
         };
         /**
+         * RecentAnswer
+         * @description 라이브 피드 한 줄 — 막 완료된 한 페르소나의 마지막 답변.
+         *
+         *     PII 보호(survey_response.md 집단성 원칙): UUID·이름 절대 비노출.
+         *     성별/나이/지역 + 답변 본문(요약)만 노출한다.
+         */
+        RecentAnswer: {
+            /**
+             * Persona Summary
+             * @description 식별 불가 한 줄 (예: "여 34 · 서울 강남구")
+             */
+            persona_summary: string;
+            /**
+             * Question Text
+             * @description 해당 답변의 질문
+             */
+            question_text: string;
+            /**
+             * Answer Text
+             * @description 렌더된 답변 (선택지/점수/자유응답)
+             */
+            answer_text: string;
+            /**
+             * Reasoning
+             * @description 간단한 응답 근거 (있으면)
+             * @default
+             */
+            reasoning: string;
+            /**
+             * Completed At
+             * @description 완료 시각 ISO
+             */
+            completed_at?: string | null;
+        };
+        /** RecentAnswersResponse */
+        RecentAnswersResponse: {
+            /** Items */
+            items: components["schemas"]["RecentAnswer"][];
+            /**
+             * Completed Total
+             * @description 완료 세션 누적 수 (피드 갱신 트리거용)
+             * @default 0
+             */
+            completed_total: number;
+        };
+        /**
          * RegionStat
          * @description 시도/시군구별 집계 통계.
          */
@@ -1865,6 +2523,16 @@ export interface components {
             avg_score: number;
             /** Top Persona Uuid */
             top_persona_uuid?: string | null;
+            /**
+             * Population Count
+             * @description 해당 지역 전체 모집단 인원 (농도 분모)
+             */
+            population_count?: number | null;
+            /**
+             * Lift Ratio
+             * @description 지역 타겟 농도 / 전국 평균 농도 — 1.0=전국 평균, >1=인구 대비 과집중. 분모(모집단 인원) 작은 소지역은 아티팩트 주의
+             */
+            lift_ratio?: number | null;
         };
         /** ReportResponse */
         ReportResponse: {
@@ -1971,6 +2639,43 @@ export interface components {
             retry_count: number;
         };
         /**
+         * ScoreDriver
+         * @description 점수 분해 한 항 (Score DNA) — core cohort 점수가 어느 요인에서 왔나.
+         *
+         *     score_all_personas의 가산식
+         *       raw = cosine_score + W_RULE_PT*(rule-0.5) + W_CAT_PT*(cat-0.5) + W_INSUR_PT*insur
+         *     의 각 항을 core cohort에서 평균내고 모집단 평균과의 delta를 함께 제공한다.
+         *     가산 구조라 항 합 = 점수(soft-ceiling 전)와 수학적으로 정합 — 휴리스틱 아님, LLM 0콜.
+         *     옛 분석 이력엔 부재(Optional).
+         */
+        ScoreDriver: {
+            /**
+             * Key
+             * @description 요인 식별자: cosine|rule|category|insurance
+             */
+            key: string;
+            /**
+             * Label
+             * @description 표시 라벨: 의미 적합도|인구통계 적합|관심사 적합|보험 관심
+             */
+            label: string;
+            /**
+             * Core Contribution
+             * @description core cohort 평균에서 이 항이 차지하는 점수 기여(절대)
+             */
+            core_contribution: number;
+            /**
+             * Pop Contribution
+             * @description 전체 모집단 평균에서 이 항의 점수 기여(절대)
+             */
+            pop_contribution: number;
+            /**
+             * Delta
+             * @description core_contribution - pop_contribution. core를 모집단 위로 끌어올린 정도(+/-)
+             */
+            delta: number;
+        };
+        /**
          * Segment
          * @description 저장된 페르소나 세그먼트. 마법사 Step 2에서 불러옴.
          */
@@ -2011,6 +2716,58 @@ export interface components {
             /** Persona Uuids */
             persona_uuids: string[];
         };
+        /**
+         * SegmentFinding
+         * @description 교차 세그먼트 발굴 1건 — 단변량 분포가 못 잡는 상호작용 조합.
+         *
+         *     버려지던 cohort_indices(target) 위에서 2~3개 인구통계 차원을 groupby 교차해
+         *     '전국 대비 가장 진하게 몰린' 조합을 lift_ratio 순으로 추출한다. LLM 0콜.
+         *     예: {age_bucket:'40대', family_type:'배우자·자녀와 거주', province:'경기'} → 3.4배 집중.
+         */
+        SegmentFinding: {
+            /**
+             * Dimensions
+             * @description 조합을 이루는 차원별 값 {컬럼: 값}
+             */
+            dimensions: {
+                [key: string]: string;
+            };
+            /**
+             * Label
+             * @description 사람이 읽는 한 줄 (예: '40대 · 유자녀 · 경기')
+             */
+            label: string;
+            /**
+             * Target Count
+             * @description 이 조합의 타겟 cohort 인원
+             */
+            target_count: number;
+            /**
+             * Population Count
+             * @description 이 조합의 전체 모집단 인원
+             */
+            population_count: number;
+            /**
+             * Share
+             * @description 타겟 cohort 내 이 조합의 비율(0~1)
+             */
+            share: number;
+            /**
+             * Baseline Share
+             * @description 전체 모집단 내 이 조합의 비율(0~1)
+             */
+            baseline_share: number;
+            /**
+             * Lift Ratio
+             * @description share/baseline_share — 전국 대비 집중 배수(>1=과집중)
+             */
+            lift_ratio: number;
+            /**
+             * Avg Score
+             * @description 이 조합 페르소나의 평균 반응도 점수
+             */
+            avg_score: number;
+        };
         /** SegmentListResponse */
         SegmentListResponse: {
             /** Items */
@@ -2026,7 +2783,7 @@ export interface components {
         };
         /**
          * SellingPoints
-         * @description Claude(Sonnet)가 상품 텍스트에서 추출한 분석 결과.
+         * @description LLM이 상품 텍스트에서 추출한 분석 결과 (anthropic provider 시 Claude Sonnet, 현재 enforce_provider로 사내 sLLM 고정).
          *
          *     tool_use 모드로 스키마 강제. 누락 가능 필드는 None/빈 배열로.
          */
@@ -2134,7 +2891,7 @@ export interface components {
              * @default sllm
              * @enum {string}
              */
-            llm_provider: "anthropic" | "sllm";
+            llm_provider: "anthropic" | "sllm" | "openai";
         };
         /**
          * SimulateResponse
@@ -2156,6 +2913,40 @@ export interface components {
             elapsed_ms: {
                 [key: string]: number;
             };
+        };
+        /**
+         * SplitRule
+         * @description 분기 운영 처방 1행 — 한 인구통계 축에서 A/B 각각의 대표 세그먼트.
+         *
+         *     split 추천 시 'A로 팔 사람 / B로 팔 사람'을 전용층 분포의 축별 최대 격차로
+         *     자동 분해한다. 집합연산+분포비교라 LLM 없이 골격이 선다.
+         */
+        SplitRule: {
+            /**
+             * Dimension
+             * @description 축 라벨 (예: 연령대, 가구 유형)
+             */
+            dimension: string;
+            /**
+             * A Segment
+             * @description A전용층에서 가장 우세한 값
+             */
+            a_segment: string;
+            /**
+             * A Count
+             * @description A전용층 내 해당 값 인원
+             */
+            a_count: number;
+            /**
+             * B Segment
+             * @description B전용층에서 가장 우세한 값
+             */
+            b_segment: string;
+            /**
+             * B Count
+             * @description B전용층 내 해당 값 인원
+             */
+            b_count: number;
         };
         /** SuggestQuestionsRequest */
         SuggestQuestionsRequest: {
@@ -2311,6 +3102,41 @@ export interface components {
             failed_personas?: components["schemas"]["FailedPersonaInfo"][];
         };
         /**
+         * SwingPull
+         * @description 스윙층(양쪽 반응) 내부의 안별 끌림 강도 — 줄다리기 맵.
+         *
+         *     교집합 페르소나 각각에서 A 점수 vs B 점수를 직접 비교해, 이 스윙층이 평균적으로
+         *     어느 안으로 기우는지(mean_delta)와 A 선호 비율(a_lean_ratio)을 산출. '중복=무조건
+         *     잠식'이 아니라 '한쪽으로 기운 회수 가능층'임을 정량화한다.
+         */
+        SwingPull: {
+            /**
+             * Swing Size
+             * @description 스윙층(교집합) 인원
+             */
+            swing_size: number;
+            /**
+             * A Mean
+             * @description 스윙층의 A 평균 반응도 점수
+             */
+            a_mean: number;
+            /**
+             * B Mean
+             * @description 스윙층의 B 평균 반응도 점수
+             */
+            b_mean: number;
+            /**
+             * A Lean Ratio
+             * @description 스윙층 중 A 점수가 더 높은 인원 비율(0~1). 0.5=완전 박빙
+             */
+            a_lean_ratio: number;
+            /**
+             * Mean Delta
+             * @description a_mean - b_mean. 양수=A로 기움
+             */
+            mean_delta: number;
+        };
+        /**
          * TargetFilter
          * @description 페르소나 선별 조건 — /api/dataset/personas/filter 입력과 호환.
          */
@@ -2355,6 +3181,65 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * WhatIfRequest
+         * @description POST /api/whatif 요청.
+         *
+         *     analysis_id의 저장된 selling_points를 베이스로, 아래 override 필드 중 지정된 것만
+         *     덮어써 재점수한다. None(미지정)은 원본 유지, 빈 배열([])은 명시적 해제.
+         *     target_keywords/summary는 바꾸지 않으므로 query 임베딩은 캐시 hit(0ms) → cosine 84ms +
+         *     rule/cat 재계산만으로 100만 분포·cohort·세그먼트가 즉시 갱신된다.
+         */
+        WhatIfRequest: {
+            /**
+             * Analysis Id
+             * @description 기 분석 ID (저장된 selling_points 베이스)
+             */
+            analysis_id: string;
+            /** Target Age Min */
+            target_age_min?: number | null;
+            /** Target Age Max */
+            target_age_max?: number | null;
+            /**
+             * Target Sex
+             * @description None=원본 유지, []=성별 무관
+             */
+            target_sex?: string[] | null;
+            /** Target Family Types */
+            target_family_types?: string[] | null;
+            /** Target Education Levels */
+            target_education_levels?: string[] | null;
+            /** Target Occupations */
+            target_occupations?: string[] | null;
+            /**
+             * Persona Category Weights
+             * @description 6개 카테고리 가중치 전체 교체 (None=원본 유지)
+             */
+            persona_category_weights?: {
+                [key: string]: number;
+            } | null;
+        };
+        /**
+         * WhatIfResponse
+         * @description POST /api/whatif 응답 — 재점수된 모집단 통계 + 세그먼트 + 상위 페르소나(의견 제외).
+         */
+        WhatIfResponse: {
+            population_stats: components["schemas"]["PopulationStats"];
+            /** Segments */
+            segments?: components["schemas"]["SegmentFinding"][];
+            /**
+             * Top Personas
+             * @description 재점수 상위 페르소나(의견 미생성 — 분포 탐색용)
+             */
+            top_personas?: components["schemas"]["PersonaHit"][];
+            /**
+             * Elapsed Ms
+             * @description embed/score/segments/total
+             */
+            elapsed_ms: {
+                [key: string]: number;
+            };
         };
     };
     responses: never;
@@ -2407,6 +3292,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnalyzeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    whatif_api_whatif_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WhatIfRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WhatIfResponse"];
                 };
             };
             /** @description Validation Error */
@@ -2546,6 +3464,159 @@ export interface operations {
             header?: never;
             path: {
                 abtest_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cannibal_api_cannibal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CannibalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CannibalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_endpoint_api_cannibals_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CannibalsListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_all_endpoint_api_cannibals_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    detail_endpoint_api_cannibals__cannibal_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cannibal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_endpoint_api_cannibals__cannibal_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cannibal_id: string;
             };
             cookie?: never;
         };
@@ -3078,6 +4149,50 @@ export interface operations {
             };
         };
     };
+    placeholder_examples_api_surveys_placeholder_examples_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    sllm_model_info_api_surveys_sllm_model_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     get_survey_endpoint_api_surveys__survey_id__get: {
         parameters: {
             query?: never;
@@ -3332,6 +4447,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SurveyStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_answers_api_surveys__survey_id__recent_answers_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                survey_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentAnswersResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3624,6 +4772,76 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_config_api_admin_llm_config_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Admin-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_config_api_admin_llm_config_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Admin-Token"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LLMConfigUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
             /** @description Validation Error */
             422: {

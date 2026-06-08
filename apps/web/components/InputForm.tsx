@@ -3,10 +3,13 @@
 import { useRef, useState } from "react";
 import {
   analyzeProduct,
+  analyzeProductStream,
   extractTextFromFile,
   MAX_FILE_SIZE_MB,
   SUPPORTED_EXTENSIONS,
   type AnalyzeResponse,
+  type PopulationStats,
+  type SellingPoints,
 } from "@/lib/api";
 import { HwgiProductPicker } from "@/components/HwgiProductPicker";
 
@@ -101,11 +104,93 @@ export function InputForm({ onResult, onLoadingChange, onError }: Props) {
     onLoadingChange(true);
     onError(null);
 
+    // 단계별 부분 결과를 누적해 AnalyzeResponse로 조립한다. score 단계 이후부터
+    // population_stats가 채워지므로 그 시점부터 onResult로 점진 렌더한다.
+    const acc: Partial<AnalyzeResponse> = {};
+    let serverErrorDetail: string | null = null;
+    let lastReportFlush = 0; // 리포트 토큰 렌더 스로틀(ms) — 토큰마다 setState 폭주 방지
+    const assemble = (): AnalyzeResponse => ({
+      // selling_points/population_stats는 score 단계 이후에만 assemble되어 항상 존재한다.
+      analysis_id: acc.analysis_id ?? "pending",
+      selling_points: acc.selling_points as SellingPoints,
+      top_personas: acc.top_personas ?? [],
+      mid_personas: acc.mid_personas ?? [],
+      bottom_personas: acc.bottom_personas ?? [],
+      province_stats: acc.province_stats ?? [],
+      district_stats: acc.district_stats ?? [],
+      population_stats: acc.population_stats as PopulationStats,
+      top_opinions: acc.top_opinions ?? [],
+      mid_opinions: acc.mid_opinions ?? [],
+      bottom_opinions: acc.bottom_opinions ?? [],
+      report_md: acc.report_md ?? "",
+      segments: acc.segments ?? [],
+      elapsed_ms: acc.elapsed_ms ?? {},
+    });
+
     try {
-      const r = await analyzeProduct(text, 100);
-      onResult(r);
-    } catch (err) {
-      onError(err instanceof Error ? err.message : String(err));
+      await analyzeProductStream(text, 100, "sllm", (ev) => {
+        switch (ev.event) {
+          case "selling_points":
+            acc.selling_points = ev.data.selling_points;
+            acc.elapsed_ms = ev.data.elapsed_ms;
+            break;
+          case "score":
+            acc.top_personas = ev.data.top_personas;
+            acc.mid_personas = ev.data.mid_personas;
+            acc.bottom_personas = ev.data.bottom_personas;
+            acc.province_stats = ev.data.province_stats;
+            acc.district_stats = ev.data.district_stats;
+            acc.population_stats = ev.data.population_stats;
+            acc.segments = ev.data.segments;
+            acc.elapsed_ms = ev.data.elapsed_ms;
+            onLoadingChange(false); // 결과 영역을 즉시 노출(이후 의견·리포트는 점진 채움)
+            onResult(assemble());
+            break;
+          case "opinions":
+            acc.top_opinions = ev.data.top_opinions;
+            acc.mid_opinions = ev.data.mid_opinions;
+            acc.bottom_opinions = ev.data.bottom_opinions;
+            acc.elapsed_ms = ev.data.elapsed_ms;
+            onResult(assemble());
+            break;
+          case "report_token":
+            acc.report_md = (acc.report_md ?? "") + ev.data.chunk;
+            // 토큰마다 리렌더는 비싸므로 ~120ms 스로틀. 마지막 report 이벤트에서 최종 확정.
+            if (Date.now() - lastReportFlush > 120) {
+              lastReportFlush = Date.now();
+              onResult(assemble());
+            }
+            break;
+          case "report":
+            acc.report_md = ev.data.report_md; // 완성본으로 최종 확정(스로틀로 누락된 잔여 토큰 보정)
+            acc.elapsed_ms = ev.data.elapsed_ms;
+            onResult(assemble());
+            break;
+          case "done":
+            acc.analysis_id = ev.data.analysis_id;
+            acc.elapsed_ms = ev.data.elapsed_ms;
+            onResult(assemble());
+            break;
+          case "error":
+            serverErrorDetail = ev.data.detail;
+            break;
+        }
+      });
+      if (serverErrorDetail) onError(serverErrorDetail);
+    } catch {
+      // 스트리밍 실패 — 서버가 명시 에러를 보냈으면 그대로, 아니면 결과 시작 전이면 블로킹 폴백.
+      if (serverErrorDetail) {
+        onError(serverErrorDetail);
+      } else if (!acc.population_stats) {
+        try {
+          const r = await analyzeProduct(text, 100);
+          onResult(r);
+        } catch (err) {
+          onError(err instanceof Error ? err.message : String(err));
+        }
+      } else {
+        onError("분석 스트림이 중간에 끊겼습니다. 표시된 부분 결과는 유효합니다.");
+      }
     } finally {
       setSubmitting(false);
       onLoadingChange(false);
