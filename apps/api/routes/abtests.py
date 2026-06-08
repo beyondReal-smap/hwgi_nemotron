@@ -34,7 +34,9 @@ class ABTestSummary(BaseModel):
     recommended_variant: Literal["A", "B", "split"]
     recommended_label: str
     total_ms: int
-    llm_provider: Literal["anthropic", "sllm"]
+    # openai 포함 — ABTestRequest/CannibalSummary와 동기화. 누락 시 openai로 실행한 이력이
+    # jsonl에 저장된 뒤 GET /api/abtests 목록 검증에서 ValidationError → 이력 전체 500.
+    llm_provider: Literal["anthropic", "sllm", "openai"]
 
 
 class ABTestsListResponse(BaseModel):

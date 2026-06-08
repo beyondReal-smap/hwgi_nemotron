@@ -28,8 +28,13 @@ from services.llm import (
     LLMProvider,
     anthropic_client,
     enforce_provider,
+    openai_client,
     resolve_sllm_model,
     sllm_client,
+)
+from services.llm.config import (
+    ABTEST_COMPANY_PROMPT_OPENAI,
+    ABTEST_STRATEGY_PROMPT_OPENAI,
 )
 
 # ============================================================
@@ -272,15 +277,27 @@ def generate_abtest_company_insights(
         parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
         return "\n".join(parts).strip()
 
-    # sLLM
-    completion = sllm_client().chat.completions.create(
-        model=resolve_sllm_model(),
-        max_tokens=2600,
+    # OpenAI 호환 — sLLM 또는 OpenAI 상용(길이 제한 해제)
+    if provider == "openai":
+        from services.runtime_config import load_llm_config
+
+        client = openai_client()
+        model = load_llm_config().get("openai_model") or "gpt-5.4"
+        extra: dict = {}  # gpt-5.x는 max_tokens 미지원 + 길이 제한 해제 → 미설정
+        prompt = ABTEST_COMPANY_PROMPT_OPENAI
+    else:  # sllm
+        client = sllm_client()
+        model = resolve_sllm_model()
+        extra = {"max_tokens": 2600}
+        prompt = ABTEST_COMPANY_PROMPT
+    completion = client.chat.completions.create(
+        model=model,
         temperature=0.4,
         messages=[
-            {"role": "system", "content": ABTEST_COMPANY_PROMPT},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": context},
         ],
+        **extra,
     )
     return (completion.choices[0].message.content or "").strip()
 
@@ -321,14 +338,26 @@ def generate_abtest_fp_strategy(
         parts = [b.text for b in msg.content if getattr(b, "type", None) == "text"]
         return "\n".join(parts).strip()
 
-    # sLLM
-    completion = sllm_client().chat.completions.create(
-        model=resolve_sllm_model(),
-        max_tokens=3000,
+    # OpenAI 호환 — sLLM 또는 OpenAI 상용(길이 제한 해제)
+    if provider == "openai":
+        from services.runtime_config import load_llm_config
+
+        client = openai_client()
+        model = load_llm_config().get("openai_model") or "gpt-5.4"
+        extra: dict = {}  # gpt-5.x는 max_tokens 미지원 + 길이 제한 해제 → 미설정
+        prompt = ABTEST_STRATEGY_PROMPT_OPENAI
+    else:  # sllm
+        client = sllm_client()
+        model = resolve_sllm_model()
+        extra = {"max_tokens": 3000}
+        prompt = ABTEST_STRATEGY_PROMPT
+    completion = client.chat.completions.create(
+        model=model,
         temperature=0.5,
         messages=[
-            {"role": "system", "content": ABTEST_STRATEGY_PROMPT},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": context},
         ],
+        **extra,
     )
     return (completion.choices[0].message.content or "").strip()

@@ -24,6 +24,7 @@ from services.llm import (
     _anthropic_to_openai_tool,
     anthropic_client,
     enforce_provider,
+    openai_client,
     resolve_sllm_model,
     sllm_client,
 )
@@ -32,6 +33,13 @@ logger = logging.getLogger("personafit.opinions")
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 PERSONA_OPINION_PROMPT = (PROMPTS_DIR / "persona_opinion.md").read_text(encoding="utf-8")
+# OpenAI(gpt-5.4) 전용 — 분량 제약 없이 더 깊은 빙의 의견. 없으면 기본 프롬프트로 폴백.
+_OPENAI_OPINION_PATH = PROMPTS_DIR / "openai" / "persona_opinion.md"
+PERSONA_OPINION_PROMPT_OPENAI = (
+    _OPENAI_OPINION_PATH.read_text(encoding="utf-8")
+    if _OPENAI_OPINION_PATH.exists()
+    else PERSONA_OPINION_PROMPT
+)
 
 
 # ============================================================
@@ -161,12 +169,14 @@ def _render_prompt(
     summary: str,
     key_benefits: list[str],
     input_mode: str = "terms",
+    provider: LLMProvider = "sllm",
 ) -> str:
     benefits_str = ", ".join(key_benefits) if key_benefits else "(별도 명시 없음)"
     band, hint = _match_context(p.score)
     mode_guide = MODE_GUIDES.get(input_mode, "")
+    template = PERSONA_OPINION_PROMPT_OPENAI if provider == "openai" else PERSONA_OPINION_PROMPT
     return (
-        PERSONA_OPINION_PROMPT
+        template
         .replace("{{persona_text}}", p.persona or "(프로필 텍스트 없음)")
         .replace("{{persona_demographics}}", _build_demographics_line(p))
         .replace("{{product_summary}}", summary)
@@ -200,10 +210,19 @@ def _call_llm_sync(prompt: str, provider: LLMProvider) -> dict:
                 return dict(block.input)
         raise RuntimeError(f"Haiku tool_use 응답 누락. content={msg.content!r}")
 
-    # sLLM
-    completion = sllm_client().chat.completions.create(
-        model=resolve_sllm_model(),
-        max_tokens=400,
+    # OpenAI 호환 경로 — sLLM(컨텍스트 제한) 또는 OpenAI 상용(길이 제한 해제)
+    if provider == "openai":
+        from services.runtime_config import load_llm_config
+
+        client = openai_client()
+        model = load_llm_config().get("openai_model") or "gpt-5.4"
+        extra: dict = {}  # gpt-5.x는 max_tokens 미지원 + 길이 제한 해제 → 미설정
+    else:  # sllm
+        client = sllm_client()
+        model = resolve_sllm_model()
+        extra = {"max_tokens": 400}
+    completion = client.chat.completions.create(
+        model=model,
         temperature=0.7,
         messages=[
             {"role": "system", "content": prompt},
@@ -211,6 +230,7 @@ def _call_llm_sync(prompt: str, provider: LLMProvider) -> dict:
         ],
         tools=[_anthropic_to_openai_tool(_PERSONA_OPINION_TOOL)],
         tool_choice={"type": "function", "function": {"name": "record_persona_opinion"}},
+        **extra,
     )
     message = completion.choices[0].message
     if not message.tool_calls:
@@ -225,8 +245,9 @@ async def _opinion_one(
     provider: LLMProvider,
     input_mode: str = "terms",
 ) -> PersonaOpinion:
-    prompt = _render_prompt(p, summary, key_benefits, input_mode)
-    result = await asyncio.to_thread(_call_llm_sync, prompt, provider)
+    actual_provider = enforce_provider(provider)
+    prompt = _render_prompt(p, summary, key_benefits, input_mode, actual_provider)
+    result = await asyncio.to_thread(_call_llm_sync, prompt, actual_provider)
     return PersonaOpinion(
         persona_uuid=p.uuid,
         opinion_text=result["opinion_text"],

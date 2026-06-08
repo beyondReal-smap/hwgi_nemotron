@@ -5,18 +5,23 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, cast
 
-LLMProvider = Literal["anthropic", "sllm"]
-# 기본 provider — 사내 sLLM(Qwen) 우선. Anthropic은 explicit하게 지정한 경우에만 사용.
+LLMProvider = Literal["anthropic", "sllm", "openai"]
+# 폴백 provider — 전역 설정 파일이 없거나 손상됐을 때.
 DEFAULT_PROVIDER: LLMProvider = "sllm"
 
 
 def enforce_provider(requested: LLMProvider = DEFAULT_PROVIDER) -> LLMProvider:
-    """현재 LLM 호출 정책을 한곳에서 강제한다(Anthropic 호출 차단).
+    """서버 전역 LLM 설정(runtime_config)의 provider를 모든 호출에 강제한다.
 
-    분석/의견/시뮬레이션/A·B/총평 등 호출처에 흩어져 있던 `provider = "sllm"` 하드코딩을
-    대체한다. 지금은 요청 provider를 무시하고 DEFAULT_PROVIDER(sLLM)로 고정한다.
-    Anthropic 복귀 시 이 함수만 `return requested`로 바꾸면 전체가 한 번에 해제된다.
+    분석/의견/시뮬레이션/A·B/총평/페르소나 응답 등 호출처가 보낸 `requested` provider는
+    무시하고, 관리자 페이지에서 정한 **전역 provider**(sllm | anthropic | openai)를 적용한다.
+    관리자가 OpenAI를 고르면 모든 기능이 OpenAI(gpt-5.4 등)로, sLLM을 고르면 sLLM으로 일괄 전환.
     """
-    return DEFAULT_PROVIDER
+    from services.runtime_config import VALID_PROVIDERS, load_llm_config
+
+    provider = load_llm_config().get("provider", DEFAULT_PROVIDER)
+    if provider not in VALID_PROVIDERS:
+        return DEFAULT_PROVIDER
+    return cast(LLMProvider, provider)
