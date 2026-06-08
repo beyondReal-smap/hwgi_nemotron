@@ -1,11 +1,13 @@
 import ReactMarkdown from "react-markdown";
+import { normalizeMarkdown } from "@/lib/markdown";
 
 type Props = {
   markdown: string;
 };
 
 export function ReportPanel({ markdown }: Props) {
-  const normalizedMarkdown = unwrapMarkdownFence(markdown);
+  // 펜스 제거 + 한글 강조(**볼드**) flanking 보정 (lib/markdown로 일원화)
+  const normalizedMarkdown = normalizeMarkdown(markdown);
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
@@ -39,9 +41,3 @@ export function ReportPanel({ markdown }: Props) {
   );
 }
 
-function unwrapMarkdownFence(markdown: string): string {
-  const trimmed = markdown.trim();
-  const match = trimmed.match(/^```(?:markdown|md)?\s*\n([\s\S]*?)\n```$/i);
-
-  return match ? match[1].trim() : trimmed;
-}

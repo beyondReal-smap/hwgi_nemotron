@@ -31,6 +31,7 @@ export function SiteHeader() {
   const isSurveys = pathname?.startsWith("/surveys"); // 통합 설문 탭 (마법사 + 이력)
   const isOverview = pathname?.startsWith("/overview");
   const isABTest = pathname?.startsWith("/abtest");
+  const isCannibal = pathname?.startsWith("/cannibal");
 
   const scrolled = useScrolled(8);
 
@@ -71,6 +72,11 @@ export function SiteHeader() {
             icon={<IconUsers />}
             label="탐색"
           />
+          {/* 그룹 구분 — 둘러보기(현황·탐색) │ 분석·시뮬레이션(분석·A/B·겹침·설문) */}
+          <span
+            aria-hidden
+            className="mx-1 sm:mx-1.5 h-5 w-px bg-parchment shrink-0 self-center"
+          />
           <NavLink
             href="/analyze"
             active={!!isAnalyze}
@@ -82,6 +88,12 @@ export function SiteHeader() {
             active={!!isABTest}
             icon={<IconABTest />}
             label="A/B 테스트"
+          />
+          <NavLink
+            href="/cannibal"
+            active={!!isCannibal}
+            icon={<IconCannibal />}
+            label="겹침 분석"
           />
           <NavLink
             href="/surveys"
@@ -249,6 +261,24 @@ function IconABTest() {
       <rect x="3" y="5" width="8" height="14" rx="1.5" />
       <rect x="13" y="5" width="8" height="14" rx="1.5" />
       <path d="M12 3v18" strokeDasharray="2 2" />
+    </svg>
+  );
+}
+
+function IconCannibal() {
+  // 겹침 분석 — 3×3 격자(히트맵) 모티프
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={ICON_CLASS}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
     </svg>
   );
 }

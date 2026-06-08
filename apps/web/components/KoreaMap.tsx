@@ -127,6 +127,27 @@ function densityLabelForCount(count: number, max: number): string {
   return "낮음";
 }
 
+// 농도(per-capita) 모드 — '인구 대비 반응 집중도(lift)'로 칠한다. 모집단 표본이 작은
+// 소지역은 분모 아티팩트(농도 과장)가 크므로 임계 미만은 색칠에서 제외(정직성).
+const MIN_POP_DENSITY = 300;
+
+function colorForLift(lift: number | null, pop: number | null): string {
+  if (lift == null || pop == null || pop < MIN_POP_DENSITY) return "#dedcd1"; // 표본 부족/없음
+  if (lift >= 2.0) return "#c45f3e"; // 전국 대비 2배+ 집중
+  if (lift >= 1.5) return "#d97757";
+  if (lift >= 1.15) return "#e89a82";
+  if (lift >= 0.85) return "#f0c2af"; // 전국 평균 수준
+  return "#f5dccf"; // 과소
+}
+
+function densityLabelForLift(lift: number | null, pop: number | null): string {
+  if (lift == null || pop == null || pop < MIN_POP_DENSITY) return "표본 부족";
+  if (lift >= 1.5) return "매우 진함";
+  if (lift >= 1.15) return "진함";
+  if (lift >= 0.85) return "평균";
+  return "옅음";
+}
+
 // ============================================================
 // 메인 컴포넌트
 // ============================================================
@@ -136,28 +157,66 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
   const containerRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [mode, setMode] = useState<"count" | "density">("count");
   const [hoverInfo, setHoverInfo] = useState<{
     name: string;
     count: number;
     avg: number;
+    lift: number | null;
+    pop: number | null;
   } | null>(null);
+  // 지도 인스턴스를 ref로 1회 유지 — 모드 토글 시 폴리곤만 재색칠(지도 재생성 깜빡임 방지)
+  const mapRef = useRef<unknown>(null);
 
   // 백엔드 데이터 → 매칭 키 lookup table
-  const { countMap, scoreMap, maxCount, totalCount } = useMemo(() => {
+  const {
+    countMap,
+    scoreMap,
+    liftMap,
+    popMap,
+    maxCount,
+    maxLift,
+    totalCount,
+    hasLift,
+  } = useMemo(() => {
     const counts: Record<string, number> = {};
     const scores: Record<string, number> = {};
+    const lifts: Record<string, number | null> = {};
+    const pops: Record<string, number | null> = {};
     let max = 0;
+    let maxL = 0;
     let total = 0;
+    let anyLift = false;
     for (const d of districts) {
       const { province, district } = parseRegionKey(d.name);
       const key = `${province}|${normalizeDistrict(district)}`;
       counts[key] = d.count;
       scores[key] = d.avg_score;
+      const lift = d.lift_ratio ?? null;
+      const pop = d.population_count ?? null;
+      lifts[key] = lift;
+      pops[key] = pop;
       if (d.count > max) max = d.count;
+      if (lift != null && pop != null && pop >= MIN_POP_DENSITY) {
+        anyLift = true;
+        if (lift > maxL) maxL = lift;
+      }
       total += d.count;
     }
-    return { countMap: counts, scoreMap: scores, maxCount: max, totalCount: total };
+    return {
+      countMap: counts,
+      scoreMap: scores,
+      liftMap: lifts,
+      popMap: pops,
+      maxCount: max,
+      maxLift: maxL,
+      totalCount: total,
+      hasLift: anyLift,
+    };
   }, [districts]);
+
+  // lift 데이터가 없으면(overview 등 비-분석 호출) 농도 모드 비활성 → 항상 인원 모드
+  const effectiveMode = hasLift ? mode : "count";
 
   // 스크린리더 요약용: 인원 많은 순 정렬 (원본 불변)
   const srSummary = useMemo(
@@ -184,14 +243,20 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
         if (cancelled || !containerRef.current) return;
 
         const { kakao } = sdk;
-        // 대한민국 중심 + 적절한 zoom (level 13 ≈ 전국 한 화면)
-        const map = new kakao.maps.Map(containerRef.current, {
-          center: new kakao.maps.LatLng(36.5, 127.85),
-          level: 13,
-          mapTypeId: kakao.maps.MapTypeId.ROADMAP,
-          draggable: true,
-          scrollwheel: true,
-        });
+        // 대한민국 중심 + 적절한 zoom (level 13 ≈ 전국 한 화면).
+        // 지도는 1회만 생성하고 ref로 재사용 — 인원/농도 토글 시 폴리곤만 다시 칠해
+        // 지도 재생성에 따른 깜빡임/메모리 누적을 막는다.
+        let map = mapRef.current;
+        if (!map) {
+          map = new kakao.maps.Map(containerRef.current, {
+            center: new kakao.maps.LatLng(36.5, 127.85),
+            level: 13,
+            mapTypeId: kakao.maps.MapTypeId.ROADMAP,
+            draggable: true,
+            scrollwheel: true,
+          });
+          mapRef.current = map;
+        }
 
         // 각 feature → polygon
         for (const f of geo.features) {
@@ -201,7 +266,12 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
           const key = `${sido}|${districtNameNorm}`;
           const count = countMap[key] ?? 0;
           const avg = scoreMap[key] ?? 0;
-          const color = colorForCount(count, maxCount);
+          const lift = liftMap[key] ?? null;
+          const pop = popMap[key] ?? null;
+          const color =
+            effectiveMode === "density"
+              ? colorForLift(lift, pop)
+              : colorForCount(count, maxCount);
 
           const polys = (
             f.geometry.type === "Polygon"
@@ -229,7 +299,7 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
             // hover 효과 — Polygon mouseover/out 이벤트
             const label = `${sido} ${props.name}`;
             kakao.maps.event.addListener(polygon, "mouseover", () => {
-              setHoverInfo({ name: label, count, avg });
+              setHoverInfo({ name: label, count, avg, lift, pop });
             });
             kakao.maps.event.addListener(polygon, "mouseout", () => {
               setHoverInfo(null);
@@ -251,7 +321,7 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
       for (const p of polygons) p.setMap(null);
       polygons = [];
     };
-  }, [appkey, countMap, scoreMap, maxCount]);
+  }, [appkey, countMap, scoreMap, liftMap, popMap, maxCount, maxLift, effectiveMode]);
 
   return (
     <section className="border border-parchment rounded-[9.6px] bg-vellum overflow-hidden">
@@ -262,9 +332,28 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
             타겟층 {totalCount.toLocaleString()}명 · {districts.length}개 시군구
           </p>
         </div>
-        <p className="text-body-sm text-dusty mt-1">
-          색이 진할수록 반응 페르소나 수가 많습니다 (terra). 모바일은 터치, PC는 마우스 오버 시 상세
-          수치가 표시됩니다.
+        {hasLift && (
+          <div
+            className="mt-2.5 inline-flex rounded-[9.6px] border border-parchment bg-vellum p-0.5"
+            role="tablist"
+            aria-label="지도 표시 모드"
+          >
+            <ModeTab
+              active={effectiveMode === "count"}
+              onClick={() => setMode("count")}
+              label="인원"
+            />
+            <ModeTab
+              active={effectiveMode === "density"}
+              onClick={() => setMode("density")}
+              label="농도"
+            />
+          </div>
+        )}
+        <p className="text-body-sm text-dusty mt-2">
+          {effectiveMode === "density"
+            ? "색이 진할수록 전국 평균 대비 인구당 반응 농도가 높습니다 — 인구가 적어도 진하게 반응하는 숨은 핫스팟을 드러냅니다 (모집단 표본이 적은 소지역은 제외)."
+            : "색이 진할수록 반응 페르소나 수가 많습니다 (terra). 모바일은 터치, PC는 마우스 오버 시 상세 수치가 표시됩니다."}
         </p>
       </header>
 
@@ -320,14 +409,33 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
           >
             <p className="text-body-sm font-semibold text-ink">{hoverInfo.name}</p>
             <p className="text-caption text-graphite num-tabular mt-0.5">
-              반응 페르소나{" "}
-              <span className="font-semibold text-terra">
-                {hoverInfo.count.toLocaleString()}명
-              </span>
-              {" · "}밀도 {densityLabelForCount(hoverInfo.count, maxCount)}
-              {hoverInfo.avg > 0 && (
+              {effectiveMode === "density" ? (
                 <>
-                  {" · "}평균 {hoverInfo.avg.toFixed(1)}점
+                  인구 대비 농도{" "}
+                  <span className="font-semibold text-terra">
+                    {hoverInfo.lift != null ? `×${hoverInfo.lift.toFixed(1)}` : "—"}
+                  </span>
+                  {" · "}
+                  {densityLabelForLift(hoverInfo.lift, hoverInfo.pop)}
+                  {hoverInfo.pop != null && (
+                    <>
+                      {" · "}모집단 {hoverInfo.pop.toLocaleString()}명
+                    </>
+                  )}
+                  {" · "}타겟 {hoverInfo.count.toLocaleString()}명
+                </>
+              ) : (
+                <>
+                  반응 페르소나{" "}
+                  <span className="font-semibold text-terra">
+                    {hoverInfo.count.toLocaleString()}명
+                  </span>
+                  {" · "}밀도 {densityLabelForCount(hoverInfo.count, maxCount)}
+                  {hoverInfo.avg > 0 && (
+                    <>
+                      {" · "}평균 {hoverInfo.avg.toFixed(1)}점
+                    </>
+                  )}
                 </>
               )}
             </p>
@@ -337,16 +445,54 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
 
       {/* 색상 legend */}
       <div className="border-t border-parchment px-4 sm:px-5 py-3 flex flex-wrap items-center gap-2 sm:gap-3 text-caption text-dusty num-tabular">
-        <span className="text-overline text-stone">밀도</span>
-        <LegendSwatch color="#f5dccf" label="낮음" />
+        <span className="text-overline text-stone">
+          {effectiveMode === "density" ? "농도" : "밀도"}
+        </span>
+        <LegendSwatch color="#f5dccf" label={effectiveMode === "density" ? "과소" : "낮음"} />
         <LegendSwatch color="#f0c2af" />
         <LegendSwatch color="#e89a82" />
         <LegendSwatch color="#d97757" />
-        <LegendSwatch color="#c45f3e" label={`높음 (≤ ${maxCount.toLocaleString()}명)`} />
+        <LegendSwatch
+          color="#c45f3e"
+          label={
+            effectiveMode === "density"
+              ? `높음 (×${maxLift.toFixed(1)})`
+              : `높음 (≤ ${maxCount.toLocaleString()}명)`
+          }
+        />
         <span className="mx-2 inline-block w-px h-3 bg-parchment" />
-        <LegendSwatch color="#dedcd1" label="데이터 없음" />
+        <LegendSwatch
+          color="#dedcd1"
+          label={effectiveMode === "density" ? "표본 부족/없음" : "데이터 없음"}
+        />
       </div>
     </section>
+  );
+}
+
+function ModeTab({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={`px-3 py-1 rounded-[7px] text-body-sm font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-azure ${
+        active
+          ? "bg-terra text-snow shadow-sm"
+          : "text-graphite hover:text-ink"
+      }`}
+    >
+      {label}
+    </button>
   );
 }
 

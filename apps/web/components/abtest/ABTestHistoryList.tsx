@@ -149,7 +149,11 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
                 </span>
               )}
               <span className="ml-auto text-overline text-dusty">
-                {it.llm_provider === "anthropic" ? "Claude" : "sLLM"}
+                {it.llm_provider === "anthropic"
+                  ? "Claude"
+                  : it.llm_provider === "openai"
+                    ? "OpenAI"
+                    : "sLLM"}
               </span>
             </div>
 

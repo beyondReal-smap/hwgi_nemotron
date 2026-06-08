@@ -128,6 +128,20 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
     }
   }
 
+  // 입력 모드 변경 시 두 안의 텍스트·라벨을 초기화한다.
+  // 모드별 입력 성격(약관 전문 / 마케팅 카피 / 컨셉 요약)이 완전히 달라
+  // 이전 모드에서 입력한 내용은 새 모드에서 의미가 없기 때문.
+  // 라벨도 약관 모드에서 상품 선택 시 상품명으로 채워지므로 함께 초기화한다.
+  // 같은 모드를 다시 누른 경우엔 초기화하지 않는다.
+  function handleInputModeChange(mode: ABTestInputMode) {
+    if (mode === inputMode) return;
+    setInputMode(mode);
+    setLabelA("안 A");
+    setLabelB("안 B");
+    setTextA("");
+    setTextB("");
+  }
+
   const placeholders = getPlaceholders(inputMode);
 
   return (
@@ -187,7 +201,7 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
                 type="button"
                 role="radio"
                 aria-checked={active}
-                onClick={() => setInputMode(m.value)}
+                onClick={() => handleInputModeChange(m.value)}
                 disabled={loading}
                 className={`px-3 py-1.5 rounded-[7px] text-body-sm font-medium transition-colors
                             ${active ? "bg-azure/40 text-ink" : "text-graphite hover:bg-snow"}
@@ -201,6 +215,16 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
         <p className="mt-1.5 text-caption text-dusty">
           {INPUT_MODES.find((m) => m.value === inputMode)?.hint}
         </p>
+      </section>
+
+      {/* 도전안 성격 — 기준안(당사)이 아닌 쪽 안을 어떤 관점으로 비교할지. 두 안 공통 설정이라
+          카드 밖에 두어 A·B 입력 카드를 좌우 대칭으로 유지(입력란 시작선 정렬). */}
+      <section>
+        <ChallengerKindToggle
+          value={challengerKind}
+          onChange={setChallengerKind}
+          disabled={loading}
+        />
       </section>
 
       {/* 좌우 분할 입력 */}
@@ -218,7 +242,6 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
           isBaseline={baseline === "A"}
           onSelectBaseline={() => setBaseline("A")}
           challengerKind={challengerKind}
-          onChallengerKindChange={setChallengerKind}
           inputMode={inputMode}
           onError={onError}
         />
@@ -235,7 +258,6 @@ export function ABTestInputForm({ onResult, onError, loading, setLoading }: Prop
           isBaseline={baseline === "B"}
           onSelectBaseline={() => setBaseline("B")}
           challengerKind={challengerKind}
-          onChallengerKindChange={setChallengerKind}
           inputMode={inputMode}
           onError={onError}
         />
@@ -294,7 +316,6 @@ function VariantInputCard({
   isBaseline,
   onSelectBaseline,
   challengerKind,
-  onChallengerKindChange,
   inputMode,
   onError,
 }: {
@@ -309,9 +330,8 @@ function VariantInputCard({
   tooLong: boolean;
   isBaseline: boolean;
   onSelectBaseline: () => void;
-  /** 도전안 카드일 때만 사용되는 성격 토글 — 기준안 카드는 무시. */
+  /** 약관 PDF 드롭다운 노출 조건(showProductPicker) 판단용 — 토글 UI는 카드 밖 공통 영역으로 이동. */
   challengerKind: ABChallengerKind;
-  onChallengerKindChange: (k: ABChallengerKind) => void;
   /** 약관 모드에서 당사 약관 PDF 드롭다운 노출 여부 판단용. */
   inputMode: ABTestInputMode;
   onError: (msg: string | null) => void;
@@ -355,7 +375,8 @@ function VariantInputCard({
         </span>
       </div>
 
-      {/* 기준안 / 도전안 성격 — 카드 1개에 두 줄 (기준안일 때 기준안 라디오, 도전안일 때 internal/external 토글) */}
+      {/* 기준안 지정 — 양쪽 카드 모두 '라디오 한 줄' 동일 구조라 A·B 입력란 시작선이 정렬됨.
+          도전안 성격(당사 다른 상품/타사 상품)은 카드 밖 공통 토글에서 설정. */}
       {isBaseline ? (
         <label
           className={`inline-flex items-center gap-2 cursor-default text-body-sm select-none
@@ -377,35 +398,26 @@ function VariantInputCard({
           </span>
         </label>
       ) : (
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          {/* 좌: 기준안으로 지정 버튼 */}
-          <button
-            type="button"
-            onClick={onSelectBaseline}
+        <button
+          type="button"
+          onClick={onSelectBaseline}
+          disabled={disabled}
+          className={`inline-flex items-center gap-2 text-body-sm
+                      text-graphite hover:text-ink hover:underline
+                      ${disabled ? "opacity-60 cursor-not-allowed hover:no-underline" : ""}`}
+        >
+          <input
+            type="radio"
+            name="baseline-variant"
+            checked={false}
+            readOnly
+            tabIndex={-1}
             disabled={disabled}
-            className={`inline-flex items-center gap-2 text-body-sm
-                        text-graphite hover:text-ink hover:underline
-                        ${disabled ? "opacity-60 cursor-not-allowed hover:no-underline" : ""}`}
-          >
-            <input
-              type="radio"
-              name="baseline-variant"
-              checked={false}
-              readOnly
-              tabIndex={-1}
-              disabled={disabled}
-              className="w-4 h-4 accent-ink pointer-events-none"
-              aria-hidden
-            />
-            <span>이 안을 당사 안(기준)으로 지정</span>
-          </button>
-          {/* 우: 도전안 성격 토글 */}
-          <ChallengerKindToggle
-            value={challengerKind}
-            onChange={onChallengerKindChange}
-            disabled={disabled}
+            className="w-4 h-4 accent-ink pointer-events-none"
+            aria-hidden
           />
-        </div>
+          <span>이 안을 당사 안(기준)으로 지정</span>
+        </button>
       )}
       {showProductPicker && (
         <HwgiProductPicker

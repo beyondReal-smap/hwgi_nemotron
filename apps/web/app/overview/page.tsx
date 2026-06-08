@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
 import dynamic from "next/dynamic";
+import { CountUp } from "@/components/CountUp";
 import { DemographicCard, ProvinceBar } from "@/components/DistributionCharts";
 import {
   getDatasetOverview,
@@ -147,10 +148,9 @@ function Dashboard({ data }: { data: DatasetOverview }) {
       <header className="flex flex-col gap-1.5">
         <p className="text-overline text-dusty">데이터셋 현황</p>
         <h1 className="text-display text-ink tracking-tight">
-          {data.meta.total_rows.toLocaleString()}명의 합성 한국인 페르소나
+          <CountUp value={data.meta.total_rows} />명의 합성 한국인 페르소나
         </h1>
         <p className="text-body text-graphite">
-          {data.meta.source} · {data.meta.license} ·{" "}
           {data.meta.embedding_rows.toLocaleString()}건 ×{" "}
           {data.meta.embedding_dim}차원 임베딩
         </p>

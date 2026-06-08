@@ -73,8 +73,6 @@ function Hero() {
           <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-terra shrink-0" />
           <span className="text-left leading-snug">
             AI 페르소나 타겟 분석
-            <span className="hidden sm:inline"> · </span>
-            <span className="block sm:inline">Nemotron-Personas-Korea</span>
           </span>
         </p>
 

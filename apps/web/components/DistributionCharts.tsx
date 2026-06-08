@@ -130,6 +130,36 @@ export function ProvinceBar({ rows }: { rows: ProvinceRow[] }) {
 }
 
 // ============================================================
+// baseline-lift 표시 — '전국 100만 모집단 대비 몇 배 몰렸나'
+// ============================================================
+// 절대 비율(어디서나 보는 흔한 통계)을 '과대/과소 표집'이라는 발견 인사이트로 격상한다.
+// lift_ratio는 분석(analyze) 응답 분포에만 채워지고 overview/personas 분포엔 없어
+// 자동으로 숨겨진다(graceful). 분모(타겟 인원)가 작은 항목은 과장될 수 있어 호출부에서
+// 막대(빈도) 자체로 신뢰도를 함께 보게 한다.
+
+/** 막대 묶음에서 과대표집(전국 대비 ≥1.15배) 상위 3개 — 카드 상단 '시그니처' 칩용. */
+function signatureLifts(bins: DistributionBin[]): DistributionBin[] {
+  return bins
+    .filter((b) => b.lift_ratio != null && (b.lift_ratio as number) >= 1.15)
+    .sort((a, b) => (b.lift_ratio as number) - (a.lift_ratio as number))
+    .slice(0, 3);
+}
+
+/** 인라인 lift 배지 — 과대=terra(타겟 집중), 과소=azure. */
+function LiftTag({ lift }: { lift: number }) {
+  const over = lift >= 1;
+  return (
+    <span
+      className={`num-tabular font-semibold ${over ? "text-terra" : "text-azure"}`}
+      title={`전국 모집단 대비 ${over ? "과대" : "과소"}표집`}
+    >
+      ×{lift.toFixed(lift >= 10 ? 0 : 1)}
+      <span aria-hidden>{over ? "↑" : "↓"}</span>
+    </span>
+  );
+}
+
+// ============================================================
 // 인구통계 카드 — 항목 ≤4면 도넛, >4면 가로 막대 (자체 헤더 포함 카드)
 // ============================================================
 
@@ -149,6 +179,9 @@ export function DemographicCard({
     ? `10년 단위 · 평균 ${ageData.mean}세 · 중위 ${ageData.median}세`
     : `${dem.bins.length}개 항목 · ${total.toLocaleString()}명`;
 
+  // baseline-lift '시그니처' — 전국 대비 과대표집 상위 3개 (분석 응답에만 존재, 없으면 빈 배열)
+  const sig = signatureLifts(dem.bins);
+
   return (
     <div className="bg-snow border border-parchment rounded-[9.6px] overflow-hidden flex flex-col">
       <header className="px-3.5 py-2.5 border-b border-parchment">
@@ -157,6 +190,24 @@ export function DemographicCard({
           {subText}
         </p>
       </header>
+      {sig.length > 0 && (
+        <div className="px-3.5 pt-2.5">
+          <p className="text-overline text-dusty mb-1.5">
+            이 타겟의 시그니처 · 전국 대비
+          </p>
+          <ul className="flex flex-wrap gap-1.5">
+            {sig.map((b) => (
+              <li
+                key={b.label}
+                className="inline-flex items-center gap-1 rounded-full border border-terra/30 bg-terra/10 px-2 py-0.5 text-caption text-terra"
+              >
+                <span className="font-medium text-ink/80">{b.label}</span>
+                <LiftTag lift={b.lift_ratio as number} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <div className="p-3 flex-1">
         <ResponsiveContainer width="100%" height={useDonut ? 220 : 260}>
           {useDonut ? (
@@ -197,6 +248,12 @@ export function DemographicCard({
                       <p className="text-graphite">
                         {d.count.toLocaleString()}명 · {pct}%
                       </p>
+                      {d.lift_ratio != null && (
+                        <p className={d.lift_ratio >= 1 ? "text-terra" : "text-azure"}>
+                          전국 대비 ×{d.lift_ratio.toFixed(2)}{" "}
+                          {d.lift_ratio >= 1 ? "과대표집" : "과소표집"}
+                        </p>
+                      )}
                     </div>
                   );
                 }}
@@ -239,6 +296,12 @@ export function DemographicCard({
                       <p className="text-graphite">
                         {d.count.toLocaleString()} · {pct}%
                       </p>
+                      {d.lift_ratio != null && (
+                        <p className={d.lift_ratio >= 1 ? "text-terra" : "text-azure"}>
+                          전국 대비 ×{d.lift_ratio.toFixed(2)}{" "}
+                          {d.lift_ratio >= 1 ? "과대표집" : "과소표집"}
+                        </p>
+                      )}
                     </div>
                   );
                 }}
@@ -282,7 +345,14 @@ export function DemographicCard({
                     }}
                   />
                   <span className="text-graphite truncate">{b.label}</span>
-                  <span className="text-dusty ml-auto">{pct}%</span>
+                  {b.lift_ratio != null && (
+                    <span className="ml-auto shrink-0">
+                      <LiftTag lift={b.lift_ratio} />
+                    </span>
+                  )}
+                  <span className={`text-dusty ${b.lift_ratio != null ? "" : "ml-auto"}`}>
+                    {pct}%
+                  </span>
                 </li>
               );
             })}
