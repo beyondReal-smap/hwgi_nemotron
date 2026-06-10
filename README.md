@@ -491,7 +491,7 @@ python scripts/validate_known_targets.py   # → docs/VALIDATION.md
 ## 🛠️ 운영 메모
 
 - **pm2**: `autorestart` + `max_memory_restart`(api 60G / web 4G). 단, restart만으론 고아 프로세스가 포트를 점유할 수 있어 라이브 스키마 교차검증 권장.
-- **프론트 분리 배포**: web을 별도 서버(`persona.smap.site`)로 분리 운영 가능 — 백엔드는 ssh 역터널(`-R 5102`)로 연결(터널이 죽으면 API 전체 중단 = 장애 1순위).
+- **Cloudflare Tunnel**: `persona.smap.site`는 `/home/jin/.cloudflared/config.yml`에서 `http://127.0.0.1:5101`로 연결합니다. FastAPI는 계속 `127.0.0.1:5102` 내부 전용이며 Next.js rewrites만 호출합니다.
 - **임베딩 npy 정합**: 임베딩 모델 차원과 운영 npy 차원이 일치해야 함(KURE 1024d ↔ `embeddings_1m_kure.npy`, OpenAI 1536d ↔ `embeddings_1m_v2.npy`). `ecosystem.config.cjs`의 `PERSONAS_NPY` + `config.py`의 `EMBED_MODEL`을 함께 맞춰 재시작.
 - **캐시**: 임베딩(`embed_cache/`)·LLM 응답(`answer_cache/`)을 sha256 샤딩 영속화. 임베딩 캐시는 retention 정책으로 자동 정리.
 - **이력**: 모든 결과를 JSONL/파일로 영속화 (외부 DB 미도입).

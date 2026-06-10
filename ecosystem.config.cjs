@@ -10,7 +10,7 @@
  *   pm2 stop all
  *   pm2 delete all
  *
- * 외부 접근: http://<host>:5101  (Next.js)
+ * 외부 접근: https://persona.smap.site (Cloudflare Tunnel → 127.0.0.1:5101)
  * 내부 전용: http://127.0.0.1:5102  (FastAPI, Next.js rewrites만 호출)
  */
 
@@ -60,11 +60,12 @@ module.exports = {
       //  코드 수정 후 반드시 `pnpm --filter web build` 먼저 실행할 것)
       script: "node_modules/.bin/dotenv",
       args:
-        "-e ../../.env -- node_modules/.bin/next start -H 0.0.0.0 -p 5101",
+        "-e ../../.env -- node_modules/.bin/next start -H 127.0.0.1 -p 5101",
       interpreter: "none",
       env: {
         NODE_ENV: "production",
         API_INTERNAL_URL: "http://127.0.0.1:5102",
+        NEXT_PUBLIC_SITE_URL: "https://persona.smap.site",
       },
       // 1G는 분석 응답 처리 시 일시 스파이크에 빠듯. 호스트 메모리(285GB free) 여유 있으니 4G로 상향
       max_memory_restart: "4G",

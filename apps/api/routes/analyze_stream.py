@@ -4,7 +4,7 @@
 Server-Sent Events로 흘려보낸다. 리포트 LLM이 수십 초 걸려도 소구점→스코어→세그먼트→
 의견이 먼저 화면에 박혀 들어와 체감 대기가 ~6초로 줄어든다.
 
-운영 경로(nginx → next rewrites → ssh 역터널 → 백엔드)에서 버퍼링되지 않도록
+운영 경로(Cloudflare Tunnel → Next.js rewrites → FastAPI)에서 버퍼링되지 않도록
 `X-Accel-Buffering: no`(nginx)와 `Cache-Control: no-cache`를 응답 헤더로 준다.
 프론트가 스트리밍을 못 받으면 기존 블로킹 /api/analyze로 graceful fallback 한다.
 """
