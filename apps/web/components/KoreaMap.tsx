@@ -352,7 +352,7 @@ export function KoreaMap({ districts, title = "시군구 분포 지도" }: Props
         )}
         <p className="text-body-sm text-dusty mt-2">
           {effectiveMode === "density"
-            ? "색이 진할수록 전국 평균 대비 인구당 반응 농도가 높습니다 — 인구가 적어도 진하게 반응하는 숨은 핫스팟을 드러냅니다 (모집단 표본이 적은 소지역은 제외)."
+            ? "색이 진할수록 인구 수에 비해 응답이 많은 지역입니다 — 인구가 적어도 응답이 많은 숨은 지역을 찾을 수 있습니다 (인구가 너무 적은 지역은 제외)."
             : "색이 진할수록 반응 페르소나 수가 많습니다 (terra). 모바일은 터치, PC는 마우스 오버 시 상세 수치가 표시됩니다."}
         </p>
       </header>

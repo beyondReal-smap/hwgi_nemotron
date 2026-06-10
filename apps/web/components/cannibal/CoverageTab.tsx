@@ -36,7 +36,7 @@ export function CoverageTab({ data }: { data: CannibalResponse }) {
       <header className="bg-snow border-b border-parchment px-5 py-4">
         <h2 className="text-title text-ink">포트폴리오 커버리지</h2>
         <p className="text-body-sm text-dusty mt-1.5">
-          가장 큰 코호트부터, 새로 닿는 인원(marginal)이 큰 순으로 라인업을 키울 때 누적
+          가장 큰 응답층부터, 새로 닿는 인원이 큰 순으로 라인업을 키울 때 누적
           도달. 곡선이 평평해지는 지점이 포화점입니다.
         </p>
       </header>
@@ -96,8 +96,8 @@ export function CoverageTab({ data }: { data: CannibalResponse }) {
         </div>
 
         <p className="text-caption text-dusty">
-          반응 코호트의 합집합 도달이며, 실제 시장 침투율이 아닙니다. 라인업 순서는 greedy
-          근사입니다.
+          반응 응답층을 모두 합친 도달이며, 실제 시장 침투율이 아닙니다. 라인업 순서는 도달을
+          최대화하도록 정렬했습니다.
         </p>
       </div>
     </section>

@@ -66,8 +66,6 @@ export default function ReportPage() {
               )}
               {" · 질문 "}
               <span className="font-mono">{report.survey.questions.length}</span>개
-              {" · 누적 토큰 "}
-              <span className="font-mono">{report.summary.total_tokens.toLocaleString()}</span>
               {report.summary.avg_response_seconds !== null && (
                 <>
                   {" · 평균 응답 "}

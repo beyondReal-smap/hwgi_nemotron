@@ -77,7 +77,7 @@ export function OverlapVenn({ overlap, labelA, labelB }: Props) {
             viewBox={`0 0 ${VB_W} ${VB_H}`}
             className="w-full max-w-[300px]"
             role="img"
-            aria-label={`${labelA}(${safeA.toLocaleString()}명)와 ${labelB}(${safeB.toLocaleString()}명)의 반응층 겹침, 면적 비례. Jaccard ${pctJ}퍼센트`}
+            aria-label={`${labelA}(${safeA.toLocaleString()}명)와 ${labelB}(${safeB.toLocaleString()}명)의 반응층 겹침, 면적 비례. 반응층 겹침 ${pctJ}퍼센트`}
           >
             <defs>
               {/* 겹침 영역만 azure로 칠하기 위한 클립 — B 원으로 A 원을 잘라낸다 */}
@@ -142,7 +142,7 @@ export function OverlapVenn({ overlap, labelA, labelB }: Props) {
           </svg>
           <p className="text-caption text-graphite mt-1">
             겹침 <span className="font-semibold text-ink num-tabular">{pctJ}%</span>{" "}
-            <span className="text-dusty">(Jaccard · 추정)</span>
+            <span className="text-dusty">(추정)</span>
           </p>
           {/* 범례 — 원 크기가 인원에 비례함을 명시 */}
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2 text-caption">
@@ -197,8 +197,8 @@ export function OverlapVenn({ overlap, labelA, labelB }: Props) {
       {/* 면책 — 한 곳으로 통합 */}
       <div className="px-5 pb-4">
         <p className="text-caption text-dusty">
-          겹침 인원·비율은 임베딩 의미 유사도 기반 추정치이며, 실제 구매 잠식이 아닙니다.
-          (target 코호트 기준)
+          겹침 인원·비율은 AI 추정 기반이므로 참고용이며, 실제 구매 잠식이 아닙니다.
+          (타겟층 기준)
         </p>
       </div>
     </section>

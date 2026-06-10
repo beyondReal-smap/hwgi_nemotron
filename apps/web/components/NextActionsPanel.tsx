@@ -42,7 +42,7 @@ function buildActions(result: Props["result"]): Action[] {
     out.push({
       kind: "personas",
       title: "핵심 세그먼트 깊이 탐색",
-      rationale: `‘${seg.label}’이 전국 대비 ${seg.lift_ratio.toFixed(1)}배 집중 — 이 층을 더 들여다보세요`,
+      rationale: `‘${seg.label}’이 전국 대비 ${seg.lift_ratio.toFixed(1)}배 높은 관심도를 보입니다 — 이 층을 더 들여다보세요`,
       href: `/personas?q=${encodeURIComponent(q)}`,
       cta: "페르소나 탐색 열기",
     });

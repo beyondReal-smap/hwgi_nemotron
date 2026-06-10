@@ -77,7 +77,7 @@ export function SwingLayerXray({ segments, swingPull, labelA, labelB }: Props) {
 
         {/* 정직성 면책 */}
         <p className="text-caption text-dusty leading-relaxed">
-          겹침은 임베딩 의미 유사도 기반 &lsquo;반응 겹침&rsquo;이지 실제 구매
+          겹침은 AI 추정 기반 &lsquo;반응 겹침&rsquo;이지 실제 구매
           잠식이 아닙니다. 스윙층은 두 안 모두에 반응할 가능성이 높은 층으로,
           한쪽 안만 노출되면 그 안으로 흡수될 수 있습니다.
         </p>

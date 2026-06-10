@@ -71,7 +71,7 @@ export function DistrictTopTable({ districts, topN = 10 }: Props) {
         )}
         <p className="text-body-sm text-dusty mt-2">
           {effectiveMode === "density"
-            ? "인구 대비 반응 농도(전국 평균 대비 배수)가 높은 순. 인구 자체가 적어도 진하게 반응하는 숨은 핫스팟을 드러냅니다."
+            ? "인구 대비 반응 농도(전국 평균보다 몇 배 진한지)가 높은 순. 인구가 적어도 많이 반응하는 숨은 지역을 찾아냅니다."
             : "반응 페르소나가 가장 많이 분포한 행정구역. 영업·마케팅 집중 후보."}
         </p>
       </header>

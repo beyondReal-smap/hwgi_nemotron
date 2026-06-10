@@ -89,7 +89,7 @@ export function MultiplicityTab({ data }: { data: CannibalResponse }) {
           — 타깃 캡핑·메시지 분리 검토 대상.
         </p>
         <p className="text-caption text-dusty">
-          노출 횟수는 임베딩 유사도 소속 개수이지 실제 광고 임프레션이 아닙니다.
+          노출 횟수는 응답 패턴이 비슷한 안의 개수이지 실제 광고 노출 수가 아닙니다.
         </p>
       </div>
     </section>

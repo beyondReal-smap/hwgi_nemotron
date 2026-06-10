@@ -229,7 +229,7 @@ export default function PersonasPage() {
                 {loading && loadingElapsedMs >= 5000 && (
                   <p className="text-caption text-graphite mt-1 leading-snug">
                     {filter.query
-                      ? "자연어 임베딩 검색 진행 중 — 첫 호출은 임베딩 매트릭스 워밍업으로 최대 1분까지 걸릴 수 있습니다. 같은 조건 재검색은 1초 이내."
+                      ? "검색 진행 중 — 첫 검색은 1분 정도 걸릴 수 있습니다. 같은 조건으로 다시 검색하면 1초 이내에 결과가 나옵니다."
                       : "데이터 적재 중 — 잠시만 기다려 주세요."}
                   </p>
                 )}
@@ -268,7 +268,7 @@ export default function PersonasPage() {
                           <span className="font-mono text-graphite">
                             {result.meta_filter_total.toLocaleString()}
                           </span>
-                          명 → 잔여 키워드 임베딩{" "}
+                          명 → 의미 검색{" "}
                           <span className="font-mono text-graphite">
                             ≥{result.match_threshold.toFixed(1)}
                           </span>{" "}
@@ -692,7 +692,7 @@ function ScanFunnel({ result }: { result: PersonaFilterResponse }) {
   if (typeof e.extract === "number" && e.extract > 0)
     timeSteps.push({ key: "extract", label: "메타 추출", ms: e.extract });
   if (e.filter > 0) timeSteps.push({ key: "filter", label: "필터 스캔", ms: e.filter });
-  if (e.search > 0) timeSteps.push({ key: "search", label: "임베딩", ms: e.search });
+  if (e.search > 0) timeSteps.push({ key: "search", label: "의미 검색", ms: e.search });
 
   // 깔때기 3단계. 메타 후보가 0이면(폴백) 2단계만 의미 있으나 레이아웃은 유지.
   const stages: {
@@ -706,7 +706,7 @@ function ScanFunnel({ result }: { result: PersonaFilterResponse }) {
     { key: "meta", label: "메타 후보", count: metaN, width: barW(metaN), tone: "azure" },
     {
       key: "match",
-      label: result.has_query ? "임베딩 통과" : "최종 매칭",
+      label: result.has_query ? "의미 검색 통과" : "최종 매칭",
       count: matchM,
       width: barW(matchM),
       tone: "marine",

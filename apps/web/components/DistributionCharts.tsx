@@ -151,7 +151,7 @@ function LiftTag({ lift }: { lift: number }) {
   return (
     <span
       className={`num-tabular font-semibold ${over ? "text-terra" : "text-azure"}`}
-      title={`전국 모집단 대비 ${over ? "과대" : "과소"}표집`}
+      title={`전국 대비 ${over ? "높음" : "낮음"}`}
     >
       ×{lift.toFixed(lift >= 10 ? 0 : 1)}
       <span aria-hidden>{over ? "↑" : "↓"}</span>
@@ -176,7 +176,7 @@ export function DemographicCard({
 
   const isAge = dem.column === "age";
   const subText = isAge && ageData
-    ? `10년 단위 · 평균 ${ageData.mean}세 · 중위 ${ageData.median}세`
+    ? `10년 단위 · 평균 ${ageData.mean}세 · 중앙값 ${ageData.median}세`
     : `${dem.bins.length}개 항목 · ${total.toLocaleString()}명`;
 
   // baseline-lift '시그니처' — 전국 대비 과대표집 상위 3개 (분석 응답에만 존재, 없으면 빈 배열)
@@ -193,7 +193,7 @@ export function DemographicCard({
       {sig.length > 0 && (
         <div className="px-3.5 pt-2.5">
           <p className="text-overline text-dusty mb-1.5">
-            이 타겟의 시그니처 · 전국 대비
+            이 그룹의 특징 · 전국 대비
           </p>
           <ul className="flex flex-wrap gap-1.5">
             {sig.map((b) => (
@@ -251,7 +251,7 @@ export function DemographicCard({
                       {d.lift_ratio != null && (
                         <p className={d.lift_ratio >= 1 ? "text-terra" : "text-azure"}>
                           전국 대비 ×{d.lift_ratio.toFixed(2)}{" "}
-                          {d.lift_ratio >= 1 ? "과대표집" : "과소표집"}
+                          {d.lift_ratio >= 1 ? "높음" : "낮음"}
                         </p>
                       )}
                     </div>
@@ -299,7 +299,7 @@ export function DemographicCard({
                       {d.lift_ratio != null && (
                         <p className={d.lift_ratio >= 1 ? "text-terra" : "text-azure"}>
                           전국 대비 ×{d.lift_ratio.toFixed(2)}{" "}
-                          {d.lift_ratio >= 1 ? "과대표집" : "과소표집"}
+                          {d.lift_ratio >= 1 ? "높음" : "낮음"}
                         </p>
                       )}
                     </div>

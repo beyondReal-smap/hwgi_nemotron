@@ -107,7 +107,7 @@ export default function ProgressPage() {
             <p className="text-body text-graphite">
               {survey.persona_uuids.length.toLocaleString()}명 × {survey.questions.length}질문 ·
               모델 <span className="font-mono">{survey.execution.model}</span> ·
-              temperature{" "}
+              응답 다양성{" "}
               <span className="font-mono">{survey.execution.temperature}</span>
             </p>
           )}
@@ -142,8 +142,7 @@ export default function ProgressPage() {
               {status.counts.completed.toLocaleString()}건 처리됨
               {status.counts.failed > 0 && (
                 <> · 실패 {status.counts.failed.toLocaleString()}건</>
-              )}{" "}
-              · 누적 토큰 {status.total_tokens.toLocaleString()}
+              )}
               {status.avg_response_seconds !== null && (
                 <> · 평균 {status.avg_response_seconds.toFixed(1)}초</>
               )}

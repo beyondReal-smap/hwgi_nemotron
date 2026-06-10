@@ -123,7 +123,7 @@ const FLAG_META: Record<string, { label: string; tone: "warn" | "info" }> = {
     tone: "warn",
   },
   core_low_lift: {
-    label: "핵심 cohort 리프트 낮음 — 모집단 평균과 차이 작음",
+    label: "핵심층이 모집단 평균과 비슷한 수준 — 상품 매력도 낮음",
     tone: "warn",
   },
   mode_inconsistent: {
@@ -303,7 +303,7 @@ function ScoreDistributionBar({
     <div className="border-t border-parchment px-4 py-3 sm:px-5 sm:py-4">
       <h3 className="text-heading text-ink mb-1">점수 분포</h3>
       <p className="text-body-sm text-dusty mb-3">
-        전체 모집단 100만 명의 점수 분포 (5점 단위). 수직선은 코호트 컷오프 위치.
+        전체 모집단 100만 명의 점수 분포 (5점 단위). 세로 선은 각 계층의 시작 점수를 표시합니다.
       </p>
       <div
         className="relative flex items-end gap-1 h-32"

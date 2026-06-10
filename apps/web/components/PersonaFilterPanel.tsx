@@ -72,7 +72,7 @@ export function PersonaFilterPanel({
           />
           {value.query && (
             <p className="text-caption text-dusty mt-1">
-              임베딩 코사인 유사도로 결과를 정렬합니다
+              입력하신 조건과 가장 비슷한 페르소나순으로 정렬합니다
             </p>
           )}
         </section>

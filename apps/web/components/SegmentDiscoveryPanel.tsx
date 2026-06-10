@@ -35,7 +35,7 @@ export function SegmentDiscoveryPanel({
       <header className="bg-snow border-b border-parchment px-4 py-3 sm:px-5 sm:py-4">
         <h2 className="text-title text-ink">숨은 황금 세그먼트</h2>
         <p className="text-body-sm text-dusty mt-1">
-          단변량 분포가 못 잡는 교차 조합 — 전국 대비 집중 배수(lift) 순
+          여러 특성이 겹친 고객 조합 — 전국 평균보다 몇 배 더 관심 있는 순
         </p>
       </header>
 
@@ -47,8 +47,7 @@ export function SegmentDiscoveryPanel({
         </ul>
 
         <p className="text-caption text-dusty mt-4 leading-relaxed">
-          lift = 타겟 내 비율 / 전국 모집단 비율. 분모(전국 인원)가 작은 조합은
-          과장될 수 있습니다.
+          매우 적은 고객이 여러 조건을 모두 만족하면 결과가 부정확할 수 있습니다.
         </p>
       </div>
     </section>
@@ -84,7 +83,7 @@ function SegmentRow({ seg }: { seg: SegmentFinding }) {
       <div
         className="relative h-2.5 mt-2.5 rounded-[4px] bg-snow border border-parchment overflow-hidden"
         role="img"
-        aria-label={`${seg.label}: 전국 대비 집중 배수 ${liftLabel}`}
+        aria-label={`${seg.label}: 전국 평균 대비 관심도 ${liftLabel}`}
       >
         <div
           className={`absolute inset-y-0 left-0 rounded-[3px] transition-[width] motion-reduce:transition-none ${

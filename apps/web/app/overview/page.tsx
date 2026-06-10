@@ -151,8 +151,7 @@ function Dashboard({ data }: { data: DatasetOverview }) {
           <CountUp value={data.meta.total_rows} />명의 합성 한국인 페르소나
         </h1>
         <p className="text-body text-graphite">
-          {data.meta.embedding_rows.toLocaleString()}건 ×{" "}
-          {data.meta.embedding_dim}차원 임베딩
+          {data.meta.embedding_rows.toLocaleString()}건의 페르소나 텍스트로 의미 검색
         </p>
       </header>
 
@@ -236,7 +235,7 @@ function Dashboard({ data }: { data: DatasetOverview }) {
       <SectionCard
         id="occupation"
         title="직업군 분포"
-        sub="KSCO 대분류 기반 17개 그룹 · 클릭하면 해당 그룹의 상위 직업이 표시됩니다"
+        sub="한국 표준 직업 분류 기준 17개 직업군 · 클릭하면 해당 그룹의 상위 직업이 표시됩니다"
         noBodyPadding
       >
         <OccupationsGroupPanel groups={data.occupations_grouped} />
@@ -388,7 +387,7 @@ function OccupationsGroupPanel({ groups }: { groups: OccupationGroup[] }) {
       {/* 분모 토글 */}
       <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-b border-parchment bg-snow/40 flex-wrap">
         <p className="text-caption text-dusty">
-          분모 — 영유아·학생·은퇴자 등을 포함할지 선택
+          집계 범위 — 영유아·학생·은퇴자 등을 포함할지 선택
         </p>
         <div className="inline-flex rounded-[9.6px] border border-parchment bg-vellum p-0.5">
           {(["all", "employed"] as const).map((v) => {
@@ -474,7 +473,7 @@ function OccupationsGroupPanel({ groups }: { groups: OccupationGroup[] }) {
             <p className="text-title text-ink mt-1">{selectedGroup.group}</p>
             <p className="text-caption text-graphite mt-1">
               {selectedGroup.count.toLocaleString()}명 ·{" "}
-              {denominator === "all" ? "전체 분모" : "취업자 분모"}{" "}
+              {denominator === "all" ? "전체 기준" : "취업자 기준"}{" "}
               <span className="text-terra font-medium">
                 {(selectedGroup.ratio * 100).toFixed(1)}%
               </span>
@@ -764,7 +763,7 @@ function LoadingState() {
       {/* 6. 직업군 분포 — 좌 그룹 / 우 Top 5 */}
       <SectionCard
         title="직업군 분포"
-        sub="KSCO 대분류 기반 17개 그룹"
+        sub="한국 표준 직업 분류 기준 17개 직업군"
         noBodyPadding
       >
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4 bg-snow">
@@ -850,8 +849,7 @@ function ErrorState({ message }: { message: string }) {
       <p className="font-medium mb-1">현황 불러오기 실패</p>
       <p className="text-caption text-graphite">{message}</p>
       <p className="text-caption text-dusty mt-2">
-        백엔드(personafit-api)가 가동 중인지, /api/dataset/overview가 정상
-        응답하는지 확인 부탁드립니다.
+        데이터를 불러오지 못했습니다. 잠시 후 페이지를 새로고침해 주세요.
       </p>
     </div>
   );

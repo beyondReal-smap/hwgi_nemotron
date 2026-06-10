@@ -100,7 +100,7 @@ export function StepExecution({
               className="accent-terra"
             />
             <span className="text-body-sm text-graphite">
-              각 답변마다 50자 이내 근거 reasoning 함께 생성
+              각 답변마다 50자 이내 이유 설명 함께 생성
             </span>
           </label>
         </SubCard>
@@ -125,7 +125,7 @@ export function StepExecution({
                 {state.questions.length}개
               </dd>
 
-              <dt className="text-dusty">총 LLM 호출</dt>
+              <dt className="text-dusty">총 AI 응답 생성 횟수</dt>
               <dd className="text-ink text-right font-mono tabular-nums font-medium">
                 {totalCalls.toLocaleString()}회
               </dd>
@@ -155,7 +155,7 @@ export function StepExecution({
           <p className="text-caption text-dusty mt-3 pt-3 border-t border-parchment">
             추정 가정: 호출당 입력 {INPUT_TOKENS_PER_CALL} tok + 출력{" "}
             {OUTPUT_TOKENS_PER_CALL} tok. 실제 토큰은 ±30% 범위에서 변동할 수 있습니다.
-            동일 (페르소나·질문) 조합은 캐싱되어 재실행 시 추가 호출이 없습니다.
+            동일한 페르소나와 질문의 응답은 재사용되어 재실행 시 시간이 단축됩니다.
           </p>
         </SubCard>
 

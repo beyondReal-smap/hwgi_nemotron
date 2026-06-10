@@ -148,13 +148,6 @@ export function ABTestHistoryList({ onSelect, reloadKey = 0 }: Props) {
                   · {(it.total_ms / 1000).toFixed(1)}s
                 </span>
               )}
-              <span className="ml-auto text-overline text-dusty">
-                {it.llm_provider === "anthropic"
-                  ? "Claude"
-                  : it.llm_provider === "openai"
-                    ? "OpenAI"
-                    : "sLLM"}
-              </span>
             </div>
 
             {/* 비교 — 기준안 vs 도전안 */}

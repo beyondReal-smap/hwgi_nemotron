@@ -28,12 +28,12 @@ const DEFAULT_STAGES: Stage[] = [
   },
   {
     label: "100만 명 페르소나 전체 매칭",
-    hint: "쿼리 임베딩 → 코사인 유사도 + 룰 보너스 + 카테고리 가중치",
+    hint: "상품 설명과 페르소나의 의미 유사도 + 규칙·범주 가중치로 매칭",
     endAt: 12,
   },
   {
     label: "Cohort 분할 + 인구통계 집계",
-    hint: "핵심/타겟/관심 cohort + Nemotron 11개 컬럼 분포",
+    hint: "핵심/타겟/관심 계층별 11개 인구 항목 분포",
     endAt: 14,
   },
   {

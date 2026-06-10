@@ -68,7 +68,7 @@ export function SurveyProgress({
     try {
       const r = await triggerSurveyRun(status.survey_id, { force: true });
       setRetryNotice(
-        `${r.reset}명 다시 시작 · 완료 ${r.completed_preserved}명 보존 (캐시 활용)`,
+        `${r.reset}명 다시 시작 · 완료 ${r.completed_preserved}명 보존`,
       );
       onRetried();
       setConfirmForceOpen(false);
@@ -358,7 +358,7 @@ export function SurveyProgress({
         <>
           <span className="block text-graphite">진행이 멈췄을 때만 사용하세요.</span>
           <span className="block mt-2 text-graphite">
-            이미 완료된 응답은 보존되고(캐시 활용), 미완료·멈춘 세션만 다시 시작합니다.
+            이미 완료된 응답은 그대로 두고, 미완료·멈춘 세션만 다시 시작합니다.
           </span>
         </>
       }

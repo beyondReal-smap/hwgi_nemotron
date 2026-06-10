@@ -61,7 +61,7 @@ export function CannibalMatrix({ data }: Props) {
                   active ? "bg-ink text-vellum" : "text-graphite hover:bg-snow"
                 }`}
               >
-                {k === "directional" ? "방향성" : "Jaccard"}
+                {k === "directional" ? "방향성" : "전체 겹침"}
               </button>
             );
           })}
@@ -77,7 +77,7 @@ export function CannibalMatrix({ data }: Props) {
             </span>
           )}
           <span className="text-caption text-dusty">
-            겹침은 임베딩 의미 유사도 기반 신호이며, 실제 구매 잠식이 아닙니다. 코호트
+            겹침은 응답 패턴 유사도 기반 신호이며, 실제 구매 잠식이 아닙니다. 반응층
             기준: <span className="font-medium text-graphite">{data.cohort_level}</span>
           </span>
         </div>
@@ -169,11 +169,11 @@ export function CannibalMatrix({ data }: Props) {
           </p>
           <p>
             ▸ <span className="font-medium text-graphite">방향성</span>: 행(기준안)
-            반응자 중 열(대상안)에도 반응한 비율. 비대칭(A→B ≠ B→A, 코호트 크기 차이)
+            반응자 중 열(대상안)에도 반응한 비율. 비대칭(A→B ≠ B→A, 반응층 크기 차이)
           </p>
           <p>
-            ▸ <span className="font-medium text-graphite">Jaccard</span>: 두 안 반응자
-            합집합 대비 교집합. 대칭 — 전체적 겹침 정도
+            ▸ <span className="font-medium text-graphite">전체 겹침</span>: 두 안에 모두
+            반응한 사람의 비율. 방향 구분 없이 전체적으로 얼마나 겹치는지
           </p>
         </div>
       </div>
