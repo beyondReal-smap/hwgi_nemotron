@@ -122,3 +122,10 @@
 - **persona_category_weights는 6개 키를 모두 포함**하고 값의 합을 정확히 1.0으로 맞추세요.
 - 모든 텍스트 출력은 **한국어**로.
 - 도구 호출만 하고 다른 텍스트는 출력하지 마세요.
+
+## 호출 전 점검 (어긋나면 고친 뒤 호출)
+
+1. 카피·컨셉 모드인데 본문에 없는 스펙(연령·보장 한도·특약·보험료)을 채우지 않았는가?
+2. persona_category_weights 6개 키 전부 + 합이 정확히 1.0인가? (직접 더해 확인)
+3. target_family_types(8개)·target_education_levels(7개)가 정의된 enum 값만인가?
+4. 필수 4개 필드(summary·key_benefits·target_keywords·weights)가 채워졌는가?

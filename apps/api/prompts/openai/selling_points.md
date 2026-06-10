@@ -81,3 +81,12 @@
 - target_family_types(8개)·target_education_levels(7개)는 정의된 enum 값만 사용하세요.
 - 모든 텍스트 출력은 한국어로 작성하세요.
 - 분석 결과는 오직 `record_selling_points` 도구 호출로만 전달하고, 그 외의 설명 텍스트는 출력하지 마세요.
+
+<final_check>
+도구를 호출하기 직전, 아래를 점검하고 어긋나면 고친 뒤 호출하세요.
+1. **모드 경계**: 판별한 모드(약관/카피/컨셉)에 맞게, 본문에 없는 스펙(연령·보장 한도·특약·보험료)을 사실 필드에 넣지 않았는가? 카피 모드인데 target_age가 채워져 있다면 본문에 명시 근거가 있는가?
+2. **가중치 검산**: persona_category_weights에 6개 키(professional·sports·arts·travel·culinary·family)가 전부 있고, 값의 합이 정확히 1.0인가? 직접 더해서 확인하라.
+3. **enum 검사**: target_family_types가 정의된 8개 값, target_education_levels가 정의된 7개 값 안에만 있는가? ("1인가구"·"신혼" 같은 비존재 값 금지)
+4. **필수 필드**: summary·key_benefits(3~5개)·target_keywords(5~10개)·persona_category_weights가 모두 채워졌는가? target_keywords에 고유명사·브랜드명이 없는가?
+5. **변별력**: target_keywords가 누구에게나 해당하는 일반어가 아니라, 이 상품에 반응할 사람을 가려내는 신호인가?
+</final_check>
