@@ -84,6 +84,12 @@ export default function AdminLlmPage() {
             서버 전역 LLM provider/모델을 선택합니다. 분석·설문·A/B·총평·페르소나 응답 등
             모든 LLM 호출에 즉시 적용됩니다.
           </p>
+          <a
+            href="/admind/visitors"
+            className="mt-2 w-fit text-body-sm font-medium text-ink underline decoration-terra/60 underline-offset-4 hover:text-terra"
+          >
+            방문 로그 보기
+          </a>
         </header>
 
         {error && (

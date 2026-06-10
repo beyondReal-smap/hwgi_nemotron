@@ -36,6 +36,7 @@ data/surveys/
 /*.zip
 *.xlsx
 data/products/
+data/visitors.jsonl
 
 # IDE / OS
 .vscode/

@@ -142,6 +142,7 @@ from routes.survey_report import router as survey_report_router  # noqa: E402
 from routes.survey_responses import router as survey_responses_router  # noqa: E402
 from routes.survey_run import router as survey_run_router  # noqa: E402
 from routes.surveys import router as surveys_router  # noqa: E402
+from routes.visitors import router as visitors_router  # noqa: E402
 
 app.include_router(analyze_router)
 app.include_router(analyze_stream_router)
@@ -163,3 +164,4 @@ app.include_router(survey_responses_router)
 app.include_router(survey_report_router)
 app.include_router(segments_router)
 app.include_router(admin_router)
+app.include_router(visitors_router)
