@@ -352,6 +352,8 @@ export type AnalysisSummary = {
   summary: string;
   key_benefits: string[];
   max_score: number;
+  /** 핵심 타겟(상위 0.5%) 평균 반응강도 — 상세 헤드라인(ScoreCard heroValue)과 동일 지표. */
+  core_reaction?: number;
   top_persona_count: number;
   top_province: string | null;
   top_province_count: number;

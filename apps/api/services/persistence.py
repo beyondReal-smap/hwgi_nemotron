@@ -106,12 +106,25 @@ def list_analyses(limit: int = 20, offset: int = 0) -> tuple[list[dict], int]:
 
         max_score = max((p.get("score", 0) for p in top_personas), default=0.0)
 
+        # 상세 헤드라인(ScoreCard heroValue)과 동일 지표: 핵심 타겟(core) 평균 반응강도.
+        # core 있으면 avg_score, core가 비면 진입 컷(min_score), cohorts 자체가 없는
+        # 옛 이력은 max_score로 폴백 → ScoreCard와 정합.
+        cohorts = (r.get("population_stats", {}) or {}).get("cohorts", []) or []
+        core = next((c for c in cohorts if c.get("name") == "core"), None)
+        if core and core.get("size", 0) > 0:
+            core_reaction = core.get("avg_score", 0.0)
+        elif core is not None:
+            core_reaction = core.get("min_score", 0.0)
+        else:
+            core_reaction = max_score
+
         summaries.append({
             "id": r.get("id"),
             "created_at": r.get("created_at"),
             "summary": sp.get("summary", ""),
             "key_benefits": sp.get("key_benefits", [])[:3],
             "max_score": round(max_score, 1),
+            "core_reaction": round(core_reaction, 1),
             "top_persona_count": len(top_personas),
             "top_province": top_province.get("name"),
             "top_province_count": top_province.get("count", 0),

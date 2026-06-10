@@ -23,6 +23,8 @@ class AnalysisSummary(BaseModel):
     summary: str
     key_benefits: list[str]
     max_score: float
+    # 핵심 타겟(상위 0.5%) 평균 반응강도 — 상세 헤드라인(ScoreCard heroValue)과 동일 지표.
+    core_reaction: float = 0.0
     top_persona_count: int
     top_province: str | None = None
     top_province_count: int = 0

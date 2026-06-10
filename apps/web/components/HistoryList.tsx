@@ -282,10 +282,12 @@ function HistoryRow({
   onClick: () => void;
   onDelete: () => void;
 }) {
+  // 상세 헤드라인(ScoreCard)과 동일 지표(핵심 타겟 반응강도)·임계(v3 cohort 컷 81/73)로 정합.
+  const score = item.core_reaction ?? item.max_score;
   const scoreTone =
-    item.max_score >= 80
+    score >= 81
       ? "bg-terra/10 text-ink border-terra/30"
-      : item.max_score >= 65
+      : score >= 73
         ? "bg-azure/50 text-ink border-azure"
         : "bg-snow text-graphite border-parchment";
 
@@ -317,7 +319,7 @@ function HistoryRow({
           <span
             className={`text-body-sm font-mono font-semibold px-2 py-0.5 rounded-[9.6px] border shrink-0 num-tabular ${scoreTone}`}
           >
-            {item.max_score.toFixed(1)}
+            {score.toFixed(1)}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-caption text-dusty mt-2 num-tabular">
