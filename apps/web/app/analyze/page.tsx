@@ -18,8 +18,11 @@ import { NextActionsPanel } from "@/components/NextActionsPanel";
 import { AnalysisProgress } from "@/components/AnalysisProgress";
 import { HistoryList } from "@/components/HistoryList";
 import { SiteFooter } from "@/components/SiteHeader";
+import { ExecutiveSummary } from "@/components/ExecutiveSummary";
+import { TrustPanel } from "@/components/TrustPanel";
 import {
   getAnalysis,
+  listAnalyses,
   type AnalysisDetail,
   type AnalyzeResponse,
 } from "@/lib/api";
@@ -35,6 +38,16 @@ const KoreaMap = dynamic(
     ),
   },
 );
+
+// 임시 숨김(요청): 점수 DNA·고객 반응 핵심(VOC)·이탈 사유 패널.
+// true로 바꾸면 즉시 복원된다(import·컴포넌트는 모두 보존).
+const SHOW_INSIGHT_PANELS: boolean = false;
+// 숨은 황금 세그먼트 — 마케팅 평가 대비 재활성화(2026-06-10 승인). DNA·VOC와 분리 운용.
+const SHOW_SEGMENT_PANEL: boolean = true;
+
+// "예시 분석 바로 보기" 시드 — 치아보험 분석(누구나 공감하는 상품 + 뚜렷한 반응층).
+// 이력에서 삭제됐다면 최신 이력으로 폴백한다.
+const DEMO_ANALYSIS_ID = "1c379239-9021-4f32-ac8d-7c138c4cf0be";
 
 type Mode = "new" | "history";
 
@@ -68,6 +81,33 @@ export default function Page() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }
+
+  // "예시 분석 바로 보기" — 빈 화면 대신 준비된 시드 분석을 즉시 로드(첫 30초 와우).
+  // 시드가 삭제됐으면 최신 이력으로 폴백, 이력 자체가 없으면 안내 에러.
+  async function handleShowExample() {
+    setHistoryLoading(true);
+    setError(null);
+    try {
+      let detail: AnalysisDetail;
+      try {
+        detail = await getAnalysis(DEMO_ANALYSIS_ID);
+      } catch {
+        const list = await listAnalyses(1);
+        if (list.items.length === 0) {
+          throw new Error(
+            "아직 저장된 분석이 없습니다. 왼쪽에 상품 설명을 입력해 첫 분석을 시작해 보세요.",
+          );
+        }
+        detail = await getAnalysis(list.items[0].id);
+      }
+      setSelectedHistoryId(null);
+      setResult(detail);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setHistoryLoading(false);
     }
@@ -171,24 +211,30 @@ export default function Page() {
             )}
             {showEmpty && (
               <div key={`empty-${mode}`} className="anim-fade-slide-up">
-                <EmptyState mode={mode} />
+                <EmptyState mode={mode} onShowExample={handleShowExample} />
               </div>
             )}
             {showResult && result && (
               <>
+                <ExecutiveSummary result={result} />
                 <ScoreCard result={result} />
-                <ScoreDriverWaterfall stats={result.population_stats} />
-                <OpinionInsightsPanel
-                  opinions={[
-                    ...(result.top_opinions ?? []),
-                    ...(result.mid_opinions ?? []),
-                    ...(result.bottom_opinions ?? []),
-                  ]}
-                />
-                <ObjectionPanel
-                  personas={result.bottom_personas}
-                  opinions={result.bottom_opinions ?? []}
-                />
+                {/* 점수 DNA·고객 반응 핵심(VOC)·이탈 사유 — 요청으로 임시 숨김(SHOW_INSIGHT_PANELS) */}
+                {SHOW_INSIGHT_PANELS && (
+                  <>
+                    <ScoreDriverWaterfall stats={result.population_stats} />
+                    <OpinionInsightsPanel
+                      opinions={[
+                        ...(result.top_opinions ?? []),
+                        ...(result.mid_opinions ?? []),
+                        ...(result.bottom_opinions ?? []),
+                      ]}
+                    />
+                    <ObjectionPanel
+                      personas={result.bottom_personas}
+                      opinions={result.bottom_opinions ?? []}
+                    />
+                  </>
+                )}
                 <PersonaList
                   personas={result.top_personas}
                   opinions={result.top_opinions ?? []}
@@ -220,14 +266,9 @@ export default function Page() {
                       />
                     </>
                   )}
-                <SegmentDiscoveryPanel segments={result.segments} />
-                {/* What-if는 저장된 분석(analysis_id)이 있어야 재점수 가능 — 스트리밍 done 후 활성 */}
-                {result.analysis_id !== "pending" && (
-                  <WhatIfLab
-                    analysisId={result.analysis_id}
-                    baseStats={result.population_stats}
-                    baseSellingPoints={result.selling_points}
-                  />
+                {/* 숨은 황금 세그먼트 — 마이크로 타겟 발굴(마케팅 평가 핵심) */}
+                {SHOW_SEGMENT_PANEL && (
+                  <SegmentDiscoveryPanel segments={result.segments} />
                 )}
                 <PopulationStatsPanel stats={result.population_stats} />
                 {/* 리포트는 가장 오래 걸리는 단계 — 스트리밍 중이면 스켈레톤, 도착하면 교체 */}
@@ -236,10 +277,19 @@ export default function Page() {
                 ) : result.analysis_id === "pending" ? (
                   <ReportSkeleton />
                 ) : null}
+                {/* What-if 실험실 — '다음 분석 제안' 바로 위에 배치. 저장된 분석(analysis_id)이 있어야 재점수 가능 */}
+                {result.analysis_id !== "pending" && (
+                  <WhatIfLab
+                    analysisId={result.analysis_id}
+                    baseStats={result.population_stats}
+                    baseSellingPoints={result.selling_points}
+                  />
+                )}
                 <NextActionsPanel result={result} />
                 {pastSimulations.length > 0 && (
                   <PastSimulationsPanel simulations={pastSimulations} />
                 )}
+                <TrustPanel />
               </>
             )}
           </section>
@@ -337,7 +387,13 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-function EmptyState({ mode }: { mode: Mode }) {
+function EmptyState({
+  mode,
+  onShowExample,
+}: {
+  mode: Mode;
+  onShowExample: () => void;
+}) {
   if (mode === "history") {
     return (
       <div className="border border-dashed border-parchment rounded-[9.6px] p-10 sm:p-16 text-center bg-vellum">
@@ -358,6 +414,18 @@ function EmptyState({ mode }: { mode: Mode }) {
       <p className="text-body-sm text-dusty mt-2">
         파일 업로드 (TXT · PDF · DOCX · HWP · HWPX) 또는 직접 붙여넣기 모두
         가능합니다.
+      </p>
+      <button
+        type="button"
+        onClick={onShowExample}
+        className="mt-6 inline-flex min-h-[44px] items-center gap-2 rounded-[9.6px] border border-terra/40 bg-terra/8 px-5 text-body-sm font-semibold text-terra
+                   transition-colors hover:bg-terra/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-azure"
+      >
+        예시 분석 결과 바로 보기
+        <span aria-hidden>→</span>
+      </button>
+      <p className="text-caption text-dusty mt-2">
+        입력 없이도 실제 분석 결과 화면을 먼저 둘러볼 수 있습니다.
       </p>
     </div>
   );

@@ -21,6 +21,28 @@ import { SiteFooter } from "@/components/SiteHeader";
  *   parchment 경계선, 내부 카드는 vellum으로 반전(snow 배경 위 가시성 확보). Hero·Scale은
  *   vellum 배경 + snow 카드 유지. 결과: vellum → snow → vellum → onyx(CTA) 교차.
  *
+ * v6 변경(대표님 피드백): Hero 좌→우 스캔을 시네마틱 레이더 스윕으로 고도화. 단일 terra 띠 →
+ *   4중 레이어(수직 광주 → 패럴랙스 back빔 → comet trail → 빛의 칼날) + 매칭 점 튕김·warm 잔광·
+ *   ring ping(strong 점 한정). left 애니 제거(transform:translateX 단일 변환 → 60fps). 칼날 core가
+ *   화면 x%를 지나는 시점 ≈ (x/100)*3.2s = 점 --ds 로 맞춰 "칼날→점 점화" 동기 유지. 색은 terra
+ *   스펙트럼(peach #f2c9b8 → terra → rust #b85535) 유지, azure는 칼날 가장자리 prismatic 보조만.
+ *
+ * v7 변경(대표님 피드백): Hero 시그니처를 좌→우 레이더 스윕 → **형상 응집 모핑**으로 교체.
+ *   100만 점(150개)이 흩어짐 → 사람(군중) → 한국 지도 → 「1,000,000」 형상으로 응집·해체 순환.
+ *   좌표는 heroShapes.ts에 빌드 타임 생성(한국 지도는 public/geo TopoJSON rejection sampling,
+ *   결정적 → SSR/CSR 동일). container-type:size + transform:translate(cqw/cqh)로 반응형·GPU 합성
+ *   (transform/opacity만 → 60fps). 4중 스윕·매칭 점·ring ping 제거(무한 루프 다이어트).
+ *   reduced-motion에선 한국 지도 형상으로 정지.
+ *
+ * v8 변경(대표님 피드백): 형상 모핑 폐기 → **차분한 데이터 필드**로 교체. 점이 특정 형상(사람/
+ *   한국지도/100만)을 흉내내면 중앙 카피에 가려 '제대로 된 형상'으로 안 읽히는 본질적 한계 때문.
+ *   대신 160개 점이 형상 없이 은은히 떠다니며(느린 드리프트+미세 트윙클) '100만 규모'만 암시한다.
+ *   좌표는 결정적 PRNG로 인라인 생성(heroShapes.ts·gen-hero-shapes.mjs 미사용). 동기화 라벨 제거,
+ *   배경 캡션은 담백한 정적 1줄. 가독성 마스크는 헤드라인 우선으로 복원(0.72).
+ *
+ * v9 변경: 차분한 데이터 필드 유지 + 얇은 신호 연결선, 포인터 글로우, 네 개 오비트 노드, 카드 3D
+ *   틸트, 뷰포트 진입 기반 파이프라인 레일로 모션 밀도만 보강.
+ *
  * 모든 모션은 prefers-reduced-motion에서 무효화.
  */
 export default function IntroPage() {
@@ -54,18 +76,50 @@ function IconDefs() {
  * ① Hero — 전체 배경 점 필드 + 중앙 카피
  * ============================================================ */
 
-// 매칭된 타겟 점 — 결정적 해시 좌표(SSR/CSR 동일). x/y는 %.
-// 펄스 딜레이를 x위치에 비례시켜 스캔바(좌→우)가 지날 때 그 점이 켜지는 웨이브를 만든다.
-const SCAN_PERIOD = 3.2;
-const MATCHED = Array.from({ length: 40 }, (_, i) => {
-  const x = 3 + ((Math.imul(i + 1, 2654435761) >>> 0) % 94);
-  const y = 5 + ((Math.imul(i + 13, 40503) >>> 0) % 90);
-  return { x, y, strong: i % 3 === 0, d: ((x / 100) * SCAN_PERIOD).toFixed(2) };
-});
+// 차분한 데이터 필드 — 100만 규모를 암시하는 앰비언트 점.
+// 형상을 만들지 않고 은은히 떠다니기만 한다(느린 드리프트 + 미세 트윙클).
+// 위치/움직임은 결정적 PRNG(mulberry32)로 생성 → SSR/CSR 하이드레이션 일치(Math.random 금지).
+const FIELD_DOTS = (() => {
+  let a = 0x9e3779b9;
+  const rnd = () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  return Array.from({ length: 160 }, (_, i) => ({
+    x: +(rnd() * 100).toFixed(2), // 위치 % (left/top)
+    y: +(rnd() * 100).toFixed(2),
+    sz: +(1.5 + rnd() * 2).toFixed(2), // 지름 px (1.5~3.5)
+    dx: +((rnd() - 0.5) * 14).toFixed(1), // 드리프트 진폭 px (±7)
+    dy: +((rnd() - 0.5) * 14).toFixed(1),
+    dur: +(9 + rnd() * 8).toFixed(1), // 주기 s (9~17, 느리게)
+    dl: +(-rnd() * 17).toFixed(1), // 시작 위상(음수 delay)로 desync
+    op: +(0.16 + rnd() * 0.26).toFixed(2), // 기본 opacity (0.16~0.42, 차분)
+    strong: i % 9 === 0, // 약 11%만 강조점(rust + 미세 글로우)
+  }));
+})();
+const FIELD_LINKS = [
+  [3, 21], [21, 47], [47, 86], [12, 39], [39, 74], [74, 118],
+  [28, 64], [64, 109], [51, 97], [97, 142], [6, 58], [58, 132],
+].map(([a, b], i) => ({
+  x1: FIELD_DOTS[a].x,
+  y1: FIELD_DOTS[a].y,
+  x2: FIELD_DOTS[b].x,
+  y2: FIELD_DOTS[b].y,
+  d: `${(i * 0.24).toFixed(2)}s`,
+}));
+const HERO_NODES = [
+  { label: "원문 입력", x: "17%", y: "30%", d: "0s", dur: "8.4s", nx: "16px", ny: "-11px", nx2: "-8px", ny2: "9px", nr: "3deg", nr2: "-2deg" },
+  { label: "핵심 소구", x: "78%", y: "25%", d: "0.9s", dur: "9.1s", nx: "-18px", ny: "13px", nx2: "10px", ny2: "-8px", nr: "-4deg", nr2: "2deg" },
+  { label: "100만 매칭", x: "82%", y: "64%", d: "1.8s", dur: "8.8s", nx: "-15px", ny: "-15px", nx2: "9px", ny2: "11px", nr: "4deg", nr2: "-2deg" },
+  { label: "전략 리포트", x: "20%", y: "69%", d: "2.7s", dur: "9.4s", nx: "18px", ny: "12px", nx2: "-10px", ny2: "-10px", nr: "-3deg", nr2: "2deg" },
+];
 
 function Hero() {
   return (
-    <section className="relative isolate min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-4rem)] lg:min-h-[calc(100dvh-5rem)] flex items-center">
+    <section onMouseMove={trackHeroPointer} className="hero-stage relative isolate min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-4rem)] lg:min-h-[calc(100dvh-5rem)] flex items-center">
       <HeroBackdrop />
 
       <div className="relative z-10 w-full max-w-[860px] mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
@@ -99,12 +153,20 @@ function Hero() {
           <Divider />
           <MiniStat value={252} suffix="개" label="시군구 공략 지역" />
         </div>
+
+        {/* Before/After — 마케터의 첫 질문("얼마나 빨라지고 얼마나 아끼나")에 첫 화면에서 답한다. */}
+        <p className="hero-line mt-5 mx-auto flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1 text-body-sm" style={{ "--i": 5 } as React.CSSProperties}>
+          <span className="text-dusty">기존 소비자조사 2~6주 · 수백만~수천만 원</span>
+          <span aria-hidden className="font-semibold text-terra">→</span>
+          <span className="font-semibold text-ink">PersonaFit 약 2분 · 추가 조사비 0원</span>
+          <span className="text-caption text-dusty">(업계 통상 기준 가늠치)</span>
+        </p>
       </div>
 
-      {/* 범례 (배경 점 설명) */}
-      <div aria-hidden className="hero-line absolute left-4 lg:left-8 bottom-5 hidden sm:flex items-center gap-4 text-caption text-graphite" style={{ "--i": 5 } as React.CSSProperties}>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-terra shadow-[0_0_6px_rgba(217,119,87,0.85)]" />매칭된 타겟</span>
-        <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-stone/45" />전체 모집단</span>
+      {/* 배경 데이터 필드 캡션 — 형상 없이 규모만 담백하게(회전·모핑 없음). */}
+      <div aria-hidden className="hero-line absolute left-4 lg:left-8 bottom-5 hidden sm:flex items-center gap-2 text-caption text-graphite" style={{ "--i": 5 } as React.CSSProperties}>
+        <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-terra shrink-0" />
+        <span>100만 명 규모의 합성 페르소나와 매칭해 예상 반응을 분석합니다.</span>
       </div>
 
       <a href="#how" aria-label="작동 원리로 스크롤" className="scroll-cue absolute left-1/2 bottom-5 -translate-x-1/2 hidden lg:flex flex-col items-center gap-1.5 text-dusty hover:text-terra transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-azure rounded-full p-2">
@@ -124,20 +186,62 @@ function HeroBackdrop() {
       <span className="blob absolute -top-24 -left-20 h-[34rem] w-[34rem] rounded-full bg-terra/12 blur-[90px]" />
       <span className="blob absolute top-1/3 -right-28 h-[30rem] w-[30rem] rounded-full bg-azure/50 blur-[90px]" style={{ animationDelay: "2.5s" }} />
 
-      {/* 100만 모집단 점 필드 — 전체 배경. base는 CSS 격자, 매칭은 terra 점 */}
-      <div className="hero-dots absolute inset-0" />
-      {MATCHED.map((m, i) => (
-        <span
-          key={i}
-          className={m.strong ? "hero-match hero-match-strong" : "hero-match"}
-          style={{ left: `${m.x}%`, top: `${m.y}%`, "--ds": `${m.d}s` } as React.CSSProperties}
-        />
-      ))}
-      {/* 스캔바 */}
-      <span className="hero-scan absolute inset-y-0 w-1/4" />
+      {/* 차분한 데이터 필드 — 100만 규모를 암시하는 앰비언트 점(형상 없음, 느린 드리프트+트윙클).
+          left/top %로 배치, transform/opacity만 애니메이션(60fps). */}
+      <div className="field absolute inset-0">
+        {FIELD_DOTS.map((d, i) => (
+          <span
+            key={i}
+            className={d.strong ? "field-dot field-strong" : "field-dot"}
+            style={{
+              left: `${d.x}%`, top: `${d.y}%`,
+              width: `${d.sz}px`, height: `${d.sz}px`,
+              "--dx": `${d.dx}px`, "--dy": `${d.dy}px`, "--op": d.op,
+              animationDuration: `${d.dur}s`,
+              animationDelay: `${d.dl}s`,
+            } as React.CSSProperties}
+          />
+        ))}
+      </div>
+      <svg className="field-links absolute inset-0 h-full w-full hidden sm:block" viewBox="0 0 100 100" preserveAspectRatio="none">
+        {FIELD_LINKS.map((l, i) => (
+          <line
+            key={i}
+            x1={l.x1}
+            y1={l.y1}
+            x2={l.x2}
+            y2={l.y2}
+            style={{ "--ld": l.d } as React.CSSProperties}
+          />
+        ))}
+      </svg>
+      <div className="hero-orbits absolute inset-0 hidden lg:block">
+        {HERO_NODES.map((node) => (
+          <span
+            key={node.label}
+            className="hero-node absolute"
+            style={{
+              left: node.x,
+              top: node.y,
+              "--nd": node.d,
+              "--ndur": node.dur,
+              "--nx": node.nx,
+              "--ny": node.ny,
+              "--nx2": node.nx2,
+              "--ny2": node.ny2,
+              "--nr": node.nr,
+              "--nr2": node.nr2,
+            } as React.CSSProperties}
+          >
+            <span className="node-pulse" />
+            <span className="node-label">{node.label}</span>
+          </span>
+        ))}
+      </div>
+      <div className="hero-pointer-glow absolute inset-0" />
 
-      {/* 텍스트 가독용 vellum radial 마스크 */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_52%_46%_at_50%_42%,rgba(250,249,245,0.92),rgba(250,249,245,0.35)_60%,transparent_82%)]" />
+      {/* 텍스트 가독용 vellum radial 마스크 — 점이 차분해져 헤드라인 가독성 우선으로 복원. */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_52%_46%_at_50%_42%,rgba(250,249,245,0.72),rgba(250,249,245,0.25)_58%,transparent_82%)]" />
       <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-vellum" />
     </div>
   );
@@ -161,17 +265,19 @@ function Divider() {
  * ============================================================ */
 const PIPELINE = [
   { step: "01", title: "입력", desc: "약관·상품설명서·마케팅 카피·신상품 컨셉을 붙여넣거나 파일로 업로드", meta: "TXT · PDF · DOCX · HWP · HWPX 자동 추출", icon: <IconUpload />, demo: "input" as const },
-  { step: "02", title: "소구점·타겟 추출", desc: "LLM이 핵심 혜택과 반응할 타겟 조건을 구조화해 뽑아냅니다", meta: "tool_use 기반 구조화 추출", icon: <IconSpark />, demo: "extract" as const },
-  { step: "03", title: "100만 행 매칭", desc: "임베딩 코사인 + 룰·카테고리 가중치로 100만 페르소나를 전수 스캔", meta: "brute-force ~84ms · 인메모리", icon: <IconScan />, demo: "match" as const },
-  { step: "04", title: "인사이트", desc: "반응도·코호트·공략 지역·페르소나 의견·FP 전략·리포트로 정리", meta: "지도 · 분포 차트 · 마크다운 리포트", icon: <IconInsight />, demo: "insight" as const },
+  { step: "02", title: "소구점·타겟 추출", desc: "AI가 핵심 혜택과 반응할 타겟 조건을 구조화해 뽑아냅니다", meta: "핵심 혜택·타겟 조건 자동 추출", icon: <IconSpark />, demo: "extract" as const },
+  { step: "03", title: "100만 행 매칭", desc: "의미 유사도 + 규칙·범주 가중치로 100만 페르소나를 전수 검색", meta: "초고속 ~84ms", icon: <IconScan />, demo: "match" as const },
+  { step: "04", title: "인사이트", desc: "반응도·응답층·공략 지역·페르소나 의견·판매 전략·리포트로 정리", meta: "지도 · 분포 차트 · 마크다운 리포트", icon: <IconInsight />, demo: "insight" as const },
 ];
 const FEATURES = [
-  { title: "약관·상품 분석", desc: "소구점 추출 → 페르소나 매칭 → 반응도·코호트·지역·의견·FP 리포트", icon: <IconAnalyze />, demo: "analyze" as const },
+  { title: "약관·상품 분석", desc: "소구점 추출 → 페르소나 매칭 → 반응도·응답층·지역·의견·판매전략 리포트", icon: <IconAnalyze />, demo: "analyze" as const },
   { title: "A/B 테스트", desc: "두 안을 평행 분석하고 비교 표·추천안·판매 전략까지 도출", icon: <IconABTest />, demo: "abtest" as const },
-  { title: "페르소나 탐색", desc: "자연어로 검색하면 시멘틱 + 메타 필터로 후보를 카드로 제시", icon: <IconUsers />, demo: "explore" as const },
+  { title: "페르소나 탐색", desc: "자연어로 검색하면 의미 분석 + 조건 필터로 후보를 카드로 제시", icon: <IconUsers />, demo: "explore" as const },
   { title: "가상 설문", desc: "페르소나 모집단에 질문을 던져 응답 통계와 차트 리포트를 생성", icon: <IconSurvey />, demo: "survey" as const },
   { title: "데이터 현황", desc: "100만 행 데이터셋의 인구통계·지역 분포를 한눈에 시각화", icon: <IconOverview />, demo: "overview" as const },
   { title: "공략 지역 지도", desc: "252개 시군구 단위 반응 집중도를 한국 지도 위에 표시", icon: <IconMap />, demo: "map" as const },
+  { title: "겹침 분석", desc: "여러 안의 타겟층이 얼마나 겹치는지 — 중복률·도달 범위·독점층으로 중복을 진단", icon: <IconOverlap />, demo: "overlap" as const },
+  { title: "What-if 실험실", desc: "타겟·관심사 슬라이더를 움직이면 100만 분포가 즉시 재계산 — 원본 대비 변화로 즉답", icon: <IconWhatIf />, demo: "whatif" as const },
 ];
 
 /* ---- 파이프라인 단계별 라이브 미니 데모 ----
@@ -272,7 +378,7 @@ function DemoInsight() {
  * 않도록 대부분 1회 재생 후 정지(지도 핫스팟 펄스만 은은한 루프). PIPELINE과 비주얼이 겹치지
  * 않게 차별화: 분석=스캔, A/B=막대 경쟁, 탐색=아바타, 설문=가로바, 현황=도넛, 지도=핫스팟.
  */
-function FeatureDemo({ type }: { type: "analyze" | "abtest" | "explore" | "survey" | "overview" | "map" }) {
+function FeatureDemo({ type }: { type: "analyze" | "abtest" | "explore" | "survey" | "overview" | "map" | "overlap" | "whatif" }) {
   return (
     <div className="feature-demo relative mt-4 h-[84px] overflow-hidden rounded-[10px] border border-parchment bg-snow/70 px-3 py-2.5">
       {type === "analyze" && <DemoAnalyze />}
@@ -281,6 +387,8 @@ function FeatureDemo({ type }: { type: "analyze" | "abtest" | "explore" | "surve
       {type === "survey" && <DemoSurvey />}
       {type === "overview" && <DemoOverview />}
       {type === "map" && <DemoMap />}
+      {type === "overlap" && <DemoOverlap />}
+      {type === "whatif" && <DemoWhatIf />}
     </div>
   );
 }
@@ -391,6 +499,40 @@ function DemoMap() {
   );
 }
 
+// ⑦ 겹침 분석 — A(marine)·B(terra) 두 원이 팝인하며 교집합(겹침)이 은은히 펄스
+function DemoOverlap() {
+  return (
+    <div className="dm-overlap relative h-full">
+      <span className="vn vn-a" />
+      <span className="vn vn-b" />
+      <span className="vn-x" />
+      <span className="absolute left-2 top-1 text-[9px] font-semibold text-marine">A</span>
+      <span className="absolute right-2 top-1 text-[9px] font-semibold text-terra">B</span>
+      <span className="absolute bottom-0.5 right-1 num-tabular text-[9px] font-semibold text-terra">겹침 28%</span>
+    </div>
+  );
+}
+
+// ⑧ What-if 실험실 — 슬라이더 트랙이 차오르고 thumb가 미세 조정, 델타 칩 pop
+const WHATIF_SLIDERS = [
+  { w: "64%", d: "0.35s" },
+  { w: "42%", d: "0.55s" },
+  { w: "78%", d: "0.75s" },
+];
+function DemoWhatIf() {
+  return (
+    <div className="dm-whatif relative flex h-full flex-col justify-center gap-[9px] pr-12">
+      {WHATIF_SLIDERS.map((s, i) => (
+        <span key={i} className="relative h-[5px] w-full rounded-full bg-stone/15">
+          <span className="wf-track absolute inset-y-0 left-0 rounded-full bg-terra/55" style={{ "--w": s.w, "--d": s.d } as React.CSSProperties} />
+          <span className="wf-thumb absolute h-3 w-3 rounded-full bg-terra border-2 border-snow shadow-[0_1px_3px_rgba(0,0,0,0.25)]" style={{ left: s.w, "--d": s.d } as React.CSSProperties} />
+        </span>
+      ))}
+      <span className="wf-delta absolute right-1 top-1.5 rounded border border-terra/30 bg-terra/10 px-1.5 py-[2px] num-tabular text-[9px] font-semibold text-terra">▲ +12%</span>
+    </div>
+  );
+}
+
 function HowItWorks() {
   return (
     <section id="how" className="relative bg-snow border-y border-parchment py-24 sm:py-32 px-4 sm:px-6 lg:px-8 scroll-mt-20">
@@ -404,11 +546,11 @@ function HowItWorks() {
         </header>
 
         <ol className="relative mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          <span aria-hidden className="hidden lg:block pipeline-rail absolute top-[3.75rem] left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-parchment via-terra/50 to-parchment">
+          <span data-reveal aria-hidden className="hidden lg:block pipeline-rail absolute top-[3.75rem] left-[12.5%] right-[12.5%] h-px bg-gradient-to-r from-parchment via-terra/50 to-parchment">
             <span className="rail-dot absolute -top-[3px] h-[7px] w-[7px] rounded-full bg-terra shadow-[0_0_10px_rgba(217,119,87,0.8)]" />
           </span>
           {PIPELINE.map((p, i) => (
-            <li key={p.step} data-reveal onMouseMove={trackSpotlight} className="reveal spotlight gborder group relative overflow-hidden rounded-[14px] border border-parchment bg-vellum p-6 transition-[transform,box-shadow] duration-300 hover:-translate-y-2 hover:shadow-[0_22px_48px_-22px_rgba(20,20,19,0.3)]" style={{ transitionDelay: `${i * 90}ms` }}>
+            <li key={p.step} data-reveal onMouseMove={trackSpotlight} onMouseLeave={resetSpotlight} className="reveal motion-card spotlight gborder group relative overflow-hidden rounded-[14px] border border-parchment bg-vellum p-6 transition-[transform,box-shadow] duration-300 hover:-translate-y-2 hover:shadow-[0_22px_48px_-22px_rgba(20,20,19,0.3)]" style={{ transitionDelay: `${i * 90}ms` }}>
               <div className="relative flex items-center justify-between">
                 <IconBadge>{p.icon}</IconBadge>
                 <span className="step-num text-[2.75rem] num-tabular font-bold leading-none">{p.step}</span>
@@ -424,14 +566,14 @@ function HowItWorks() {
         <div className="mt-24 text-center max-w-2xl mx-auto">
           <SectionHeading
             eyebrow="한 화면에 담긴 기능"
-            title="기획부터 마케팅까지, 6가지 도구"
-            subtitle="분석·A/B 테스트·페르소나 탐색·가상 설문을 한 곳에서 이어서 진행합니다."
+            title="기획부터 마케팅까지, 8가지 도구"
+            subtitle="분석·A/B·겹침 분석·페르소나 탐색·가상 설문·What-if를 한 곳에서 이어서 진행합니다."
           />
         </div>
 
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {FEATURES.map((f, i) => (
-            <article key={f.title} data-reveal onMouseMove={trackSpotlight} className="reveal spotlight gborder group relative overflow-hidden rounded-[14px] border border-parchment bg-vellum p-6 transition-[transform,box-shadow] duration-300 hover:-translate-y-1.5 hover:shadow-[0_18px_40px_-22px_rgba(20,20,19,0.3)]" style={{ transitionDelay: `${i * 65}ms` }}>
+            <article key={f.title} data-reveal onMouseMove={trackSpotlight} onMouseLeave={resetSpotlight} className="reveal motion-card spotlight gborder group relative overflow-hidden rounded-[14px] border border-parchment bg-vellum p-6 transition-[transform,box-shadow] duration-300 hover:-translate-y-1.5 hover:shadow-[0_18px_40px_-22px_rgba(20,20,19,0.3)]" style={{ transitionDelay: `${i * 65}ms` }}>
               <div className="relative">
                 <IconBadge>{f.icon}</IconBadge>
                 <h3 className="mt-5 text-heading text-ink">{f.title}</h3>
@@ -450,12 +592,12 @@ function HowItWorks() {
  * ③ 데이터 규모 + 최종 CTA
  * ============================================================ */
 const STATS = [
-  { value: 1_000_000, suffix: "", label: "합성 한국인 페르소나", note: "행 단위 인메모리" },
-  { value: 84, suffix: "ms", label: "100만 행 전수 검색", note: "brute-force 코사인" },
+  { value: 1_000_000, suffix: "", label: "합성 한국인 페르소나", note: "전수 분석 대상" },
+  { value: 84, suffix: "ms", label: "100만 행 전수 검색", note: "고속 유사도 검색" },
   { value: 252, suffix: "개", label: "시군구 공략 지역", note: "17개 시도 / 252 구·군" },
-  { value: 26, suffix: "컬럼", label: "페르소나 속성", note: "인물 7종 + 인구통계" },
+  { value: 22, suffix: "컬럼", label: "페르소나 속성", note: "인물 7종 + 인구통계·지역" },
 ];
-const TAGS = ["약관 분석", "A/B 테스트", "페르소나 탐색", "가상 설문", "데이터 현황", "분석 이력", "페르소나 의견", "FP 판매 전략", "공략 지역 지도"];
+const TAGS = ["약관 분석", "A/B 테스트", "겹침 분석", "페르소나 탐색", "가상 설문", "What-if 실험실", "데이터 현황", "분석 이력", "페르소나 의견", "판매 전략", "공략 지역 지도"];
 
 function ScaleSection() {
   return (
@@ -471,7 +613,7 @@ function ScaleSection() {
 
         <div className="mt-14 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
           {STATS.map((s, i) => (
-            <div key={s.label} data-reveal onMouseMove={trackSpotlight} className="reveal spotlight gborder group relative overflow-hidden rounded-[14px] border border-parchment bg-snow p-6 text-center transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(20,20,19,0.3)]" style={{ transitionDelay: `${i * 90}ms` }}>
+            <div key={s.label} data-reveal onMouseMove={trackSpotlight} onMouseLeave={resetSpotlight} className="reveal motion-card spotlight gborder group relative overflow-hidden rounded-[14px] border border-parchment bg-snow p-6 text-center transition-[transform,box-shadow] duration-300 hover:-translate-y-1 hover:shadow-[0_18px_40px_-22px_rgba(20,20,19,0.3)]" style={{ transitionDelay: `${i * 90}ms` }}>
               <div className="relative">
                 <CountUp value={s.value} suffix={s.suffix} />
                 <p className="mt-2 text-body-sm font-semibold text-ink">{s.label}</p>
@@ -630,8 +772,27 @@ function CountUp({
 function trackSpotlight(e: MouseEvent<HTMLElement>) {
   const el = e.currentTarget;
   const r = el.getBoundingClientRect();
-  el.style.setProperty("--mx", `${((e.clientX - r.left) / r.width) * 100}%`);
-  el.style.setProperty("--my", `${((e.clientY - r.top) / r.height) * 100}%`);
+  const x = (e.clientX - r.left) / r.width;
+  const y = (e.clientY - r.top) / r.height;
+  el.style.setProperty("--mx", `${x * 100}%`);
+  el.style.setProperty("--my", `${y * 100}%`);
+  el.style.setProperty("--rx", `${((0.5 - y) * 5).toFixed(2)}deg`);
+  el.style.setProperty("--ry", `${((x - 0.5) * 6).toFixed(2)}deg`);
+}
+
+function resetSpotlight(e: MouseEvent<HTMLElement>) {
+  const el = e.currentTarget;
+  el.style.setProperty("--mx", "50%");
+  el.style.setProperty("--my", "50%");
+  el.style.setProperty("--rx", "0deg");
+  el.style.setProperty("--ry", "0deg");
+}
+
+function trackHeroPointer(e: MouseEvent<HTMLElement>) {
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--hx", `${((e.clientX - r.left) / r.width) * 100}%`);
+  el.style.setProperty("--hy", `${((e.clientY - r.top) / r.height) * 100}%`);
 }
 
 function useRevealRoot() {
@@ -706,6 +867,12 @@ function IconOverview() {
 function IconMap() {
   return <svg {...S} fill="none"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z" fill="rgba(204,219,232,0.32)" stroke={STROKE} /><path d="M9 4v14M15 6v14" stroke={STROKE} /><circle cx="12" cy="11" r="1.6" fill="#d97757" stroke="none" /></svg>;
 }
+function IconOverlap() {
+  return <svg {...S} fill="none"><circle cx="9" cy="12" r="6" fill="rgba(204,219,232,0.4)" stroke={STROKE} /><circle cx="15" cy="12" r="6" fill="rgba(217,119,87,0.16)" stroke={STROKE} /></svg>;
+}
+function IconWhatIf() {
+  return <svg {...S} fill="none"><path d="M4 7h16M4 12h16M4 17h16" stroke={STROKE} /><circle cx="9" cy="7" r="2" fill="rgba(217,119,87,0.2)" stroke={STROKE} /><circle cx="15" cy="12" r="2" fill="rgba(204,219,232,0.55)" stroke={STROKE} /><circle cx="8" cy="17" r="2" fill="rgba(217,119,87,0.2)" stroke={STROKE} /></svg>;
+}
 
 /* ============================================================
  * intro 전용 스타일
@@ -745,32 +912,110 @@ const introStyles = `
   .pulse-dot::after { content: ""; position: absolute; inset: 0; border-radius: 9999px; background: inherit; animation: intro-ping 1.8s cubic-bezier(0,0,0.2,1) infinite; }
   @keyframes intro-ping { 0% { transform: scale(1); opacity: 0.7; } 75%,100% { transform: scale(2.6); opacity: 0; } }
 
-  /* ---------- Hero 전체 배경 점 필드 ---------- */
-  .hero-dots {
-    background-image: radial-gradient(circle, rgba(156,154,146,0.32) 1.5px, transparent 1.6px);
-    background-size: 30px 30px;
-    mask-image: radial-gradient(ellipse 95% 85% at 50% 38%, #000 60%, transparent 96%);
-    -webkit-mask-image: radial-gradient(ellipse 95% 85% at 50% 38%, #000 60%, transparent 96%);
+  /* ---------- Hero 차분한 데이터 필드 ----------
+   * 100만 규모를 암시하는 앰비언트 점. 형상을 만들지 않고 느린 드리프트 + 미세 트윙클만.
+   * 위치는 left/top %, 움직임은 transform/opacity(60fps). 점마다 dur/delay가 달라 무리지지 않음. */
+  .field-dot {
+    position: absolute; border-radius: 9999px;
+    background-color: #d97757; /* terra — 차분한 앰비언트 */
+    opacity: var(--op, 0.3);
+    transform: translate(0, 0); /* margin 없이 left/top 기준점 — 미세 이동만 */
+    animation-name: field-drift;
+    animation-timing-function: ease-in-out;
+    animation-iteration-count: infinite;
+    will-change: transform, opacity;
   }
-  /* 매칭 점 — 스캔바와 동기. 평소 차분한 terra, 스캔 통과 순간 밝은 peach로 확대 */
-  .hero-match {
-    position: absolute; width: 8px; height: 8px; border-radius: 9999px; margin: -4px 0 0 -4px;
-    background-color: #d97757; box-shadow: 0 0 6px rgba(217,119,87,0.55);
-    animation: match-scan 3.2s linear infinite; animation-delay: var(--ds, 0s);
+  .field-strong {
+    background-color: #b85535; /* rust 강조점 + 미세 글로우 */
+    box-shadow: 0 0 6px rgba(184,85,53,0.4);
   }
-  .hero-match-strong { width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; }
-  @keyframes match-scan {
-    0%   { transform: scale(0.82); opacity: 0.5; background-color: #d97757; box-shadow: 0 0 5px rgba(217,119,87,0.45); }
-    7%   { transform: scale(1.75); opacity: 1; background-color: #f2c9b8; box-shadow: 0 0 18px rgba(242,201,184,0.95); }
-    24%  { transform: scale(1.05); opacity: 0.82; background-color: #d97757; box-shadow: 0 0 8px rgba(217,119,87,0.7); }
-    100% { transform: scale(0.82); opacity: 0.5; background-color: #d97757; box-shadow: 0 0 5px rgba(217,119,87,0.45); }
+  /* 드리프트(0→오프셋→0)로 부드럽게 떠다니고, 중간에 살짝 밝아지는 트윙클. */
+  @keyframes field-drift {
+    0%   { transform: translate(0, 0); opacity: var(--op); }
+    50%  { transform: translate(var(--dx), var(--dy)); opacity: calc(var(--op) * 1.6); }
+    100% { transform: translate(0, 0); opacity: var(--op); }
   }
-  .hero-scan {
-    left: -25%;
-    background: linear-gradient(90deg, transparent, rgba(217,119,87,0.12) 45%, rgba(217,119,87,0.20) 50%, rgba(217,119,87,0.12) 55%, transparent);
-    animation: hero-scan-move 3.2s linear infinite;
+  .field-links { opacity: 0.62; mix-blend-mode: multiply; }
+  .field-links line {
+    stroke: rgba(217,119,87,0.22);
+    stroke-width: 0.08;
+    stroke-linecap: round;
+    stroke-dasharray: 4 11;
+    stroke-dashoffset: 15;
+    filter: drop-shadow(0 0 2px rgba(217,119,87,0.25));
+    animation: field-link-flow 5.4s ease-in-out infinite;
+    animation-delay: var(--ld, 0s);
   }
-  @keyframes hero-scan-move { 0% { left: -25%; } 100% { left: 100%; } }
+  @keyframes field-link-flow {
+    0%, 100% { stroke-dashoffset: 15; opacity: 0.12; }
+    45% { stroke-dashoffset: 0; opacity: 0.72; }
+  }
+  .hero-pointer-glow {
+    background: radial-gradient(26rem circle at var(--hx,50%) var(--hy,42%), rgba(217,119,87,0.16), rgba(242,201,184,0.08) 34%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    mix-blend-mode: multiply;
+  }
+  .hero-stage:hover .hero-pointer-glow { opacity: 1; }
+  .hero-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transform: translate(-50%, -50%);
+    animation: hero-node-drift var(--ndur, 8.8s) ease-in-out infinite;
+    animation-delay: var(--nd, 0s);
+    will-change: transform;
+  }
+  .node-pulse {
+    position: relative;
+    height: 9px;
+    width: 9px;
+    border-radius: 9999px;
+    background: #d97757;
+    box-shadow: 0 0 10px rgba(217,119,87,0.72);
+    animation: hero-node-core 2.8s ease-in-out infinite;
+    animation-delay: var(--nd, 0s);
+  }
+  .node-pulse::after {
+    content: "";
+    position: absolute;
+    inset: -7px;
+    border-radius: inherit;
+    border: 1px solid rgba(217,119,87,0.32);
+    animation: hero-node-ring 2.4s ease-out infinite;
+    animation-delay: var(--nd, 0s);
+  }
+  .node-label {
+    border: 1px solid rgba(222,220,209,0.8);
+    background: rgba(255,255,255,0.58);
+    backdrop-filter: blur(10px);
+    border-radius: 9999px;
+    padding: 4px 9px;
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 700;
+    color: #3d3d3a;
+    box-shadow: 0 10px 26px -18px rgba(20,20,19,0.35);
+    animation: hero-node-label var(--ndur, 8.8s) ease-in-out infinite;
+    animation-delay: calc(var(--nd, 0s) + 0.35s);
+  }
+  @keyframes hero-node-drift {
+    0%, 100% { transform: translate(-50%, -50%) translate3d(0,0,0) rotate(0deg); }
+    34% { transform: translate(-50%, -50%) translate3d(var(--nx, 12px), var(--ny, -10px), 0) rotate(var(--nr, 3deg)); }
+    68% { transform: translate(-50%, -50%) translate3d(var(--nx2, -8px), var(--ny2, 8px), 0) rotate(var(--nr2, -2deg)); }
+  }
+  @keyframes hero-node-ring {
+    0% { transform: scale(0.72); opacity: 0.72; }
+    80%, 100% { transform: scale(1.75); opacity: 0; }
+  }
+  @keyframes hero-node-core {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(217,119,87,0.72); }
+    50% { transform: scale(1.22); box-shadow: 0 0 18px rgba(217,119,87,0.88); }
+  }
+  @keyframes hero-node-label {
+    0%, 100% { transform: translateY(0); border-color: rgba(222,220,209,0.8); background: rgba(255,255,255,0.58); }
+    50% { transform: translateY(-2px); border-color: rgba(217,119,87,0.42); background: rgba(255,255,255,0.72); }
+  }
 
   /* 아이콘 배지 */
   .icon-face { background: radial-gradient(120% 120% at 30% 18%, rgba(255,255,255,0.92), transparent 55%), linear-gradient(160deg, rgba(217,119,87,0.18), rgba(204,219,232,0.34)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 16px -10px rgba(20,20,19,0.4); }
@@ -783,16 +1028,41 @@ const introStyles = `
 
   .gborder::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; background: linear-gradient(135deg, rgba(217,119,87,0.7), rgba(204,219,232,0.6)); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0; transition: opacity 0.3s; z-index: 1; }
   .gborder:hover::after { opacity: 1; }
+  .motion-card {
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  .motion-card:hover {
+    transform: perspective(900px) rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg)) translateY(-7px);
+  }
+  .motion-card .demo-panel,
+  .motion-card .feature-demo,
+  .motion-card .icon-face,
+  .motion-card .stat-num {
+    transition: transform 0.3s ease;
+  }
+  .motion-card:hover .demo-panel,
+  .motion-card:hover .feature-demo {
+    transform: translateZ(18px);
+  }
+  .motion-card:hover .icon-face {
+    transform: translateZ(12px) scale(1.05);
+  }
+  .motion-card:hover .stat-num {
+    transform: translateZ(12px);
+  }
 
   .shine { overflow: hidden; }
   .shine::after { content: ""; position: absolute; top: 0; bottom: 0; left: -150%; width: 55%; transform: skewX(-20deg); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent); pointer-events: none; }
   .shine:hover::after { animation: intro-shine 0.9s ease; }
   @keyframes intro-shine { to { left: 160%; } }
 
-  .pipeline-rail { transform-origin: left center; animation: intro-rail 1.1s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
+  .pipeline-rail { opacity: 0; transform: scaleX(0); transform-origin: left center; }
+  .pipeline-rail.is-visible { animation: intro-rail 1.1s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
   @keyframes intro-rail { from { transform: scaleX(0); opacity: 0; } to { transform: scaleX(1); opacity: 1; } }
   /* 점은 라인과 동일한 delay/duration/easing으로 left 0→100% 이동 → 라인이 그려지는 끝을 펜촉처럼 따라간다. */
-  .rail-dot { animation: intro-rail-run 1.1s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
+  .rail-dot { opacity: 0; }
+  .pipeline-rail.is-visible .rail-dot { animation: intro-rail-run 1.1s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
   @keyframes intro-rail-run { 0% { left: 0%; opacity: 0; } 8% { opacity: 1; } 100% { left: 100%; opacity: 1; } }
 
   .scroll-cue { animation: intro-fade-late 0.6s ease-out 1.2s both; }
@@ -877,18 +1147,48 @@ const introStyles = `
   @keyframes dm-pin { from { opacity: 0; transform: translateY(-7px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes dm-pulse { 0% { transform: scale(1); opacity: 0.75; } 80%, 100% { transform: scale(2.8); opacity: 0; } }
 
+  /* ⑦ 겹침: 두 원(A·B) 팝인 + 교집합 펄스 (벤다이어그램) */
+  .dm-overlap .vn { position: absolute; top: 50%; height: 52px; width: 52px; margin-top: -26px; border-radius: 9999px; border: 1.5px solid; opacity: 0; transform: scale(0.6); }
+  .dm-overlap .vn-a { left: 50%; margin-left: -44px; border-color: rgba(79,128,179,0.7); background: rgba(79,128,179,0.14); }
+  .dm-overlap .vn-b { left: 50%; margin-left: -8px; border-color: rgba(217,119,87,0.75); background: rgba(217,119,87,0.14); }
+  .dm-overlap .vn-x { position: absolute; top: 50%; left: 50%; height: 34px; width: 20px; margin: -17px 0 0 -10px; border-radius: 9999px; background: rgba(217,119,87,0.32); opacity: 0; }
+  .reveal.is-visible .dm-overlap .vn-a { animation: dm-pop 0.55s cubic-bezier(0.2,1.5,0.4,1) 0.3s both; }
+  .reveal.is-visible .dm-overlap .vn-b { animation: dm-pop 0.55s cubic-bezier(0.2,1.5,0.4,1) 0.45s both; }
+  .reveal.is-visible .dm-overlap .vn-x { animation: dm-soft 2.4s ease-in-out 0.75s infinite; }
+  @keyframes dm-soft { 0%,100% { opacity: 0.45; } 50% { opacity: 0.85; } }
+
+  /* ⑧ What-if: 트랙 차오름 + thumb 미세 조정 + 델타 칩 pop */
+  .dm-whatif .wf-track { width: 0; }
+  .dm-whatif .wf-thumb { top: 50%; transform: translate(-50%,-50%); }
+  .dm-whatif .wf-delta { opacity: 0; transform: scale(0.6); }
+  .reveal.is-visible .dm-whatif .wf-track { animation: dm-fill 0.9s cubic-bezier(0.3,1,0.4,1) var(--d,0s) both; }
+  .reveal.is-visible .dm-whatif .wf-thumb { animation: wf-nudge 2.8s ease-in-out calc(var(--d,0s) + 0.9s) infinite; }
+  .reveal.is-visible .dm-whatif .wf-delta { animation: dm-pop 0.5s cubic-bezier(0.2,1.5,0.4,1) 1.05s both; }
+  @keyframes wf-nudge { 0%,100% { transform: translate(-50%,-50%); } 50% { transform: translate(calc(-50% + 8px),-50%); } }
+
   @media (prefers-reduced-motion: reduce) {
     .hero-line, .hero-gradient, .aurora, .aurora-dark, .blob, .pulse-dot::after, .pipeline-rail, .rail-dot,
-    .scroll-cue, .scroll-dot, .shine::after, .hero-match, .hero-scan,
+    .scroll-cue, .scroll-dot, .shine::after, .field-dot, .field-links line, .hero-node, .node-pulse, .node-pulse::after, .node-label,
     .demo-input .typing, .demo-input .ghost, .demo-input .file-chip,
     .demo-extract .chip, .demo-match .md-on, .demo-match .md-scan, .demo-insight .bar,
     .dm-analyze .sweep, .dm-analyze .kw, .dm-abtest .ab-bar, .dm-explore .av,
-    .dm-survey .fill, .dm-overview .ring, .dm-map .pin, .dm-map .pin-ring {
+    .dm-survey .fill, .dm-overview .ring, .dm-map .pin, .dm-map .pin-ring,
+    .dm-overlap .vn, .dm-overlap .vn-x, .dm-whatif .wf-track, .dm-whatif .wf-thumb, .dm-whatif .wf-delta {
       animation: none !important;
     }
     .hero-line { opacity: 1 !important; transform: none !important; }
     .hero-gradient, .stat-num { -webkit-text-fill-color: #b85535; color: #b85535; }
-    .hero-match { transform: none; }
+    /* 데이터 필드: 드리프트 정지, 기본 opacity로 정적 표시. */
+    .field-dot { transform: none !important; opacity: var(--op, 0.3) !important; }
+    .field-links line { opacity: 0.16 !important; stroke-dashoffset: 0 !important; }
+    .hero-pointer-glow, .node-pulse::after { display: none !important; }
+    .pipeline-rail { opacity: 1 !important; transform: scaleX(1) !important; }
+    .rail-dot { left: 100% !important; opacity: 1 !important; }
+    .hero-node, .node-label, .motion-card, .motion-card:hover,
+    .motion-card:hover .demo-panel, .motion-card:hover .feature-demo,
+    .motion-card:hover .icon-face, .motion-card:hover .stat-num {
+      transform: none !important;
+    }
     .reveal { transition: none !important; opacity: 1 !important; transform: none !important; }
     /* 데모는 최종 상태로 정적 표시 */
     .demo-input .typing { clip-path: none !important; border-right: 0 !important; }
@@ -900,6 +1200,10 @@ const introStyles = `
     .dm-abtest .ab-bar { height: var(--h) !important; opacity: 1 !important; }
     .dm-survey .fill { width: var(--w) !important; }
     .dm-overview .ring { stroke-dashoffset: 30 !important; }
+    .dm-overlap .vn, .dm-overlap .vn-x { opacity: 1 !important; transform: scale(1) !important; }
+    .dm-whatif .wf-track { width: var(--w) !important; }
+    .dm-whatif .wf-delta { opacity: 1 !important; transform: none !important; }
+    .dm-whatif .wf-thumb { transform: translate(-50%,-50%) !important; }
     .dm-analyze .sweep, .dm-map .pin-ring { display: none !important; }
   }
 `;

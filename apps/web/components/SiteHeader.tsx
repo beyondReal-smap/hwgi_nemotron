@@ -150,14 +150,14 @@ function NavLink({
       title={label}
       className={`group relative inline-flex items-center justify-center gap-2
                   min-w-[44px] min-h-[44px] px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-[9.6px] text-body font-medium
-                  transition-[color,background-color,transform] duration-200 ease-out
+                  transition-[color,background-color,transform,box-shadow] duration-200 ease-out
                   focus:outline-none focus-visible:ring-2 focus-visible:ring-azure
                   hover:-translate-y-[1px] active:translate-y-0 active:scale-[0.98]
                   motion-reduce:hover:translate-y-0 motion-reduce:active:scale-100
                   ${
                     active
                       ? "text-ink font-semibold"
-                      : "text-graphite hover:text-ink hover:bg-snow/70"
+                      : "text-graphite hover:text-ink hover:bg-terra/[0.03] hover:shadow-[0_4px_12px_-4px_rgba(20,20,19,0.18),0_1px_3px_-1px_rgba(20,20,19,0.10)]"
                   }`}
     >
       <span
@@ -328,23 +328,56 @@ function useScrolled(threshold = 8): boolean {
 // Footer
 // ============================================================
 
+function IconTrophy() {
+  // 출품작 배지용 트로피 (Lucide 스타일, currentColor)
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="w-3.5 h-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  );
+}
+
 export function SiteFooter() {
   return (
     <footer className="border-t border-parchment bg-vellum">
-      <div className="max-w-[1440px] mx-auto px-4 lg:px-8 py-4 text-caption text-dusty flex flex-col sm:flex-row gap-2 justify-between">
-        <div>
-          데이터:{" "}
-          <a
-            href="https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea"
-            target="_blank"
-            rel="noreferrer"
-            className="underline hover:text-ink"
-          >
-            nvidia/Nemotron-Personas-Korea
-          </a>{" "}
-          (CC BY 4.0) · 합성 페르소나 기반, 실제 인물과 무관
+      <div className="max-w-[1440px] mx-auto px-4 lg:px-8 py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* 왼쪽 — 출품작 크레딧(바이브코딩 경진대회 terra 배지) */}
+        <div className="shrink-0">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-terra/30 bg-terra/10 px-3 py-1 text-caption font-semibold text-terra">
+            <IconTrophy />
+            바이브코딩 경진대회 출품작 · 제작 정진
+          </span>
         </div>
-        <div>분석 엔진: sLLM · OpenAI 임베딩</div>
+        {/* 오른쪽 — 데이터 출처 · 분석 엔진 */}
+        <div className="text-caption text-dusty flex flex-col gap-1 sm:text-right">
+          <div>
+            데이터:{" "}
+            <a
+              href="https://huggingface.co/datasets/nvidia/Nemotron-Personas-Korea"
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-ink"
+            >
+              nvidia/Nemotron-Personas-Korea
+            </a>{" "}
+            (CC BY 4.0) · 합성 페르소나 기반, 실제 인물과 무관
+          </div>
+          <div>분석 엔진: OpenAI GPT</div>
+        </div>
       </div>
     </footer>
   );
