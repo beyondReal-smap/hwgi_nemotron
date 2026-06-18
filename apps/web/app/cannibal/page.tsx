@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
 import { CannibalInputForm } from "@/components/cannibal/CannibalInputForm";
 import { CannibalHistoryList } from "@/components/cannibal/CannibalHistoryList";
@@ -8,7 +8,7 @@ import { CannibalMatrix } from "@/components/cannibal/CannibalMatrix";
 import { CoverageTab } from "@/components/cannibal/CoverageTab";
 import { MultiplicityTab } from "@/components/cannibal/MultiplicityTab";
 import { ExclusiveTab } from "@/components/cannibal/ExclusiveTab";
-import { ResultTabs, type ResultTab } from "@/components/cannibal/ResultTabs";
+import { ResultTabs, RESULT_TAB_ORDER, type ResultTab } from "@/components/cannibal/ResultTabs";
 import { getCannibal, type CannibalResponse } from "@/lib/api";
 
 /**
@@ -27,6 +27,19 @@ export default function CannibalPage() {
   const [tab, setTab] = useState<ResultTab>("matrix");
   const [historyReloadKey, setHistoryReloadKey] = useState(0);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+
+  // 탭 콘텐츠 방향성 슬라이드 — 직전 탭 대비 이동 방향으로 결정 (analyze/surveys 모드탭과 동일 규칙).
+  //  · 왼쪽 탭으로 이동 → 오른쪽에서 들어옴(anim-fade-slide-right)
+  //  · 오른쪽 탭으로 이동 → 왼쪽에서 들어옴(anim-fade-slide-left)
+  // 방향은 ref로 렌더 중 동기 계산(키 리마운트와 같은 렌더에 반영), ref는 effect에서 갱신.
+  const prevTabRef = useRef<ResultTab>(tab);
+  const curIdx = RESULT_TAB_ORDER.indexOf(tab);
+  const prevIdx = RESULT_TAB_ORDER.indexOf(prevTabRef.current);
+  const tabSlideClass =
+    curIdx < prevIdx ? "anim-fade-slide-right" : "anim-fade-slide-left";
+  useEffect(() => {
+    prevTabRef.current = tab;
+  }, [tab]);
 
   function handleNewResult(r: CannibalResponse) {
     setSelectedHistoryId(null);
@@ -110,7 +123,8 @@ export default function CannibalPage() {
           {result && !loading && inMatchingMode && (
             <div className="space-y-4">
               <ResultTabs value={tab} onChange={setTab} />
-              <div>
+              {/* key={tab}로 탭 전환 시 리마운트 → 방향성 fade-slide 재발화 */}
+              <div key={tab} className={tabSlideClass}>
                 {tab === "matrix" && <CannibalMatrix data={result} />}
                 {tab === "coverage" && <CoverageTab data={result} />}
                 {tab === "multiplicity" && <MultiplicityTab data={result} />}

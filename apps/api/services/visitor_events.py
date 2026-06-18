@@ -20,6 +20,7 @@ from typing import Any
 from fastapi import Request
 
 from services.fileio import append_jsonl
+from services.pii_mask import mask_pii
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 DEFAULT_VISITORS_LOG = _PROJECT_ROOT / "data" / "visitors.jsonl"
@@ -67,7 +68,7 @@ def _clean_text(value: Any, max_len: int) -> str | None:
     text = str(value).strip()
     if not text:
         return None
-    return text[:max_len]
+    return mask_pii(text[:max_len])
 
 
 def _clean_int(value: Any, *, min_value: int = 0, max_value: int = 100_000) -> int | None:
@@ -107,10 +108,20 @@ def client_ip_hash(request: Request) -> str | None:
 
 
 def record_visit(payload: dict[str, Any], request: Request) -> str:
+    event_type = _clean_text(payload.get("event_type"), 50) or "page_view"
     record = {
         "visitor_id": _clean_text(payload.get("visitor_id"), 120),
         "session_id": _clean_text(payload.get("session_id"), 120),
         "path": _clean_text(payload.get("path"), 300),
+        "event_type": event_type,
+        "action": _clean_text(payload.get("action"), 80) or event_type,
+        "target_tag": _clean_text(payload.get("target_tag"), 40),
+        "target_role": _clean_text(payload.get("target_role"), 80),
+        "target_id": _clean_text(payload.get("target_id"), 120),
+        "target_name": _clean_text(payload.get("target_name"), 120),
+        "target_type": _clean_text(payload.get("target_type"), 80),
+        "target_label": _clean_text(payload.get("target_label"), 200),
+        "target_href": _clean_text(payload.get("target_href"), 500),
         "page_title": _clean_text(payload.get("page_title"), 200),
         "referrer": _clean_text(payload.get("referrer"), 500),
         "language": _clean_text(payload.get("language"), 80),

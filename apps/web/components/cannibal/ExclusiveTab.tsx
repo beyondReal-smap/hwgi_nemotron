@@ -66,12 +66,14 @@ export function ExclusiveTab({ data }: { data: CannibalResponse }) {
         )}
       </div>
 
-      {/* 인구통계 카드 그리드 */}
-      {p.demographics.length > 0 && (
+      {/* 인구통계 카드 그리드 — 병역(military_status)은 제외 (분석·A/B 결과 패널과 동일 정책) */}
+      {p.demographics.some((dem) => dem.column !== "military_status") && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {p.demographics.map((dem) => (
-            <DemographicCard key={dem.column} dem={dem} />
-          ))}
+          {p.demographics
+            .filter((dem) => dem.column !== "military_status")
+            .map((dem) => (
+              <DemographicCard key={dem.column} dem={dem} />
+            ))}
         </div>
       )}
 

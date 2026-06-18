@@ -23,10 +23,11 @@ const MAX_ITEMS = 8;
 
 type Item = { label: string; text: string };
 
+// A/B 테스트(ABTestInputForm)와 동일한 순서로 통일.
 const INPUT_MODES: { value: ABTestInputMode; label: string; hint: string }[] = [
-  { value: "concept", label: "컨셉 + 보장 요약", hint: "신상품 기획 초기 — 타겟·핵심 보장 요약본" },
-  { value: "marketing", label: "마케팅 카피", hint: "광고 카피·헤드라인 등 짧은 문구" },
   { value: "terms", label: "약관·상품설명서", hint: "보장·면책·가입 조건 등 전문(全文)" },
+  { value: "marketing", label: "마케팅 카피", hint: "광고 카피·헤드라인 등 짧은 문구" },
+  { value: "concept", label: "컨셉 + 보장 요약", hint: "신상품 기획 초기 — 타겟·핵심 보장 요약본" },
 ];
 
 const COHORT_LEVELS: { value: CannibalCohortLevel; label: string; hint: string }[] = [
@@ -46,7 +47,7 @@ function placeholderFor(mode: ABTestInputMode): string {
 }
 
 export function CannibalInputForm({ onResult, onError, loading, setLoading }: Props) {
-  const [inputMode, setInputMode] = useState<ABTestInputMode>("concept");
+  const [inputMode, setInputMode] = useState<ABTestInputMode>("terms");
   const [cohortLevel, setCohortLevel] = useState<CannibalCohortLevel>("target");
   const [items, setItems] = useState<Item[]>([
     { label: "안 A", text: "" },
@@ -149,7 +150,7 @@ export function CannibalInputForm({ onResult, onError, loading, setLoading }: Pr
 
           {/* 코호트 레벨 */}
           <section>
-            <span className="block text-overline text-graphite mb-2">겹침 산출 기준 (반응 코호트)</span>
+            <span className="block text-overline text-graphite mb-2">겹침 산출 기준 (반응층)</span>
             <div
               role="radiogroup"
               aria-label="코호트 레벨"

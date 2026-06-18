@@ -1,0 +1,24 @@
+{
+  "id": "aedd9ac9-dbb7-4c87-9cef-e69c082898eb",
+  "name": "테스트",
+  "description": "후후후",
+  "filter": {
+    "age_min": null,
+    "age_max": null,
+    "sex": [],
+    "provinces": [],
+    "family_types": [],
+    "education_levels": [],
+    "occupations": [],
+    "query": null,
+    "sampling": "random_n",
+    "sample_size": 3
+  },
+  "persona_uuids": [
+    "d854f0207c354b82a5eef20e249cd061",
+    "f93d85bca5264918ba3350e712ad8884",
+    "027f53a13546475798040b00f84626f8"
+  ],
+  "size": 3,
+  "created_at": "2026-06-08T13:17:41.585278Z"
+}

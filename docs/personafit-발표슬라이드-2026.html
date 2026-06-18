@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PersonaFit — 발표 슬라이드 (2026 한화손해보험 바이브코딩 본선)</title>
+<style>
+  :root{
+    --ink:#171615; --graphite:#3d3d3a; --dusty:#73726c; --stone:#9c9a92;
+    --vellum:#faf9f5; --paper:#fffdf7; --snow:#ffffff; --line:#e7e3d8;
+    --terra:#d97757; --terra-deep:#9e4529; --terra-soft:#f6ddcf;
+    --azure:#3f78a8; --azure-deep:#285f8d; --azure-soft:#dce9f4;
+    --mint:#4f8872; --mint-deep:#306a55; --mint-soft:#dcebe3;
+    --gold:#b8862f; --gold-deep:#8a6420; --gold-soft:#efe1bc;
+    --navy:#202d3a;
+    --shadow:0 18px 50px -22px rgba(23,22,21,.34);
+    --font:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","맑은 고딕","Noto Sans KR",system-ui,sans-serif;
+    --mono:"SFMono-Regular","Cascadia Code","JetBrains Mono",Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;background:#0d0c0b;font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased}
+
+  /* ---------- 무대(16:9 스케일) ---------- */
+  #stage{position:fixed;inset:0;display:grid;place-items:center;overflow:hidden}
+  #deck{position:relative;width:1280px;height:720px;transform-origin:center center}
+  .slide{position:absolute;inset:0;background:var(--vellum);
+    padding:58px 72px 64px;display:none;flex-direction:column;overflow:hidden}
+  .slide.active{display:flex;animation:fade .42s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  /* 상단 메타바 */
+  .topbar{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+  .kicker{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--terra-deep);
+    text-transform:uppercase}
+  .kicker.azure{color:var(--azure-deep)} .kicker.mint{color:var(--mint-deep)}
+  .topbar .step{font-size:12px;font-weight:700;letter-spacing:.04em;color:#fff;
+    background:var(--ink);padding:3px 11px;border-radius:999px}
+  .topbar .time{margin-left:auto;font-size:12px;font-weight:600;color:var(--dusty);
+    border:1px solid var(--line);padding:3px 11px;border-radius:999px;background:#fff}
+
+  h1.title{font-size:40px;font-weight:800;letter-spacing:0;line-height:1.12;color:var(--ink)}
+  h1.title .hl{color:var(--terra-deep)}
+  h2.lead{font-size:19px;font-weight:600;color:var(--graphite);line-height:1.5;margin-top:10px}
+  .body{flex:1;display:flex;flex-direction:column;justify-content:center;min-height:0}
+
+  /* 일반청중 한 줄 */
+  .plain{margin-top:auto;display:flex;align-items:center;gap:10px;
+    background:linear-gradient(90deg,#fff,#fbf7ef);border:1px solid var(--line);
+    border-radius:12px;padding:11px 16px;font-size:15px;color:var(--graphite)}
+  .plain b{color:var(--terra-deep);font-weight:800}
+  .plain .tag{font-size:11px;font-weight:800;letter-spacing:.04em;color:#fff;background:var(--mint);
+    padding:3px 9px;border-radius:6px;white-space:nowrap}
+
+  /* 심사 포인트 칩(우하단 고정) */
+  .judge{position:absolute;right:26px;bottom:22px;display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;max-width:560px}
+  .chip{font-size:11px;font-weight:700;letter-spacing:.01em;padding:5px 11px;border-radius:999px;
+    border:1.5px solid;background:#fff;display:inline-flex;align-items:center;gap:5px}
+  .chip.c1{color:var(--terra-deep);border-color:var(--terra)}
+  .chip.c2{color:var(--azure-deep);border-color:var(--azure)}
+  .chip.c3{color:var(--mint-deep);border-color:var(--mint)}
+  .chip.c4{color:var(--gold-deep);border-color:var(--gold)}
+  .chip .d{width:7px;height:7px;border-radius:50%}
+  .chip.c1 .d{background:var(--terra)} .chip.c2 .d{background:var(--azure)}
+  .chip.c3 .d{background:var(--mint)} .chip.c4 .d{background:var(--gold)}
+
+  /* 공통 카드 */
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px 22px;box-shadow:var(--shadow)}
+  .grid{display:grid;gap:16px}
+  .num{font-size:46px;font-weight:800;letter-spacing:0;line-height:1;font-variant-numeric:tabular-nums}
+  .num.t{color:var(--terra-deep)} .num.a{color:var(--azure-deep)} .num.m{color:var(--mint-deep)} .num.g{color:var(--gold-deep)}
+  .unit{font-size:14px;font-weight:700;color:var(--dusty);margin-top:8px}
+  .cap{font-size:13px;color:var(--dusty);margin-top:4px;line-height:1.45}
+
+  /* 4단계 플로우 */
+  .flow{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;align-items:stretch}
+  .flow .node{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 16px;position:relative;box-shadow:var(--shadow)}
+  .flow .node .no{font-size:12px;font-weight:800;color:#fff;background:var(--terra);width:26px;height:26px;border-radius:50%;display:grid;place-items:center;margin-bottom:11px}
+  .flow .node h3{font-size:17px;font-weight:800;color:var(--ink);letter-spacing:0}
+  .flow .node p{font-size:13px;color:var(--dusty);margin-top:6px;line-height:1.45}
+  .flow .node.heavy{outline:2px solid var(--terra);outline-offset:-2px}
+  .flow .node.heavy .no{background:var(--terra-deep)}
+  .flow .arrow{position:absolute;right:-12px;top:50%;transform:translateY(-50%);color:var(--stone);font-size:18px;z-index:2}
+
+  /* 6단계 파이프 */
+  .pipe{display:flex;align-items:stretch;gap:0;flex-wrap:wrap}
+  .pipe .seg{flex:1;min-width:0;background:#fff;border:1px solid var(--line);padding:14px 12px;position:relative}
+  .pipe .seg:first-child{border-radius:12px 0 0 12px}
+  .pipe .seg:last-child{border-radius:0 12px 12px 0}
+  .pipe .seg .s{font-size:11px;font-weight:800;color:var(--azure-deep)}
+  .pipe .seg .txt{font-size:13px;font-weight:600;color:var(--ink);margin-top:5px;line-height:1.35}
+  .pipe .seg::after{content:"›";position:absolute;right:-7px;top:50%;transform:translateY(-50%);color:var(--stone);font-weight:800;z-index:2}
+  .pipe .seg:last-child::after{content:""}
+
+  /* 비교(단어 vs 의미) */
+  .vs{display:grid;grid-template-columns:1fr auto 1fr;gap:18px;align-items:center}
+  .vs .box{border-radius:16px;padding:20px 22px}
+  .vs .old{background:#f4f2ec;border:1px dashed var(--stone)}
+  .vs .new{background:#fff;border:2px solid var(--terra);box-shadow:var(--shadow)}
+  .vs .box h4{font-size:15px;font-weight:800;margin-bottom:12px}
+  .vs .old h4{color:var(--dusty)} .vs .new h4{color:var(--terra-deep)}
+  .vs .mid{font-size:30px;color:var(--stone)}
+  .pill{display:inline-block;font-size:13px;font-weight:700;padding:6px 12px;border-radius:999px;margin:4px 5px 0 0}
+  .pill.miss{background:#eceae3;color:var(--stone);text-decoration:line-through}
+  .pill.hit{background:var(--terra-soft);color:var(--terra-deep)}
+
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .feature{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  .feature .f{background:#fff;border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:var(--shadow);border-top:4px solid}
+  .feature .f.fa{border-top-color:var(--terra)} .feature .f.fb{border-top-color:var(--azure)} .feature .f.fc{border-top-color:var(--mint)}
+  .feature .f h3{font-size:18px;font-weight:800;letter-spacing:0}
+  .feature .f .role{font-size:12px;font-weight:700;color:var(--dusty);margin:3px 0 9px}
+  .feature .f p{font-size:13.5px;color:var(--graphite);line-height:1.5}
+
+  .two{display:grid;grid-template-columns:1.05fr .95fr;gap:22px;align-items:center}
+  ul.clean{list-style:none;display:flex;flex-direction:column;gap:12px}
+  ul.clean li{display:flex;gap:11px;font-size:16px;color:var(--graphite);line-height:1.45}
+  ul.clean li b{color:var(--ink)}
+  ul.clean li .mk{flex:none;width:22px;height:22px;border-radius:7px;background:var(--terra-soft);color:var(--terra-deep);font-weight:800;font-size:12px;display:grid;place-items:center;margin-top:1px}
+
+  .honesty{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--azure-deep);background:var(--azure-soft);border-radius:10px;padding:8px 13px}
+
+  /* ---- 커버 ---- */
+  .cover{background:radial-gradient(120% 120% at 80% -10%,#fff 0,var(--vellum) 46%,#f3efe4 100%)}
+  .cover .brandbar{position:absolute;left:0;top:0;height:7px;width:100%;
+    background:linear-gradient(90deg,var(--terra),var(--azure),var(--mint))}
+  .cover .body{display:grid;grid-template-columns:1.06fr .94fr;gap:36px;align-items:center;justify-content:center}
+  .cover .eyebrow{font-size:14px;font-weight:800;letter-spacing:.14em;color:var(--terra-deep)}
+  .cover h1{font-size:56px;font-weight:900;letter-spacing:0;line-height:1.05;margin-top:14px}
+  .cover h1 .sub{display:block;font-size:24px;font-weight:700;color:var(--graphite);letter-spacing:0;margin-top:14px}
+  .cover .who{margin-top:26px;font-size:16px;color:var(--dusty);font-weight:600}
+  .cover .badges{display:flex;gap:10px;margin-top:30px;flex-wrap:wrap}
+  .cover .badges span{font-size:14px;font-weight:700;background:#fff;border:1px solid var(--line);
+    border-radius:999px;padding:9px 16px;box-shadow:var(--shadow)}
+  .cover .badges b{color:var(--terra-deep)}
+
+  .brand-visual{position:relative;height:470px;border:1px solid var(--line);border-radius:18px;background:
+    linear-gradient(160deg,rgba(255,255,255,.92),rgba(250,247,239,.88)),
+    radial-gradient(circle at 25% 20%,rgba(217,119,87,.18),transparent 32%),
+    radial-gradient(circle at 78% 80%,rgba(63,120,168,.16),transparent 34%);
+    box-shadow:var(--shadow);overflow:hidden}
+  .brand-visual::before{content:"";position:absolute;inset:26px;border:1px dashed rgba(32,45,58,.18);border-radius:14px}
+  .brand-visual .logo{position:absolute;left:24px;top:24px;width:74px;height:74px;border-radius:18px;object-fit:cover;box-shadow:0 16px 34px -22px rgba(0,0,0,.5)}
+  .brand-visual .route-title{position:absolute;left:114px;top:32px;font-size:13px;font-weight:800;color:var(--dusty);line-height:1.45}
+  .brand-visual .route-title b{display:block;font-size:18px;color:var(--ink)}
+  .constellation{position:absolute;left:44px;right:44px;top:128px;bottom:48px}
+  .constellation .axis{position:absolute;background:rgba(32,45,58,.13)}
+  .constellation .axis.x{left:10px;right:10px;top:50%;height:1px}
+  .constellation .axis.y{top:8px;bottom:8px;left:50%;width:1px}
+  .dot{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--azure);opacity:.78;box-shadow:0 0 0 5px rgba(63,120,168,.09)}
+  .dot.hot{width:15px;height:15px;background:var(--terra);opacity:1;box-shadow:0 0 0 8px rgba(217,119,87,.12)}
+  .dot.product{width:22px;height:22px;background:var(--ink);opacity:1;box-shadow:0 0 0 12px rgba(23,22,21,.12)}
+  .dot.product::after{content:"약관";position:absolute;left:26px;top:-3px;font-size:12px;font-weight:800;color:var(--ink);white-space:nowrap}
+  .orbit{position:absolute;border:1px solid rgba(217,119,87,.38);border-radius:50%;transform:translate(-50%,-50%)}
+  .orbit.o1{left:58%;top:45%;width:160px;height:160px}
+  .orbit.o2{left:58%;top:45%;width:240px;height:240px;border-color:rgba(217,119,87,.18)}
+  .label-card{position:absolute;right:34px;bottom:30px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 15px;width:250px;box-shadow:var(--shadow)}
+  .label-card .small{font-size:11px;font-weight:800;color:var(--terra-deep);letter-spacing:.08em}
+  .label-card .big{font-size:24px;font-weight:900;color:var(--ink);margin-top:4px}
+  .label-card .caption{font-size:12px;color:var(--dusty);line-height:1.45;margin-top:5px}
+
+  .dataset-board{display:grid;grid-template-columns:.9fr 1.1fr;gap:18px;align-items:stretch}
+  .data-stack{display:grid;gap:10px}
+  .data-strip{display:grid;grid-template-columns:92px 1fr;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:13px 14px;box-shadow:var(--shadow)}
+  .data-strip .key{font-family:var(--mono);font-size:12px;font-weight:800;color:var(--azure-deep);background:var(--azure-soft);border-radius:8px;padding:8px;text-align:center}
+  .data-strip .value{font-size:15px;font-weight:700;color:var(--ink);line-height:1.42}
+  .sample-card{position:relative;background:#fff;border:2px solid var(--terra);border-radius:14px;padding:22px;box-shadow:var(--shadow);overflow:hidden}
+  .sample-card::before{content:"합성 페르소나";position:absolute;right:16px;top:14px;font-family:var(--mono);font-size:11px;font-weight:800;color:rgba(158,69,41,.35)}
+  .sample-card .profile{font-size:20px;font-weight:900;color:var(--ink);line-height:1.35;margin-bottom:14px}
+  .sample-card .profile b{color:var(--terra-deep)}
+  .sample-card .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+  .sample-card .meta span{font-size:12px;font-weight:800;color:var(--graphite);background:#faf7ef;border:1px solid var(--line);border-radius:8px;padding:8px 9px;text-align:center}
+  .sample-card p{font-size:14px;line-height:1.55;color:var(--graphite)}
+
+  .embedding-lab{display:grid;grid-template-columns:.92fr 1.08fr;gap:22px;align-items:center}
+  .formula-card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px;box-shadow:var(--shadow)}
+  .formula-card .eq{font-family:var(--mono);font-size:18px;font-weight:800;color:var(--ink);line-height:1.6}
+  .formula-card .eq b{color:var(--terra-deep)}
+  .formula-card .hint{font-size:13px;color:var(--dusty);line-height:1.5;margin-top:10px}
+  .scan-map{height:330px;border:1px solid var(--line);border-radius:16px;background:
+    linear-gradient(135deg,#fff,#f8f4eb);
+    position:relative;overflow:hidden;box-shadow:var(--shadow)}
+  .scan-map .cell{position:absolute;width:7px;height:7px;border-radius:50%;background:rgba(63,120,168,.55)}
+  .scan-map .cell.hot{width:12px;height:12px;background:var(--terra);box-shadow:0 0 0 7px rgba(217,119,87,.12)}
+  .scan-map .beam{position:absolute;left:0;right:0;height:50px;top:38%;background:linear-gradient(90deg,transparent,rgba(217,119,87,.22),transparent);transform:skewY(-9deg);animation:scan 4s ease-in-out infinite}
+  @keyframes scan{0%,100%{transform:translateY(-110px) skewY(-9deg)}50%{transform:translateY(116px) skewY(-9deg)}}
+  .scan-map .product-pin{position:absolute;left:54%;top:40%;background:var(--ink);color:#fff;font-size:12px;font-weight:900;border-radius:999px;padding:7px 11px;box-shadow:0 12px 30px -18px #000}
+  .scan-map .caption{position:absolute;left:18px;bottom:16px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:800;color:var(--ink)}
+
+  /* ---- 시연 안내/클로징 ---- */
+  .demo-cover{background:linear-gradient(135deg,var(--navy),#2b3d4e)}
+  .demo-cover *{color:#fff}
+  .demo-cover .kicker{color:#ffd9c7}
+  .demo-cover h1{font-size:52px;font-weight:900;letter-spacing:0;line-height:1.1}
+  .demo-cover .lead{color:#cfd9e2}
+  .demo-cover .route{display:flex;gap:10px;margin-top:28px;flex-wrap:wrap}
+  .demo-cover .route span{font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:600;
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);border-radius:9px;padding:8px 14px}
+  .demo-cover .route b{color:#ffb89c}
+  .demo-cover .safety{margin-top:26px;font-size:14px;color:#aebccb;border-left:3px solid var(--terra);padding-left:14px}
+
+  /* 시연 스텝 슬라이드 */
+  .demoslide .timeline{display:flex;gap:8px;margin-bottom:16px}
+  .demoslide .timeline .t{font-size:11px;font-weight:700;color:var(--dusty);background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+  .demoslide .timeline .t.on{color:#fff;background:var(--azure);border-color:var(--azure)}
+  .route-chip{display:inline-flex;align-items:center;gap:7px;font-family:ui-monospace,Menlo,monospace;
+    font-size:18px;font-weight:700;color:var(--azure-deep);background:var(--azure-soft);
+    border-radius:10px;padding:7px 14px}
+  .act{display:grid;grid-template-columns:auto 1fr;gap:14px 16px;margin-top:6px}
+  .act .lbl{font-size:12px;font-weight:800;letter-spacing:.04em;color:#fff;border-radius:7px;padding:6px 10px;height:fit-content;white-space:nowrap;text-align:center}
+  .act .lbl.do{background:var(--mint)} .act .lbl.say{background:var(--terra)} .act .lbl.eye{background:var(--gold-deep)}
+  .act .txt{font-size:15.5px;line-height:1.5;color:var(--graphite)}
+  .act .txt b{color:var(--ink)}
+  .act .txt.script{background:#fff;border:1px solid var(--line);border-left:3px solid var(--terra);border-radius:0 10px 10px 0;padding:12px 15px;color:var(--ink)}
+
+  .copybox{background:#1d1c1a;color:#f0ede4;border-radius:12px;padding:15px 18px;font-family:var(--mono);font-size:14px;line-height:1.6;white-space:pre-wrap}
+  .copybox .h{color:#ffb89c}
+
+  /* ---------- 컨트롤/HUD ---------- */
+  .hud{position:fixed;left:0;right:0;bottom:0;height:6px;background:rgba(255,255,255,.12);z-index:40}
+  .hud .bar{height:100%;background:linear-gradient(90deg,var(--terra),var(--azure));width:0;transition:width .3s}
+  .counter{position:fixed;right:16px;bottom:16px;z-index:41;font-size:12px;font-weight:700;color:#cfcabb;
+    background:rgba(20,19,18,.7);border:1px solid rgba(255,255,255,.12);border-radius:999px;padding:6px 13px;backdrop-filter:blur(6px)}
+  .counter b{color:#fff}
+  .help{position:fixed;left:16px;bottom:16px;z-index:41;font-size:11px;color:#9c978a;
+    background:rgba(20,19,18,.6);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 11px}
+  .help b{color:#ddd6c6}
+
+  /* 발표자 노트 패널 */
+  #notes{position:fixed;left:0;right:0;bottom:0;max-height:46vh;overflow:auto;z-index:60;
+    background:#16151340;backdrop-filter:blur(2px);display:none}
+  #notes.show{display:block}
+  #notes .inner{background:#1c1b19;color:#ece8de;border-top:3px solid var(--terra);
+    padding:20px 30px 26px;box-shadow:0 -20px 50px rgba(0,0,0,.5)}
+  #notes .ntitle{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:800;
+    letter-spacing:.05em;color:#ffb89c;margin-bottom:12px;text-transform:uppercase}
+  #notes .ntitle .x{margin-left:auto;font-weight:600;color:#9c978a;font-size:12px}
+  #notes .nbody{font-size:15.5px;line-height:1.62;color:#ece8de}
+  #notes .nbody .say{color:#fff}
+  #notes .nbody .row{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #2c2a27}
+  #notes .nbody .row:last-child{border:0}
+  #notes .nbody .k{flex:none;width:96px;font-weight:800;font-size:12px;letter-spacing:.03em;color:#ffb89c;padding-top:2px}
+  #notes .nbody em{color:#ffd9a8;font-style:normal;font-weight:700}
+  #notes .nbody b{color:#fff}
+
+  /* 시작 안내 오버레이 */
+  #intro{position:fixed;inset:0;z-index:80;background:#100f0e;display:grid;place-items:center;color:#ece8de}
+  #intro .box{max-width:560px;text-align:center}
+  #intro h2{font-size:30px;font-weight:900;color:#fff;letter-spacing:0}
+  #intro p{margin-top:14px;font-size:15px;line-height:1.7;color:#b8b3a6}
+  #intro .keys{display:flex;gap:10px;justify-content:center;margin-top:22px;flex-wrap:wrap}
+  #intro .keys kbd{font-family:var(--font);font-size:13px;font-weight:700;color:#ece8de;
+    background:#262421;border:1px solid #3a3733;border-bottom-width:3px;border-radius:8px;padding:8px 12px}
+  #intro button{margin-top:28px;font-family:var(--font);font-size:16px;font-weight:800;color:#fff;
+    background:var(--terra);border:0;border-radius:12px;padding:14px 34px;cursor:pointer;box-shadow:0 10px 30px -10px var(--terra)}
+  #intro .note{margin-top:16px;font-size:12px;color:#7f7a6f}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="deck">
+
+    <!-- ====================== 0. 커버/오프닝 ====================== -->
+    <section class="slide cover active" data-time="0:00 – 1:30">
+      <div class="brandbar"></div>
+      <div class="body">
+        <div>
+          <div class="eyebrow">2026 한화손해보험 바이브코딩 경진대회 · 본선</div>
+          <h1>약관 한 장을 넣으면<br><span style="color:var(--terra-deep)">반응할 사람이</span><br>보입니다
+            <span class="sub">NVIDIA 한국인 합성 페르소나 100만 명 + 임베딩으로 만드는 출시 전 AI 포커스 그룹</span>
+          </h1>
+          <div class="who">우리 회사 상품약관·마케팅 문구를 같은 의미 좌표에 올리고 → <b>누가 · 어디서 · 왜 반응하는지</b>를 출시 전에 예측합니다.</div>
+          <div class="badges">
+            <span>100만 모집단 <b>전수 스캔</b></span>
+            <span>검색 <b>84ms</b></span>
+            <span>전국 <b>252개 시군구</b></span>
+            <span>백테스트 <b>11/11 통과</b></span>
+          </div>
+        </div>
+        <div class="brand-visual" aria-label="상품약관과 페르소나 임베딩 좌표계 시각화">
+          <img class="logo" src="../personaFit.png" alt="PersonaFit 로고" />
+          <div class="route-title"><b>약관에서 페르소나까지</b>약관·카피 → 임베딩 → 반응 페르소나</div>
+          <div class="constellation">
+            <div class="axis x"></div><div class="axis y"></div>
+            <div class="orbit o1"></div><div class="orbit o2"></div>
+            <span class="dot" style="left:12%;top:24%"></span><span class="dot" style="left:18%;top:66%"></span>
+            <span class="dot" style="left:27%;top:38%"></span><span class="dot" style="left:34%;top:72%"></span>
+            <span class="dot" style="left:42%;top:22%"></span><span class="dot" style="left:49%;top:63%"></span>
+            <span class="dot product" style="left:57%;top:42%"></span>
+            <span class="dot hot" style="left:61%;top:36%"></span><span class="dot hot" style="left:66%;top:51%"></span>
+            <span class="dot hot" style="left:71%;top:40%"></span><span class="dot hot" style="left:76%;top:59%"></span>
+            <span class="dot" style="left:83%;top:28%"></span><span class="dot" style="left:88%;top:70%"></span>
+          </div>
+          <div class="label-card">
+            <div class="small">핵심 아이디어</div>
+            <div class="big">의미가 가까운 사람</div>
+            <div class="caption">단어가 같아서가 아니라, 생활 서사와 상품 보장의 의미 거리가 가까운 페르소나를 찾습니다.</div>
+          </div>
+        </div>
+      </div>
+      <div class="plain"><span class="tag">정직성</span>
+        <span>모든 결과는 <b>합성 페르소나 기준의 '타겟 적합도·반응 경향'</b>이며, 실제 가입 확률이 아닙니다. 실제 조사를 대체하지 않고 그 <b>앞 단계</b>에서 가설을 압축합니다.</span></div>
+      <div class="judge">
+        <span class="chip c3"><span class="d"></span>③ 문제해결 — 페인포인트 정의</span>
+        <span class="chip c1"><span class="d"></span>① 창의성 — AI 포커스 그룹</span>
+      </div>
+    </section>
+
+    <!-- ====================== 1. 솔루션 개요 4단계 ====================== -->
+    <section class="slide" data-time="1:30 – 2:30">
+      <div class="topbar"><span class="step">SOLUTION</span><span class="kicker">의외로 단순한 4단계</span><span class="time">⏱ 1:00</span></div>
+      <h1 class="title">무거운 준비는 <span class="hl">단 한 번</span>, 분석은 매번 몇 초</h1>
+      <div class="body">
+        <div class="flow" style="margin-top:8px">
+          <div class="node heavy"><div class="no">1</div><span class="arrow">→</span><h3>페르소나 Pool</h3><p>100만 명의 가상 고객을 미리 마련</p></div>
+          <div class="node heavy"><div class="no">2</div><span class="arrow">→</span><h3>사전 임베딩</h3><p>AI가 비교할 수 있는 형태(좌표)로 미리 저장</p></div>
+          <div class="node"><div class="no">3</div><span class="arrow">→</span><h3>상품 입력·매칭</h3><p>약관·카피를 넣으면 가장 맞는 고객 자동 탐색</p></div>
+          <div class="node"><div class="no">4</div><h3>의사결정 활용</h3><p>기획·마케팅·영업이 실제 결정에 사용</p></div>
+        </div>
+        <p class="cap" style="text-align:center;margin-top:20px;font-size:15px">
+          <b style="color:var(--terra-deep)">①②</b>는 한 번만 — 한번 깔아두면 이후 신상품마다 분석은 <b>매번 몇 초</b></p>
+      </div>
+      <div class="plain"><span class="tag">쉽게 말하면</span><span>무거운 짐은 한 번만 옮겨두면, 그 위에서 도는 분석은 <b>쓸수록 싸지는</b> 구조입니다.</span></div>
+      <div class="judge">
+        <span class="chip c3"><span class="d"></span>③ 논리 — 문제→해결 구조</span>
+        <span class="chip c2"><span class="d"></span>② 업무활용 — 지속 활용성</span>
+      </div>
+    </section>
+
+    <!-- ====================== 2. STEP1 데이터 규모 ====================== -->
+    <section class="slide" data-time="2:30 – 3:25">
+      <div class="topbar"><span class="step">STEP 1 · 데이터</span><span class="kicker azure">100만 명은 어디서 왔나</span><span class="time">⏱ 0:55</span></div>
+      <h1 class="title"><span style="color:var(--azure-deep)">NVIDIA가 공개한</span> 한국인 합성 데이터셋</h1>
+      <div class="body">
+        <div class="dataset-board">
+          <div class="data-stack">
+            <div class="data-strip"><div class="key">1,000,000</div><div class="value">한국인 합성 페르소나 전량 적재<br><span class="cap">nvidia/Nemotron-Personas-Korea</span></div></div>
+            <div class="data-strip"><div class="key">텍스트 7종</div><div class="value">기본 페르소나 + 전문직·스포츠·예술·여행·요리·가정 서사</div></div>
+            <div class="data-strip"><div class="key">252지역</div><div class="value">전국 17개 시도, 252개 시군구 단위 지역 분포</div></div>
+            <div class="data-strip"><div class="key">CC BY</div><div class="value">상업적 이용 가능한 공개 합성 데이터<br><span class="cap">실제 개인식별정보가 아니라 통계 분포 기반 가상 인물입니다.</span></div></div>
+          </div>
+          <div class="sample-card">
+            <div class="profile">예: <b>용인 수지의 단독주택에 사는 39세 변호사 워킹맘</b></div>
+            <div class="meta">
+              <span>여성 · 30대</span><span>전문직</span><span>자녀 양육</span>
+              <span>수도권</span><span>건강 관심</span><span>가계 리스크</span>
+            </div>
+            <p>일반 테이블은 "40대 / 여성 / 기혼"만 남깁니다. 이 데이터는 직업 성향, 가족 관계, 생활비 압박, 관심사 같은 자연어 맥락까지 담습니다. 그래서 보험 약관의 보장 구조를 고객의 실제 생활 고민과 맞춰 볼 수 있습니다.</p>
+          </div>
+        </div>
+      </div>
+      <div class="plain"><span class="tag">임원 포인트</span><span><b>개인정보가 아닙니다.</b> 공공 통계 분포를 닮은 가상 인물이라, 식별정보 없이 시장 가설을 미리 실험할 수 있습니다.</span></div>
+      <div class="judge"><span class="chip c1"><span class="d"></span>① 창의성 — 신뢰 기반(공개·상업 라이선스)</span></div>
+    </section>
+
+    <!-- ====================== 3. STEP1 데이터 밀도 ====================== -->
+    <section class="slide" data-time="3:25 – 4:35">
+      <div class="topbar"><span class="step">STEP 1 · 데이터</span><span class="kicker">진짜 강점은 규모가 아니라 밀도</span><span class="time">⏱ 1:10</span></div>
+      <h1 class="title">숫자 테이블이 아니라 <span class="hl">살아있는 서사</span></h1>
+      <div class="body">
+        <div class="vs">
+          <div class="box old"><h4>보통의 고객 데이터</h4>
+            <p style="font-size:18px;font-weight:700;color:var(--dusty);line-height:1.6">"40대 / 여성 / 기혼"</p>
+            <p class="cap" style="margin-top:10px">숫자 테이블 — 사람이 안 보입니다</p></div>
+          <div class="mid">→</div>
+          <div class="box new"><h4>PersonaFit의 페르소나</h4>
+            <p style="font-size:17px;font-weight:700;color:var(--ink);line-height:1.55">"용인 수지의 단독주택에 사는 <span style="color:var(--terra-deep)">39세 변호사 워킹맘</span>"</p>
+            <p class="cap" style="margin-top:10px">직업 성향 · 가족 관계 · 생활 서사까지 자연어로</p></div>
+        </div>
+        <p style="text-align:center;margin-top:22px;font-size:15.5px;color:var(--graphite)">
+          '가족 걱정' · '노후 비용' · '육아 공백' — <b style="color:var(--ink)">통계표에는 안 잡히는 맥락</b>까지 반영.
+          그래서 정량 필터(나이·지역·직업)와 <b style="color:var(--terra-deep)">자연어 의미를 동시에</b> 씁니다.</p>
+      </div>
+      <div class="plain"><span class="tag">정직성</span><span>단, 이건 실제 가입 확률이 아니라 <b>합성 페르소나 기준의 반응 가설</b>입니다 — 과장하지 않습니다.</span></div>
+      <div class="judge"><span class="chip c1"><span class="d"></span>① 창의성 — 정량 + 자연어 동시 사용</span></div>
+    </section>
+
+    <!-- ====================== 4. STEP2 사전 임베딩 ====================== -->
+    <section class="slide" data-time="4:35 – 5:30">
+      <div class="topbar"><span class="step">STEP 2 · 임베딩</span><span class="kicker mint">100만 명을 AI가 다룰 수 있게</span><span class="time">⏱ 0:55</span></div>
+      <h1 class="title">글의 의미를 <span style="color:var(--mint-deep)">컴퓨터가 비교할 좌표</span>로</h1>
+      <div class="body">
+        <div class="embedding-lab">
+          <div>
+            <ul class="clean" style="margin-bottom:16px">
+              <li><span class="mk">1</span><span>100만 명의 생활 서사를 먼저 <b>임베딩 벡터</b>로 변환해 저장합니다.</span></li>
+              <li><span class="mk">2</span><span>우리 회사 약관·마케팅 문구도 같은 좌표계에 올립니다.</span></li>
+              <li><span class="mk">3</span><span>의미 거리가 가까운 페르소나를 전수 스캔해 <b>반응층·지역·이유</b>를 산출합니다.</span></li>
+            </ul>
+            <div class="formula-card">
+              <div class="eq">약관 벡터 · 페르소나 벡터<br>= <b>의미 적합도</b></div>
+              <div class="hint">단어가 같아서 찾는 것이 아니라, 보장 내용과 생활 맥락의 방향이 얼마나 가까운지를 계산합니다.</div>
+            </div>
+          </div>
+          <div class="scan-map" aria-label="100만 페르소나 전수 스캔 시각화">
+            <div class="beam"></div>
+            <span class="cell" style="left:8%;top:18%"></span><span class="cell" style="left:14%;top:42%"></span>
+            <span class="cell" style="left:18%;top:73%"></span><span class="cell" style="left:25%;top:27%"></span>
+            <span class="cell" style="left:31%;top:56%"></span><span class="cell" style="left:37%;top:16%"></span>
+            <span class="cell" style="left:43%;top:78%"></span><span class="cell" style="left:49%;top:32%"></span>
+            <span class="cell hot" style="left:55%;top:44%"></span><span class="cell hot" style="left:60%;top:38%"></span>
+            <span class="cell hot" style="left:64%;top:51%"></span><span class="cell hot" style="left:69%;top:43%"></span>
+            <span class="cell" style="left:75%;top:21%"></span><span class="cell" style="left:80%;top:68%"></span>
+            <span class="cell" style="left:88%;top:35%"></span><span class="cell" style="left:92%;top:80%"></span>
+            <div class="product-pin">상품 약관 벡터</div>
+            <div class="caption">100만 행 전수 코사인 약 84ms</div>
+          </div>
+        </div>
+      </div>
+      <div class="plain"><span class="tag">쉽게 말하면</span><span><b>임베딩 = 글의 의미를 좌표로 바꿔두는 작업.</b> KURE-v1 한국어 임베딩과 캐시로 반복 분석의 외부 임베딩 비용은 0원입니다.</span></div>
+      <div class="judge">
+        <span class="chip c4"><span class="d"></span>④ 완성도 — 성능 수치</span>
+        <span class="chip c2"><span class="d"></span>② 업무활용 — 반복 비용 0원</span>
+      </div>
+    </section>
+
+    <!-- ====================== 5. STEP2 왜 의미 검색 (핵심) ====================== -->
+    <section class="slide" data-time="5:30 – 6:30">
+      <div class="topbar"><span class="step">STEP 2 · 핵심</span><span class="kicker">이 발표에서 가장 독창적인 한 장</span><span class="time">⏱ 1:00</span></div>
+      <h1 class="title">단어 일치가 아니라 <span class="hl">의미 거리</span>로 찾는다</h1>
+      <div class="body">
+        <div class="vs">
+          <div class="box old"><h4>기존 키워드 검색</h4>
+            <p class="cap" style="margin-bottom:10px">'육아맘'이라는 <b>단어가 문서에 그대로</b> 있는지만 봅니다</p>
+            <span class="pill miss">워킹맘</span><span class="pill miss">복직맘</span><span class="pill miss">아이엄마</span>
+            <p class="cap" style="margin-top:12px">→ 신상품 나올 때마다 키워드 사전을 수작업 보정</p></div>
+          <div class="mid">vs</div>
+          <div class="box new"><h4>의미 거리(임베딩) 검색</h4>
+            <p class="cap" style="margin-bottom:10px">뜻이 가까운 고객을 <b style="color:var(--terra-deep)">함께</b> 인식합니다</p>
+            <span class="pill hit">육아 부담</span><span class="pill hit">복직 공백</span><span class="pill hit">자녀 교육비</span>
+            <p class="cap" style="margin-top:12px">→ 신상품마다 <b style="color:var(--terra-deep)">키워드 사전을 새로 안 짜도 됩니다</b></p></div>
+        </div>
+      </div>
+      <div class="plain"><span class="tag">쉽게 말하면</span><span>'육아맘 = 워킹맘 = 복직맘'을 <b>같이 잡습니다.</b> 상품 문장과 고객의 생활 서사를 같은 좌표계에 정렬해 두기 때문입니다.</span></div>
+      <div class="judge"><span class="chip c1"><span class="d"></span>① 창의성(정점) — 차별성의 핵심</span></div>
+    </section>
+
+    <!-- ====================== 6. STEP3 매칭 6단계 ====================== -->
+    <section class="slide" data-time="6:30 – 7:25">
+      <div class="topbar"><span class="step">STEP 3 · 매칭</span><span class="kicker azure">6단계로 자동 진행</span><span class="time">⏱ 0:55</span></div>
+      <h1 class="title">상품 문서를 올리면 — <span style="color:var(--azure-deep)">나머지는 자동</span></h1>
+      <div class="body">
+        <div class="pipe" style="margin-bottom:24px">
+          <div class="seg"><div class="s">STEP 1</div><div class="txt">핵심 셀링포인트 추출</div></div>
+          <div class="seg"><div class="s">STEP 2</div><div class="txt">같은 모델로 벡터화</div></div>
+          <div class="seg"><div class="s">STEP 3</div><div class="txt">100만 명 유사도 계산</div></div>
+          <div class="seg"><div class="s">STEP 4</div><div class="txt">상위 50명 타겟 그룹</div></div>
+          <div class="seg"><div class="s">STEP 5</div><div class="txt">252개 시군구 집계</div></div>
+          <div class="seg"><div class="s">STEP 6</div><div class="txt">종합 리포트 생성</div></div>
+        </div>
+        <div class="kpis">
+          <div class="card" style="text-align:center"><div class="num a">0.08초</div><div class="unit">매칭 시간</div></div>
+          <div class="card" style="text-align:center"><div class="num a">상위 50명</div><div class="unit">자동 추출 타겟</div></div>
+          <div class="card" style="text-align:center"><div class="num a">252 시군구</div><div class="unit">지역 해상도</div></div>
+        </div>
+      </div>
+      <div class="plain"><span class="tag">기억할 세 숫자</span><span><b>0.08초 · 50명 · 252개</b> — 이 셋이 뒤 시연에서 그대로 다시 등장합니다.</span></div>
+      <div class="judge"><span class="chip c3"><span class="d"></span>③ 문제해결 — 자동화된 논리적 절차</span></div>
+    </section>
+
+    <!-- ====================== 7. STEP4 3대 핵심 기능 ====================== -->
+    <section class="slide" data-time="7:25 – 8:25">
+      <div class="topbar"><span class="step">STEP 4 · 활용</span><span class="kicker">그래서 뭘 할 수 있나</span><span class="time">⏱ 1:00</span></div>
+      <h1 class="title">현업이 <span class="hl">매일 결정하는 바로 그 질문들</span></h1>
+      <div class="body">
+        <div class="feature">
+          <div class="f fa"><h3>다이내믹 분석</h3><div class="role">/analyze</div>
+            <p>약관·카피를 넣으면 <b>반응률이 가장 높은 고객</b>과 그 공략 지역, FP 영업 전략까지 한 번에.</p></div>
+          <div class="f fb"><h3>A/B 테스트</h3><div class="role">/abtest</div>
+            <p>카피 두 안 중 <b>어느 쪽이 어느 고객층에 더 먹히는지</b> 출고 전에 비교.</p></div>
+          <div class="f fc"><h3>겹침(자기잠식) 분석</h3><div class="role">/cannibal</div>
+            <p>신상품이 <b>기존 상품 고객을 뺏어오지 않는지</b> 미리 진단. LLM 호출 0.</p></div>
+        </div>
+      </div>
+      <div class="plain"><span class="tag">시연 예고</span><span>세 기능 모두 뒤 시연에서 <b>실제로 보여드립니다.</b></span></div>
+      <div class="judge"><span class="chip c2"><span class="d"></span>② 업무활용 — 현업 질문과 1:1 대응</span></div>
+    </section>
+
+    <!-- ====================== 8. STEP4 상품기획 적용 ====================== -->
+    <section class="slide" data-time="8:25 – 9:10">
+      <div class="topbar"><span class="step">STEP 4 · 상품기획</span><span class="kicker">컨셉을 데이터로 검증</span><span class="time">⏱ 0:45</span></div>
+      <h1 class="title">외주 리서치 전, <span class="hl">앞단 거름망</span></h1>
+      <div class="body">
+        <div class="two">
+          <ul class="clean">
+            <li><span class="mk">✓</span><span>신상품 컨셉을 잡을 때, 출시 전 <b>'이 보장 구조가 어떤 고객층에 가장 반응하는지'</b>를 먼저 확인</span></li>
+            <li><span class="mk">✓</span><span>외주 리서치를 <b>돌릴지 / 돌린다면 어디에 집중할지</b>를 데이터로 결정</span></li>
+            <li><span class="mk">✓</span><span>3안 이상이면 <code style="background:var(--azure-soft);padding:2px 7px;border-radius:5px;color:var(--azure-deep);font-weight:700">/cannibal</code>로 라인업 자기잠식까지 점검</span></li>
+          </ul>
+          <div class="card" style="text-align:center;background:linear-gradient(135deg,#fff,var(--terra-soft))">
+            <div style="font-size:15px;font-weight:700;color:var(--dusty)">리서치를</div>
+            <div class="num t" style="font-size:32px;margin:8px 0">대체 ✗ → 효율화 ✓</div>
+            <div class="cap">살아남은 안만 실제 검증으로 넘겨<br><b>조사 ROI 자체를 높입니다</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="plain"><span class="tag">마케팅 임원</span><span>"외주 리서치 앞단 거름망" — 리서치를 <b>대체</b>하는 게 아니라 <b>효율화</b>하는 프레임입니다.</span></div>
+      <div class="judge"><span class="chip c2"><span class="d"></span>② 업무활용 — 상품기획 워크플로 삽입점</span></div>
+    </section>
+
+    <!-- ====================== 9. STEP4 마케팅·영업 + 데모전환 ====================== -->
+    <section class="slide" data-time="9:10 – 10:10">
+      <div class="topbar"><span class="step">STEP 4 · 마케팅·영업</span><span class="kicker">'감으로' 정하던 걸 데이터로</span><span class="time">⏱ 0:45 + 0:15</span></div>
+      <h1 class="title">출고 전 결정을 <span class="hl">데이터로 정합</span></h1>
+      <div class="body">
+        <div class="feature" style="margin-bottom:auto">
+          <div class="f fa"><h3>어느 카피?</h3><div class="role">A/B 테스트</div><p>A안 vs B안 — 어느 쪽이 더 먹히는지 출고 전 비교</p></div>
+          <div class="f fb"><h3>어느 지역?</h3><div class="role">시군구 예산 배분</div><p>한정된 마케팅 예산을 전국 어느 시군구에 집중할지</p></div>
+          <div class="f fc"><h3>어떤 화법?</h3><div class="role">FP 판매전략</div><p>FP가 현장에서 그 고객에게 쓸 화법까지</p></div>
+        </div>
+        <div style="text-align:center;margin-top:20px;padding:18px;background:var(--ink);border-radius:14px">
+          <span style="font-size:22px;font-weight:800;color:#fff">자, 여기까지가 설명입니다 — 이제 <span style="color:#ffb89c">직접 보여드리겠습니다.</span></span>
+        </div>
+      </div>
+      <div class="judge"><span class="chip c2"><span class="d"></span>② 업무활용 — 마케팅·영업 구체 시나리오</span></div>
+    </section>
+
+    <!-- ====================== 10. 라이브 시연 시작 ====================== -->
+    <section class="slide demo-cover" data-time="DEMO 0:00 – 5:00">
+      <div class="topbar"><span class="kicker">PART 2 · 라이브 시연 (약 5분)</span><span class="time" style="background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.2)">⏱ 완성도 본진</span></div>
+      <div class="body">
+        <h1>슬라이드는 누구나 만듭니다.<br><span style="color:#ffb89c">실제로 도는 화면</span>은 소수만 보여줍니다.</h1>
+        <h2 class="lead">지금부터 https://persona.smap.site 라이브 서비스를 직접 시연합니다.</h2>
+        <div class="route">
+          <span><b>①</b> /overview</span><span><b>②</b> /analyze ★</span><span><b>③</b> /abtest</span><span><b>④</b> /cannibal</span><span><b>⑤</b> 클로징</span>
+        </div>
+        <div class="safety"><b style="color:#ffb89c">안전장치</b> — 라이브 분석이 느리면 즉시 <b style="color:#fff">"예시 분석 결과 바로 보기"</b> 버튼으로 전환. 탭 4개는 미리 열어 로딩 0.</div>
+      </div>
+      <div class="judge"><span class="chip c4" style="background:transparent;color:#fff;border-color:#fff"><span class="d" style="background:#ffb89c"></span>④ 완성도 — 실제 동작이 곧 증거</span></div>
+    </section>
+
+    <!-- ====================== 11. 시연① /overview ====================== -->
+    <section class="slide demoslide" data-time="DEMO 0:00 – 0:40">
+      <div class="topbar"><span class="step">시연 ①</span><span class="kicker azure">진짜 데이터가 들어 있다</span><span class="time">⏱ 0:40</span></div>
+      <div class="timeline"><span class="t on">① 현황</span><span class="t">② 분석</span><span class="t">③ A/B</span><span class="t">④ 겹침</span><span class="t">⑤ 클로징</span></div>
+      <span class="route-chip">🧭 /overview</span>
+      <div class="body">
+        <div class="act">
+          <div class="lbl do">행동</div><div class="txt"><b>현황 탭</b>으로 이동 — 지도·인구통계·직업 Top·텍스트 샘플 대시보드를 빠르게 스크롤.</div>
+          <div class="lbl say">멘트</div><div class="txt script">"먼저 전체 현황 화면입니다. 지금 시스템에 <b>100만 명의 페르소나</b>가 올라가 있고, 전국 <b>252개 시군구</b> 분포가 이렇게 잡혀 있습니다. 이 풀 위에서 모든 분석이 돕니다."</div>
+          <div class="lbl eye">주의</div><div class="txt">빠르게. 여기는 '진짜 데이터가 들어 있다'는 <b>사실 확인용</b> — 길게 끌지 말 것.</div>
+        </div>
+      </div>
+      <div class="judge"><span class="chip c4"><span class="d"></span>④ 완성도 — 실데이터 적재 증명</span></div>
+    </section>
+
+    <!-- ====================== 12. 시연② /analyze (핵심) ====================== -->
+    <section class="slide demoslide" data-time="DEMO 0:40 – 2:50">
+      <div class="topbar"><span class="step">시연 ② · 하이라이트</span><span class="kicker">핵심 분석</span><span class="time">⏱ 2:10</span></div>
+      <div class="timeline"><span class="t">① 현황</span><span class="t on">② 분석 ★</span><span class="t">③ A/B</span><span class="t">④ 겹침</span><span class="t">⑤ 클로징</span></div>
+      <span class="route-chip">🧭 /analyze</span>
+      <div class="body">
+        <div class="two" style="align-items:stretch;gap:18px">
+          <div class="act" style="grid-template-columns:auto 1fr;align-content:start">
+            <div class="lbl do">행동</div><div class="txt">준비한 <b>샘플 카피 붙여넣기 → 분석 실행</b>. (직전에 1회 돌려 캐시 워밍 / 느리면 "예시 분석 결과 바로 보기")</div>
+            <div class="lbl eye">시선</div><div class="txt"><b>지도</b>와 <b>1인칭 의견</b>에서 임원 두 분의 표정을 보며 각 1~2초 더 머물 것.</div>
+          </div>
+          <div class="copybox"><span class="h"># 붙여넣을 샘플 카피</span>
+여성 건강보험 신상품 — 임신·출산 준비부터
+산후 회복까지. 난임 시술비와 임신 합병증을
+보장하고, 출산 후에는 보험료 납입을 면제.
+30~40대 여성과 자녀 계획이 있는 가정을 위한 보장.</div>
+        </div>
+        <div class="act" style="margin-top:14px;grid-template-columns:auto 1fr">
+          <div class="lbl say">멘트</div><div class="txt script">"약관을 붙여넣고 분석을 누르면 — AI가 먼저 <b>핵심 소구점</b>('임신·출산'·'납입 면제'·'여성 건강')을 뽑고, 100만 명 전부와 대조합니다.
+① <b>반응도 점수</b> — 기본값 대비 얼마나 더 반응하는지. ② <b>어떤 고객층</b>이 반응하는지 — 미처 생각 못 한 <b>숨은 세그먼트</b>가 잡히기도 합니다. ③ 그들이 <b>전국 어디에 몰려 있는지</b>를 시군구 지도로. 그리고 결정적으로 — 그 고객이 <b>1인칭으로 직접 말합니다.</b> '나는 이래서 끌린다', '이건 걸린다.' 마지막으로 FP가 쓸 <b>판매전략 리포트</b>까지. 이 전체가 방금 <b>수십 초 만에</b>, 외부 조사비 0원으로 나온 겁니다."</div>
+        </div>
+      </div>
+      <div class="judge">
+        <span class="chip c4"><span class="d"></span>④ 완성도 — 다섯 결과 실제 출력</span>
+        <span class="chip c2"><span class="d"></span>② 업무활용 — 예산·화법 직결</span>
+      </div>
+    </section>
+
+    <!-- ====================== 13. 시연③ /abtest ====================== -->
+    <section class="slide demoslide" data-time="DEMO 2:50 – 3:40">
+      <div class="topbar"><span class="step">시연 ③</span><span class="kicker">A/B 테스트</span><span class="time">⏱ 0:50</span></div>
+      <div class="timeline"><span class="t">① 현황</span><span class="t">② 분석</span><span class="t on">③ A/B</span><span class="t">④ 겹침</span><span class="t">⑤ 클로징</span></div>
+      <span class="route-chip">🧭 /abtest</span>
+      <div class="body">
+        <div class="act">
+          <div class="lbl do">행동</div><div class="txt">A/B 페이지로 이동 → 두 카피안(또는 미리 준비된 예시) <b>비교 실행</b>. 비교표·겹침 벤·추천안 표시.</div>
+          <div class="lbl say">멘트</div><div class="txt script">"실무에서 더 자주 쓰는 기능입니다. 카피 <b style="color:var(--azure-deep)">A안</b>과 <b style="color:var(--terra-deep)">B안</b>을 <b>같은 100만 명에게 동시에</b> 던집니다. 어느 안이 어느 타겟층에 더 먹히는지 비교표로 나오고, <b>추천안까지</b> 제시합니다. 출고 전에 '감으로' 고르던 걸 <b>데이터로</b> 고르게 만드는 겁니다."</div>
+        </div>
+      </div>
+      <div class="judge"><span class="chip c2"><span class="d"></span>② 업무활용 — 가장 빈번한 실무 의사결정</span></div>
+    </section>
+
+    <!-- ====================== 14. 시연④ /cannibal ====================== -->
+    <section class="slide demoslide" data-time="DEMO 3:40 – 4:15">
+      <div class="topbar"><span class="step">시연 ④</span><span class="kicker mint">겹침 / 자기잠식 분석</span><span class="time">⏱ 0:35</span></div>
+      <div class="timeline"><span class="t">① 현황</span><span class="t">② 분석</span><span class="t">③ A/B</span><span class="t on">④ 겹침</span><span class="t">⑤ 클로징</span></div>
+      <span class="route-chip">🧭 /cannibal</span>
+      <div class="body">
+        <div class="act">
+          <div class="lbl do">행동</div><div class="txt">겹침 분석 페이지로 이동 → <b>중복률·독점층</b> 결과 표시.</div>
+          <div class="lbl say">멘트</div><div class="txt script">"신상품 낼 때 늘 걱정되는 게 '기존 상품 고객을 뺏어오는 것 아닌가', 즉 자기잠식이죠. 두 상품의 타겟이 얼마나 겹치는지를 <b>중복률과 독점층</b>으로 진단합니다. 이건 <b>LLM 호출 없이 계산만으로</b> 돌아서, 추가 비용도 안 듭니다."</div>
+        </div>
+      </div>
+      <div class="judge"><span class="chip c2"><span class="d"></span>② 업무활용 — 포트폴리오 리스크 점검 (LLM 0콜)</span></div>
+    </section>
+
+    <!-- ====================== 15. 클로징 ====================== -->
+    <section class="slide demo-cover" data-time="DEMO 4:15 – 5:00 · 클로징">
+      <div class="topbar"><span class="kicker">클로징 (0:45) · 첫 슬라이드로 복귀</span></div>
+      <div class="body">
+        <h1>수일~수주 걸리던 시장 반응 가설 점검을,<br>출시 전 <span style="color:#ffb89c">수십 초로</span> 압축합니다.</h1>
+        <h2 class="lead" style="margin-top:18px">외주 리서치 전 단계의 1차 거름망이자, 마케팅 예산을 효과 있는 지역에 집중시키는 도구.</h2>
+        <div class="safety" style="border-color:#ffb89c;color:#e6dccf">
+          한 가지 분명히 — 이건 합성 데이터 기반의 <b style="color:#fff">'방향 설정' 도구</b>이지, 실제 소비자 조사를 <b style="color:#fff">대체하지 않습니다.</b>
+          여기에 우리 회사의 실제 가입·해지 데이터를 결합하면, 추정이 실측 기반으로 바뀝니다 — 그게 다음 단계입니다.</div>
+        <div style="margin-top:26px;font-size:26px;font-weight:900;color:#fff">출시 전에, <span style="color:#ffb89c">100만 명에게 먼저 물어보십시오.</span></div>
+      </div>
+      <div class="judge"><span class="chip c1" style="background:transparent;color:#fff;border-color:#fff"><span class="d" style="background:#ffb89c"></span>네 기준 종합 — 완성도는 방금 시연이 증명</span></div>
+    </section>
+
+  </div>
+</div>
+
+<!-- HUD -->
+<div class="hud"><div class="bar" id="bar"></div></div>
+<div class="counter"><b id="cur">1</b> / <span id="total">16</span></div>
+<div class="help">← → 이동 · <b>N</b> 발표 스크립트 · <b>F</b> 전체화면 · <b>O</b> 목차</div>
+
+<!-- 발표자 노트 -->
+<div id="notes"><div class="inner">
+  <div class="ntitle">🎤 발표자 스크립트 <span class="x">N 키로 닫기</span></div>
+  <div class="nbody" id="noteBody"></div>
+</div></div>
+
+<!-- 시작 안내 -->
+<div id="intro"><div class="box">
+  <h2>PersonaFit 발표 슬라이드</h2>
+  <p>2026 한화손해보험 바이브코딩 경진대회 본선 · 발표 10분 + 라이브 시연 5분<br>
+     총 16장 — 발표 10장 + 시연 가이드 6장</p>
+  <div class="keys">
+    <kbd>← →</kbd><kbd>Space 다음</kbd><kbd>N 발표 스크립트</kbd><kbd>F 전체화면</kbd><kbd>O 목차</kbd>
+  </div>
+  <button onclick="startDeck()">발표 시작 ▶</button>
+  <p class="note">발표 중 <b>N</b> 키를 누르면 현재 슬라이드의 멘트·심사 포인트가 하단에 뜹니다 (청중 화면엔 노출 안 되게 노트북에서만 사용 권장)</p>
+</div></div>
+
+<script>
+/* ---------- 발표자 노트(슬라이드별 스크립트) ---------- */
+const NOTES = [
+/*0*/`<div class="row"><span class="k">⏱ 1:30</span><span class="say">"안녕하십니까. <b>약관 한 장을 넣으면 반응할 사람이 보이는 AI, PersonaFit</b>입니다. 이 작품의 핵심은 두 가지입니다. 첫째, NVIDIA가 공개한 한국인 합성 페르소나 100만 명. 둘째, 그 100만 명과 우리 회사 상품약관·마케팅 문구를 같은 의미 좌표에 올리는 임베딩입니다. 우리가 신상품 약관 한 장을 만들었을 때, '이게 어떤 고객에게 통할까'를 보려면 보통 소비자 조사를 돌립니다. 그런데 그게 <em>2주에서 6주, 비용은 수백에서 수천만 원</em>이 듭니다. PersonaFit은 출시 전 단계에서 먼저 100만 합성 페르소나에게 물어봅니다. 누가, 어디서, 왜 반응하는지 가설을 압축해 주는 <em>AI 포커스 그룹</em>입니다. 오늘은 먼저 데이터와 임베딩 원리를 이해시킨 다음, 실제로 우리 회사 상품 문구를 넣었을 때 어떤 페르소나가 반응하는지 보여드리겠습니다."</span></div>
+<div class="row"><span class="k">👔 임원용</span><span>'2~6주·수천만 원 → 2분·0원'과 <b>'감 → 데이터'</b> 두 프레임이 발표 전체를 꿰는 축. 또렷하게, 천천히.</span></div>
+<div class="row"><span class="k">🙂 일반</span><span>"AI 포커스 그룹"은 비전공자도 기억하는 정체성. 오프닝·클로징에서 <b>두 번 반복</b>해 각인.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>③ 문제해결(페인포인트를 비용·시간·근거 부재로 정의) + ① 창의성(해결 발상의 신선함)</span></div>`,
+
+/*1*/`<div class="row"><span class="k">⏱ 1:00</span><span class="say">"전체 구조는 의외로 단순한 4단계입니다. ① <b>페르소나 Pool 준비</b> — 100만 명의 가상 고객을 미리 마련. ② <b>사전 임베딩</b> — 그 100만 명을 AI가 이해·비교할 형태로 미리 저장. ③ <b>상품 입력·매칭</b> — 약관·카피를 넣으면 가장 잘 맞는 고객을 자동으로 찾아냅니다. ④ <b>의사결정 활용</b> — 그 결과를 기획·마케팅·영업이 실제로 씁니다. 핵심은 앞의 ①②, 즉 <em>무거운 준비 작업은 단 한 번만</em> 한다는 점. 한번 깔아두면 이후 신상품 분석은 매번 몇 초입니다. 그래서 <em>쓸수록 싸지는</em> 구조입니다."</span></div>
+<div class="row"><span class="k">🎯 전달</span><span>4단계를 손가락으로 짚으며 천천히. 청중 머릿속에 <b>'전체 지도'</b>를 심어야 이후 기술 슬라이드에서 길을 안 잃습니다.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>③ 논리(문제→해결 구조의 명료함) + ② 업무활용("쓸수록 싸지는" = 지속 활용 가능성)</span></div>`,
+
+/*2*/`<div class="row"><span class="k">⏱ 0:55</span><span class="say">"그럼 그 100만 명은 어디서 왔느냐. <b>NVIDIA가 공개한 'Nemotron-Personas-Korea'</b>라는 한국인 합성 데이터셋입니다. 그냥 숫자 행이 아니라, 한 사람마다 기본 페르소나와 전문직·스포츠·예술·여행·요리·가정 같은 여러 생활 서사가 들어 있습니다. 또 전국 17개 시도와 252개 시군구 단위 지역 분포도 있습니다. 라이선스는 <em>CC BY 4.0, 상업적 이용 가능</em>입니다. 그리고 임원분들께서 가장 먼저 걱정하실 부분 — <em>이건 실제 개인정보가 아닙니다.</em> 공공 통계 분포를 반영해 합성한 가상 인물이라, 개인식별정보 없이 시장 가설을 미리 실험할 수 있습니다. 그래서 보험사에서도 출시 전 가설 점검용 데이터 풀로 쓸 수 있습니다."</span></div>
+<div class="row"><span class="k">👔 임원</span><span>"개인정보 아님"은 보험사 청중이 가장 민감해하는 지점. 또박또박 한 박자 쉬고 강조 (법무·컴플라이언스 관점에서도 안전 신호).</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>① 창의성의 <em>신뢰 기반</em> — 공개·상업 라이선스 데이터 위에서 설계.</span></div>`,
+
+/*3*/`<div class="row"><span class="k">⏱ 1:10</span><span class="say">"그런데 이 데이터의 진짜 강점은 규모가 아니라 <b>밀도</b>입니다. 보통 고객 데이터라고 하면 '40대, 여성, 기혼' 같은 숫자 테이블을 떠올리시죠. 그걸로는 사람이 안 보입니다. 이 데이터는 다릅니다. 보세요 — <em>'용인 수지의 단독주택에 사는 39세 변호사 워킹맘'</em>, 이 사람의 직업적 성향, 가족 관계, 생활 서사까지 자연어로 들어 있습니다. 왜 중요하냐면, 보험 상품의 보장 구조를 고객의 <em>실제 삶의 맥락</em>에 연결할 수 있기 때문입니다. '가족 걱정', '노후 비용', '육아 공백'처럼 <em>통계표에는 절대 안 잡히는 맥락</em>까지 반영됩니다. 그래서 PersonaFit은 정량 필터(나이·지역·직업)와 자연어 의미를 <em>동시에</em> 씁니다. 단, 이건 실제 가입 확률이 아니라 <b>합성 페르소나 기준의 반응 가설</b>임을 분명히 해두겠습니다."</span></div>
+<div class="row"><span class="k">🙂 일반</span><span>(시간 남으면) 페르소나 예시 한 명을 <b>실제로 한 문장 낭독</b>하면 일반 청중 몰입도 급상승.</span></div>
+<div class="row"><span class="k">🛡 신뢰</span><span>마지막 '반응 가설' 단서는 교수 신뢰용 — 과장하지 않는다는 신호. 절대 빼지 말 것.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>① 창의성(정량+자연어 동시 사용이라는 차별적 접근)</span></div>`,
+
+/*4*/`<div class="row"><span class="k">⏱ 0:55</span><span class="say">"이제 그 100만 명을 AI가 다룰 수 있게 만드는 단계입니다. 약관이든 페르소나 서사든, 비정형 텍스트를 전부 <b>숫자 배열, 즉 벡터로 변환</b>해 미리 저장해 둡니다. <em>쉽게 말하면, 글의 의미를 컴퓨터가 비교할 수 있는 좌표로 바꿔두는 작업</em>입니다. 우리 회사 약관도 같은 좌표계에 올립니다. 그러면 약관 벡터와 페르소나 벡터의 방향이 가까운 사람을 찾을 수 있습니다. 여기서 핵심은 전수 스캔입니다. 100만 명을 미리 벡터로 만들어두면, 이후 신상품 하나를 입력했을 때 <em>100만 행 전체와 비교하는 데 약 0.08초, 84밀리초</em>입니다. KURE-v1 한국어 임베딩과 캐시를 쓰기 때문에 반복 분석의 외부 임베딩 비용도 0원입니다."</span></div>
+<div class="row"><span class="k">🙂 일반</span><span>'임베딩 = 의미를 좌표로 바꾸기' 한 줄 비유 덕에 비전공자도 다음 슬라이드를 따라옵니다.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>④ 완성도(성능 수치) + ② 업무활용(반복 비용 0원)</span></div>`,
+
+/*5*/`<div class="row"><span class="k">⏱ 1:00 · 핵심</span><span class="say">"왜 굳이 이렇게까지 하느냐면, 기존 방식의 한계 때문입니다. (왼쪽) 기존 키워드 검색은 '육아맘'이라는 <em>단어가 문서에 그대로 들어있는지만</em> 봅니다. 그러면 '워킹맘', '복직맘', '아이엄마' 같은 표현은 다 놓칩니다. 신상품 나올 때마다 키워드 사전을 수작업으로 또 보정해야 하고요. (오른쪽) 저희는 <em>단어 일치가 아니라 '의미 거리'</em>로 찾습니다. '육아 부담', '복직 공백', '자녀 교육비'처럼 뜻이 가까운 고객을 함께 인식합니다. 상품 문장과 고객의 생활 서사를 같은 좌표계에 정렬해두기 때문에, 신규 약관을 업로드하는 즉시 가장 적합한 고객을 자동으로 뽑아냅니다. <em>그래서 신상품마다 키워드 사전을 새로 안 짜도 됩니다.</em>"</span></div>
+<div class="row"><span class="k">👔 교수·임원</span><span>"단어 일치 → 의미 거리"는 임베딩의 본질을 정확히 짚는 대목 — 자신 있게. 단, 끝은 비즈니스로: "키워드 사전을 새로 안 짜도 된다"로 닫아 실장·대표이사도 가치를 잡게.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>① 창의성(차별성의 정점) — 이 발표에서 <b>가장 독창적인 한 장</b>.</span></div>`,
+
+/*6*/`<div class="row"><span class="k">⏱ 0:55</span><span class="say">"STEP3, 실제 매칭 과정입니다. 6단계로 자동 진행됩니다. 상품 문서를 올리면 → AI가 핵심 셀링포인트를 뽑고 → 같은 모델로 벡터화해서 → 100만 명과 유사도를 계산하고 → 가장 잘 맞는 <b>상위 50명을 타겟 그룹으로</b> 묶고 → 이들이 전국 <b>252개 시군구 중 어디에 몰려 있는지</b> 집계합니다. 여기서 나오는 세 가지 숫자가 중요합니다. 매칭 시간 <em>0.08초</em>, 자동 추출 <em>상위 50명</em>, 지역 해상도 <em>252개 시군구</em>. 이 셋이 뒤에 보실 모든 결과의 토대입니다."</span></div>
+<div class="row"><span class="k">🎯 전달</span><span>6단계를 빠르되 또렷하게. "세 가지 숫자(0.08초·50명·252)"는 시연에서 그대로 다시 등장하므로 여기서 미리 각인.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>③ 문제해결(자동화된 논리적 절차) — 6단계가 <em>왜 이 순서인지</em>한 호흡에 들리게.</span></div>`,
+
+/*7*/`<div class="row"><span class="k">⏱ 1:00</span><span class="say">"여기까지가 기술이고, 결국 중요한 건 <em>'그래서 뭘 할 수 있나'</em>입니다. 추출된 페르소나 위에서 세 가지 핵심 기능이 돌아갑니다. 첫째, <b>다이내믹 분석</b> — 약관·카피를 넣으면 반응률이 가장 높은 고객과 그 공략 지역, FP 영업 전략까지 한 번에 뽑습니다. 둘째, <b>A/B 테스트 엔진</b> — 카피 두 안 중 어느 쪽이 어느 고객층에 더 잘 먹히는지 출고 전에 비교합니다. 셋째, <b>겹침(자기잠식) 분석</b> — 신상품이 기존 상품 고객을 뺏어오지 않는지 미리 진단합니다. 세 기능 모두 <em>현업이 매일 의사결정하는 바로 그 질문들</em>입니다."</span></div>
+<div class="row"><span class="k">🎯 전달</span><span>세 기능을 손가락 셋으로. 뒤 시연에서 셋 다 실제로 보여줄 것이므로, 여기서 "보여드리겠다"는 기대를 만드세요.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>② 업무활용(현업 실제 질문과 1:1 대응).</span></div>`,
+
+/*8*/`<div class="row"><span class="k">⏱ 0:45</span><span class="say">"상품기획 관점에서 보면 — 신상품 컨셉을 잡을 때, 출시 전에 '이 보장 구조가 어떤 고객층에 가장 반응하는지'를 먼저 봅니다. 컨셉을 데이터로 검증하고 들어가는 거죠. 외주 리서치를 돌릴지 말지, 돌린다면 어디에 집중할지를 정하는 <b>앞단 거름망</b>입니다."</span></div>
+<div class="row"><span class="k">👔 마케팅 임원</span><span>"외주 리서치 앞단 거름망" = 리서치를 <em>대체</em>가 아니라 <em>효율화</em>한다는 프레임(교수 신뢰도 함께 챙김).</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>② 업무활용(상품기획 워크플로우 삽입 지점 명확).</span></div>`,
+
+/*9*/`<div class="row"><span class="k">⏱ 0:45 + 0:15</span><span class="say">"마케팅·영업으로 가면 — 어느 카피가 더 먹히는지(A/B), 한정된 마케팅 예산을 <b>전국 어느 시군구에 집중</b>할지, 그리고 FP가 현장에서 그 고객에게 쓸 화법까지. 출고 전에 '감으로' 정하던 걸 <em>데이터로</em> 정합니다. 자, 여기까지가 설명이고 — <em>직접 보여드리겠습니다.</em>"</span></div>
+<div class="row"><span class="k">🔥 전환</span><span>"감으로 → 데이터로" 오프닝 프레임을 여기서 다시 닫으며 시연으로 점프. 에너지를 한 단계 올리세요. 일반 청중이 가장 기다리는 '살아있는 화면'이 지금부터.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>② 업무활용(마케팅·영업 구체 시나리오).</span></div>`,
+
+/*10*/`<div class="row"><span class="k">⏱ DEMO</span><span class="say">"이 5분이 <b>완성도 점수의 본진</b>입니다. 슬라이드는 누구나 만들지만, 실제로 도는 화면은 10팀 중 소수만 보여줍니다. 끊김 없이, 숫자가 화면에 뜰 때마다 손으로 짚으며 말하세요."</span></div>
+<div class="row"><span class="k">🛟 안전</span><span>막히면 0.5초 망설이지 말고 <b>"예시 분석 결과 바로 보기"</b> 버튼으로 전환. 탭 4개(overview/analyze/abtest/cannibal)는 미리 열어 두기.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>④ 완성도 — 실제 동작이 곧 증거.</span></div>`,
+
+/*11*/`<div class="row"><span class="k">⏱ 0:40</span><span class="say">"먼저 전체 현황 화면입니다. 지금 시스템에 <b>100만 명의 페르소나</b>가 올라가 있고, 전국 <b>252개 시군구</b> 분포가 이렇게 잡혀 있습니다. 이 풀 위에서 모든 분석이 돕니다."</span></div>
+<div class="row"><span class="k">🎯 페이스</span><span>빠르게. 여기는 '진짜 데이터가 들어 있다'는 사실 확인용. 길게 끌지 말 것.</span></div>`,
+
+/*12*/`<div class="row"><span class="k">⏱ 2:10 · 하이라이트</span><span class="say">"약관이나 마케팅 카피를 여기 붙여넣고 분석을 누르면 — (실행) AI가 먼저 이 상품의 <b>핵심 소구점</b>을 뽑습니다. '임신·출산', '납입 면제', '여성 건강' 같은 것들이죠. 이 소구점을 100만 명 전부와 대조해 결과를 냅니다. 첫째, <b>반응도 점수</b> — 기본값 대비 얼마나 더 반응하는지. 둘째, <b>어떤 고객층</b>이 반응하는지 — 우리가 미처 생각 못 한 <b>숨은 세그먼트</b>가 잡히기도 합니다. 셋째, 그 고객들이 <b>전국 어디에 몰려 있는지</b>를 시군구 지도로. 마케팅 예산을 어디에 넣을지가 여기서 정해집니다. 그리고 결정적으로 — 그 고객이 <b>1인칭으로 직접 말합니다.</b> '나는 이래서 끌린다', '이건 걸린다' 하는 식으로요. 이 한마디가 조사 설계 전에 방향을 잡아줍니다. 마지막으로 FP가 현장에서 쓸 <b>판매전략 리포트</b>까지 한 번에 나옵니다. 이 전체가 방금 <em>수십 초</em> 만에, 외부 조사비 0원으로 나온 겁니다."</span></div>
+<div class="row"><span class="k">👔 시선</span><span>지도와 1인칭 의견에서 반응이 가장 큼 — 그 둘에 각각 1~2초씩 더 머물 것. 임원 두 분의 표정을 보며.</span></div>
+<div class="row"><span class="k">🙂 일반</span><span>'페르소나가 1인칭으로 말한다'가 이 시연의 하이라이트. 의견 한 줄을 <b>소리 내어 읽어주면</b> 객석이 술렁입니다.</span></div>
+<div class="row"><span class="k">🛟 안전</span><span>직전에 1회 돌려 캐시 워밍 / 느리면 즉시 "예시 분석 결과 바로 보기".</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>④ 완성도(다섯 결과 실제 출력) + ② 업무활용(예산·화법으로 바로 연결).</span></div>`,
+
+/*13*/`<div class="row"><span class="k">⏱ 0:50</span><span class="say">"실무에서 더 자주 쓰는 기능입니다. 카피 A안과 B안을 <b>같은 100만 명에게 동시에</b> 던집니다. (결과를 가리키며) 어느 안이 어느 타겟층에 더 잘 먹히는지 비교표로 나오고, <b>추천안까지</b> 제시합니다. 출고 전에 '감으로' 고르던 걸 <em>데이터로</em> 고르게 만드는 겁니다."</span></div>
+<div class="row"><span class="k">🎨 색</span><span>A안 = 파랑(azure), B안 = 주황(terra)으로 일관되게 가리키면 청중이 헷갈리지 않습니다.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>② 업무활용(가장 빈번한 실무 의사결정).</span></div>`,
+
+/*14*/`<div class="row"><span class="k">⏱ 0:35</span><span class="say">"신상품 낼 때 늘 걱정되는 게 '기존 상품 고객을 뺏어오는 것 아닌가', 즉 자기잠식이죠. 두 상품의 타겟이 얼마나 겹치는지를 <b>중복률과 독점층</b>으로 진단합니다. 이건 <em>LLM 호출 없이 계산만으로</em> 돌아서, 추가 비용도 안 듭니다."</span></div>
+<div class="row"><span class="k">🛟 안전</span><span>시간이 모자라면 이 단계(/cannibal)는 <b>생략</b> 가능 — 우선 압축 순서 1순위.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>② 업무활용(포트폴리오 리스크 점검).</span></div>`,
+
+/*15*/`<div class="row"><span class="k">⏱ 0:45</span><span class="say">"정리하겠습니다. PersonaFit은 수일에서 수주 걸리던 시장 반응 가설 점검을, 출시 전에 <b>수십 초로</b> 압축합니다. 외주 리서치 전 단계의 1차 거름망이자, 마케팅 예산을 효과 있는 지역에 집중시키는 도구입니다. 한 가지 분명히 말씀드릴 것은 — 이건 합성 데이터 기반의 <b>'방향 설정' 도구</b>이지, 실제 소비자 조사를 <em>대체하지 않습니다.</em> 다만 여기에 우리 회사의 실제 가입·해지 데이터를 결합하면, 추정이 실측 기반으로 바뀌면서 정확도가 크게 올라갑니다. 그게 다음 단계입니다. 출시 전에, <b>100만 명에게 먼저 물어보십시오.</b> 감사합니다."</span></div>
+<div class="row"><span class="k">👔 교수 가점</span><span>'실조사를 대체하지 않는다' 문장을 절대 빼지 마세요 — 한계를 정직하게 인정하는 발표에 점수를 줍니다. 오히려 신뢰를 올립니다.</span></div>
+<div class="row"><span class="k">🙂 클로징</span><span>"출시 전에 100만 명에게 먼저 물어보십시오"는 오프닝의 "AI 포커스 그룹"과 짝을 이루는 <b>마지막 각인 문장</b>. 한 박자 쉬고, 객석을 보며, 천천히.</span></div>
+<div class="row"><span class="k">✅ 심사</span><span>네 기준 종합 — 창의성·활용성·문제해결을 한 문장씩 회수하고, 완성도는 방금 보여준 시연이 증명.</span></div>`
+];
+
+/* ---------- 네비게이션 ---------- */
+const slides=[...document.querySelectorAll('.slide')];
+const total=slides.length;
+let idx=0, started=false;
+document.getElementById('total').textContent=total;
+const launchParams=new URLSearchParams(window.location.search);
+const requestedSlide=Number.parseInt(launchParams.get('slide')||'',10);
+if(Number.isFinite(requestedSlide)) idx=Math.max(0,Math.min(total-1,requestedSlide-1));
+
+function scaleDeck(){
+  const pad=24, w=window.innerWidth-pad, h=window.innerHeight-pad;
+  const s=Math.min(w/1280, h/720);
+  document.getElementById('deck').style.transform=`scale(${s})`;
+}
+function render(){
+  slides.forEach((s,i)=>s.classList.toggle('active',i===idx));
+  document.getElementById('cur').textContent=idx+1;
+  document.getElementById('bar').style.width=((idx+1)/total*100)+'%';
+  if(notesOn) renderNote();
+}
+function go(n){ idx=Math.max(0,Math.min(total-1,n)); render(); }
+function next(){ go(idx+1); } function prev(){ go(idx-1); }
+
+/* 발표자 노트 */
+let notesOn=false;
+const notesEl=document.getElementById('notes');
+function renderNote(){ document.getElementById('noteBody').innerHTML = NOTES[idx]||'<i>이 슬라이드에는 노트가 없습니다.</i>'; }
+function toggleNotes(){ notesOn=!notesOn; notesEl.classList.toggle('show',notesOn); if(notesOn) renderNote(); }
+
+/* 전체화면 */
+function toggleFS(){ if(!document.fullscreenElement){document.documentElement.requestFullscreen?.();} else {document.exitFullscreen?.();} }
+
+/* 목차(점프) */
+function overview(){
+  const t=prompt('이동할 슬라이드 번호 (1-'+total+')\\n\\n1 커버 · 2 솔루션 · 3 데이터규모 · 4 데이터밀도 · 5 임베딩 · 6 의미검색 · 7 매칭6단계 · 8 3대기능 · 9 상품기획 · 10 마케팅/데모전환\\n11 시연시작 · 12 overview · 13 analyze · 14 abtest · 15 cannibal · 16 클로징', String(idx+1));
+  if(t){ const n=parseInt(t,10); if(!isNaN(n)) go(n-1); }
+}
+
+function startDeck(){ document.getElementById('intro').style.display='none'; started=true; scaleDeck(); render(); }
+
+window.addEventListener('keydown',e=>{
+  if(!started){ if(e.key==='Enter'||e.key===' '){startDeck();e.preventDefault();} return; }
+  switch(e.key){
+    case 'ArrowRight': case ' ': case 'PageDown': next(); e.preventDefault(); break;
+    case 'ArrowLeft': case 'PageUp': prev(); e.preventDefault(); break;
+    case 'Home': go(0); break; case 'End': go(total-1); break;
+    case 'n': case 'N': toggleNotes(); break;
+    case 'f': case 'F': toggleFS(); break;
+    case 'o': case 'O': overview(); break;
+    case 'Escape': if(notesOn) toggleNotes(); break;
+  }
+});
+window.addEventListener('resize',scaleDeck);
+/* 클릭/탭으로도 다음 (노트 영역 제외) */
+document.getElementById('stage').addEventListener('click',e=>{ if(started) next(); });
+scaleDeck();
+if(launchParams.get('start')==='1') startDeck(); else render();
+</script>
+</body>
+</html>

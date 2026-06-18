@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type MouseEvent } from "react";
 import { SiteFooter } from "@/components/SiteHeader";
 
 /**
@@ -42,6 +42,12 @@ import { SiteFooter } from "@/components/SiteHeader";
  *
  * v9 변경: 차분한 데이터 필드 유지 + 얇은 신호 연결선, 포인터 글로우, 네 개 오비트 노드, 카드 3D
  *   틸트, 뷰포트 진입 기반 파이프라인 레일로 모션 밀도만 보강.
+ *
+ * v10 변경(대표님 피드백 — 더 화려하게): ① 헤드라인 단어별 스태거(blur+rise 캐스케이드, 그라디언트
+ *   단어별 적용) ② Hero 혜성 스트릭 2개(점 필드 위를 주기적으로 가로지름) ③ 스크롤 패럴랙스(배경
+ *   느리게·카피 빠르게, @supports animation-timeline 게이트 — 미지원 브라우저 무동작) ④ 기능 태그
+ *   마키 벨트 2줄(양방향, hover 정지, reduced-motion 시 정적 wrap) ⑤ 최종 CTA 회전 conic 보더 글로우
+ *   ⑥ CTA 버튼 마그네틱(커서 쪽으로 내용물이 살짝 끌림). 전부 transform/opacity 합성(60fps).
  *
  * 모든 모션은 prefers-reduced-motion에서 무효화.
  */
@@ -110,6 +116,9 @@ const FIELD_LINKS = [
   y2: FIELD_DOTS[b].y,
   d: `${(i * 0.24).toFixed(2)}s`,
 }));
+// 헤드라인 단어 배열 — 단어별 스태거 등장(--w 인덱스로 delay 계산).
+const HEAD_TOP = ["100만", "한국인", "페르소나가"];
+const HEAD_BOTTOM = ["당신의", "상품에", "먼저", "답합니다"];
 const HERO_NODES = [
   { label: "원문 입력", x: "17%", y: "30%", d: "0s", dur: "8.4s", nx: "16px", ny: "-11px", nx2: "-8px", ny2: "9px", nr: "3deg", nr2: "-2deg" },
   { label: "핵심 소구", x: "78%", y: "25%", d: "0.9s", dur: "9.1s", nx: "-18px", ny: "13px", nx2: "10px", ny2: "-8px", nr: "-4deg", nr2: "2deg" },
@@ -122,7 +131,7 @@ function Hero() {
     <section onMouseMove={trackHeroPointer} className="hero-stage relative isolate min-h-[calc(100dvh-3.5rem)] sm:min-h-[calc(100dvh-4rem)] lg:min-h-[calc(100dvh-5rem)] flex items-center">
       <HeroBackdrop />
 
-      <div className="relative z-10 w-full max-w-[860px] mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
+      <div className="hero-parallax-copy relative z-10 w-full max-w-[860px] mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
         <p className="hero-line inline-flex items-center gap-2 rounded-2xl sm:rounded-full border border-terra/30 bg-terra/8 px-4 py-1.5 text-overline text-graphite shadow-[0_0_0_4px_rgba(217,119,87,0.05)]" style={{ "--i": 0 } as React.CSSProperties}>
           <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-terra shrink-0" />
           <span className="text-left leading-snug">
@@ -130,9 +139,20 @@ function Hero() {
           </span>
         </p>
 
-        <h1 className="hero-line mt-6 text-balance text-[2.5rem] leading-[1.05] sm:text-[3.6rem] lg:text-[4.6rem] font-bold tracking-[-0.035em]" style={{ "--i": 1 } as React.CSSProperties}>
-          <span className="hero-gradient">100만 한국인 페르소나</span>가
-          <br className="hidden sm:block" /> 당신의 상품에 먼저 답합니다
+        {/* 단어별 스태거 — blur+rise 캐스케이드. 그라디언트는 단어 단위로 적용(분할 시 클리핑 안전). */}
+        <h1 className="mt-6 text-balance text-[2.5rem] leading-[1.05] sm:text-[3.6rem] lg:text-[4.6rem] font-bold tracking-[-0.035em]">
+          {HEAD_TOP.map((w, i) => (
+            <Fragment key={w}>
+              <span className="hero-word hero-word-grad" style={{ "--w": i } as React.CSSProperties}>{w}</span>{" "}
+            </Fragment>
+          ))}
+          <br className="hidden sm:block" />
+          {HEAD_BOTTOM.map((w, i) => (
+            <Fragment key={w}>
+              {i > 0 ? " " : null}
+              <span className="hero-word" style={{ "--w": i + HEAD_TOP.length } as React.CSSProperties}>{w}</span>
+            </Fragment>
+          ))}
         </h1>
 
         <p className="hero-line mx-auto mt-6 max-w-[42rem] text-body sm:text-[1.125rem] text-graphite leading-relaxed" style={{ "--i": 2 } as React.CSSProperties}>
@@ -181,7 +201,7 @@ function Hero() {
 
 function HeroBackdrop() {
   return (
-    <div aria-hidden className="absolute inset-0 -z-10 overflow-hidden">
+    <div aria-hidden className="hero-parallax-bg absolute inset-0 -z-10 overflow-hidden">
       <div className="aurora absolute inset-0" />
       <span className="blob absolute -top-24 -left-20 h-[34rem] w-[34rem] rounded-full bg-terra/12 blur-[90px]" />
       <span className="blob absolute top-1/3 -right-28 h-[30rem] w-[30rem] rounded-full bg-azure/50 blur-[90px]" style={{ animationDelay: "2.5s" }} />
@@ -203,6 +223,9 @@ function HeroBackdrop() {
           />
         ))}
       </div>
+      {/* 혜성 스트릭 — 점 필드 위를 주기적으로 가로지르는 terra 빛줄기(보일 때만 0~13% 구간). */}
+      <span className="comet" style={{ "--ct": "16%", "--ca": "5deg", "--cdur": "13s", "--cdel": "2s" } as React.CSSProperties} />
+      <span className="comet" style={{ "--ct": "62%", "--ca": "-4deg", "--cdur": "17s", "--cdel": "9s" } as React.CSSProperties} />
       <svg className="field-links absolute inset-0 h-full w-full hidden sm:block" viewBox="0 0 100 100" preserveAspectRatio="none">
         {FIELD_LINKS.map((l, i) => (
           <line
@@ -623,13 +646,16 @@ function ScaleSection() {
           ))}
         </div>
 
-        <div data-reveal className="reveal mt-14 flex flex-wrap justify-center gap-2.5">
-          {TAGS.map((t) => (
-            <span key={t} className="rounded-full border border-parchment bg-vellum px-4 py-1.5 text-body-sm text-graphite transition-[color,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-terra/40 hover:text-ink">{t}</span>
-          ))}
+        {/* 태그 마키 벨트 — 양방향 2줄 무한 흐름, hover 시 정지. reduced-motion은 정적 wrap. */}
+        <div data-reveal className="reveal mt-14 space-y-3">
+          <MarqueeRow items={TAGS} dur="38s" />
+          <MarqueeRow items={[...TAGS].reverse()} reverse dur="52s" />
         </div>
 
-        <div data-reveal className="reveal relative mt-20 overflow-hidden rounded-[16px] border border-onyx/40 bg-onyx text-vellum px-6 py-14 sm:px-12 sm:py-16 text-center">
+        {/* 회전 conic 보더 — 1.5px 프레임 안에서 빛줄기가 테두리를 따라 돈다(transform rotate = GPU 합성). */}
+        <div data-reveal className="reveal cta-frame relative mt-20 overflow-hidden rounded-[16px] bg-onyx/40 p-[1.5px]">
+          <span aria-hidden className="cta-spin absolute" />
+          <div className="relative overflow-hidden rounded-[15px] bg-onyx text-vellum px-6 py-14 sm:px-12 sm:py-16 text-center">
           <div aria-hidden className="aurora-dark absolute inset-0 opacity-90" />
           <span aria-hidden className="blob absolute -top-20 -right-10 h-64 w-64 rounded-full bg-terra/30 blur-[70px]" />
           <span aria-hidden className="blob absolute -bottom-24 -left-10 h-72 w-72 rounded-full bg-azure/20 blur-[80px]" style={{ animationDelay: "3s" }} />
@@ -652,9 +678,27 @@ function ScaleSection() {
               <CtaButton href="/surveys" variant="onDark">설문 해보기</CtaButton>
             </div>
           </div>
+          </div>
         </div>
       </div>
     </section>
+  );
+}
+
+/** 태그 무한 마키 — 동일 세그먼트 2벌을 -50% 이동으로 이어붙여 끊김 없이 순환. */
+function MarqueeRow({ items, reverse = false, dur }: { items: string[]; reverse?: boolean; dur: string }) {
+  return (
+    <div className="marquee-mask">
+      <div className={reverse ? "marquee-row rev" : "marquee-row"} style={{ "--mdur": dur } as React.CSSProperties}>
+        {[0, 1].map((dup) => (
+          <div key={dup} aria-hidden={dup === 1} className="marquee-seg flex shrink-0 gap-2.5">
+            {items.map((t) => (
+              <span key={t} className="whitespace-nowrap rounded-full border border-parchment bg-vellum px-4 py-1.5 text-body-sm text-graphite transition-[color,border-color,transform] duration-200 hover:-translate-y-0.5 hover:border-terra/40 hover:text-ink">{t}</span>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -708,10 +752,23 @@ function CtaButton({ href, variant, children }: { href: string; variant: "primar
     onDark: "border border-vellum/30 text-vellum hover:-translate-y-0.5 hover:bg-vellum/10 focus-visible:ring-offset-onyx motion-reduce:hover:translate-y-0",
   }[variant];
   return (
-    <Link href={href} className={`${base} ${styles}`}>
-      <span className="relative inline-flex items-center gap-2">{children}</span>
+    <Link href={href} className={`${base} ${styles}`} onMouseMove={magnetMove} onMouseLeave={magnetLeave}>
+      <span className="magnet relative inline-flex items-center gap-2">{children}</span>
     </Link>
   );
+}
+
+// 마그네틱 버튼 — 내용물(span)만 커서 쪽으로 최대 ±4px 끌림(버튼 자체는 고정, 레이아웃 불변).
+function magnetMove(e: MouseEvent<HTMLElement>) {
+  const el = e.currentTarget;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty("--mgx", `${(((e.clientX - r.left) / r.width - 0.5) * 8).toFixed(1)}px`);
+  el.style.setProperty("--mgy", `${(((e.clientY - r.top) / r.height - 0.5) * 6).toFixed(1)}px`);
+}
+
+function magnetLeave(e: MouseEvent<HTMLElement>) {
+  e.currentTarget.style.setProperty("--mgx", "0px");
+  e.currentTarget.style.setProperty("--mgy", "0px");
 }
 
 function CountUp({
@@ -881,7 +938,10 @@ const introStyles = `
   .hero-line { opacity: 0; transform: translateY(16px); animation: intro-rise 0.7s cubic-bezier(0.16,1,0.3,1) forwards; animation-delay: calc(var(--i,0)*100ms + 80ms); }
   @keyframes intro-rise { to { opacity: 1; transform: translateY(0); } }
 
-  .hero-gradient { background-image: linear-gradient(105deg, #d97757, #b85535 45%, #b85535 70%, #141413 95%); background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: intro-pan 7s ease-in-out infinite; }
+  /* 헤드라인 단어별 스태거 — blur+rise 캐스케이드. 그라디언트는 단어 단위(클리핑 안전, 미세 desync는 의도). */
+  .hero-word { display: inline-block; opacity: 0; transform: translateY(0.5em) scale(0.96) rotate(1.5deg); filter: blur(7px); animation: word-rise 0.85s cubic-bezier(0.16,1,0.3,1) calc(var(--w,0)*85ms + 160ms) forwards; will-change: transform, filter, opacity; }
+  @keyframes word-rise { 60% { filter: blur(0); } to { opacity: 1; transform: none; filter: blur(0); } }
+  .hero-word-grad { background-image: linear-gradient(105deg, #e0875f, #d97757 35%, #b85535 80%); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: word-rise 0.85s cubic-bezier(0.16,1,0.3,1) calc(var(--w,0)*85ms + 160ms) forwards, intro-pan 7s ease-in-out 1.2s infinite; }
   @keyframes intro-pan { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
   .stat-num { background-image: linear-gradient(120deg, #d97757, #b85535); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .step-num { background-image: linear-gradient(160deg, #9c9a92, #d97757); -webkit-background-clip: text; background-clip: text; color: transparent; transition: background-image 0.3s; }
@@ -950,6 +1010,25 @@ const introStyles = `
     0%, 100% { stroke-dashoffset: 15; opacity: 0.12; }
     45% { stroke-dashoffset: 0; opacity: 0.72; }
   }
+  /* 혜성 스트릭 — rotate 후 translateX(회전축 따라 사선 비행). 주기 중 0~13%만 보이고 나머지는 휴지. */
+  .comet { position: absolute; left: -12%; top: var(--ct, 20%); width: 170px; height: 2px; border-radius: 9999px; background: linear-gradient(90deg, transparent, rgba(217,119,87,0.55) 55%, #f2c9b8); box-shadow: 0 0 8px rgba(224,135,95,0.55); opacity: 0; transform: rotate(var(--ca,5deg)) translateX(0); animation: comet-fly var(--cdur,15s) cubic-bezier(0.3,0,0.7,1) var(--cdel,0s) infinite; will-change: transform, opacity; }
+  @keyframes comet-fly {
+    0% { opacity: 0; transform: rotate(var(--ca,5deg)) translateX(0); }
+    3% { opacity: 0.85; }
+    10% { opacity: 0.85; }
+    13%, 100% { opacity: 0; transform: rotate(var(--ca,5deg)) translateX(118vw); }
+  }
+
+  /* 스크롤 패럴랙스 — 배경은 느리게 내려가고 카피는 빠르게 떠오르며 페이드.
+   * @supports 게이트 필수: 미지원 브라우저에서 animation-timeline 없이 duration 0s + fill both로
+   * 최종 상태가 즉시 적용되는 사고 방지. */
+  @supports (animation-timeline: view()) {
+    .hero-parallax-bg { animation: hero-bg-drift linear both; animation-timeline: view(); animation-range: exit 0% exit 100%; }
+    .hero-parallax-copy { animation: hero-copy-drift linear both; animation-timeline: view(); animation-range: exit 0% exit 75%; }
+  }
+  @keyframes hero-bg-drift { to { transform: translateY(72px); opacity: 0.45; } }
+  @keyframes hero-copy-drift { to { transform: translateY(-46px); opacity: 0; } }
+
   .hero-pointer-glow {
     background: radial-gradient(26rem circle at var(--hx,50%) var(--hy,42%), rgba(217,119,87,0.16), rgba(242,201,184,0.08) 34%, transparent 70%);
     opacity: 0;
@@ -1065,6 +1144,21 @@ const introStyles = `
   .pipeline-rail.is-visible .rail-dot { animation: intro-rail-run 1.1s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
   @keyframes intro-rail-run { 0% { left: 0%; opacity: 0; } 8% { opacity: 1; } 100% { left: 100%; opacity: 1; } }
 
+  /* 태그 마키 벨트 — 동일 세그먼트 2벌을 -50% 이동으로 무한 순환(gap 10px 보정 -5px). hover 정지. */
+  .marquee-mask { overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 10%, #000 90%, transparent); }
+  .marquee-row { display: flex; width: max-content; gap: 10px; animation: marquee-l var(--mdur,40s) linear infinite; will-change: transform; }
+  .marquee-row.rev { animation-name: marquee-r; }
+  .marquee-mask:hover .marquee-row { animation-play-state: paused; }
+  @keyframes marquee-l { to { transform: translateX(calc(-50% - 5px)); } }
+  @keyframes marquee-r { from { transform: translateX(calc(-50% - 5px)); } to { transform: translateX(0); } }
+
+  /* 최종 CTA 회전 보더 — 프레임보다 큰 conic 레이어를 rotate(GPU). inset -150%로 회전 시 코너 공백 방지. */
+  .cta-frame .cta-spin { inset: -150%; background: conic-gradient(from 0deg, transparent 0deg 40deg, rgba(217,119,87,0.9) 75deg, rgba(242,201,184,0.95) 95deg, transparent 150deg 215deg, rgba(204,219,232,0.45) 260deg, transparent 320deg); animation: cta-rotate 9s linear infinite; will-change: transform; }
+  @keyframes cta-rotate { to { transform: rotate(360deg); } }
+
+  /* 마그네틱 버튼 — 내용물만 커서 쪽으로 미세 이동. */
+  .magnet { transform: translate(var(--mgx,0px), var(--mgy,0px)); transition: transform 0.18s ease-out; will-change: transform; }
+
   .scroll-cue { animation: intro-fade-late 0.6s ease-out 1.2s both; }
   .scroll-dot { animation: intro-scroll-dot 1.8s ease-in-out infinite; }
   @keyframes intro-fade-late { from { opacity: 0; } to { opacity: 1; } }
@@ -1167,7 +1261,8 @@ const introStyles = `
   @keyframes wf-nudge { 0%,100% { transform: translate(-50%,-50%); } 50% { transform: translate(calc(-50% + 8px),-50%); } }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero-line, .hero-gradient, .aurora, .aurora-dark, .blob, .pulse-dot::after, .pipeline-rail, .rail-dot,
+    .hero-line, .hero-word, .hero-word-grad, .aurora, .aurora-dark, .blob, .pulse-dot::after, .pipeline-rail, .rail-dot,
+    .comet, .marquee-row, .cta-spin, .hero-parallax-bg, .hero-parallax-copy,
     .scroll-cue, .scroll-dot, .shine::after, .field-dot, .field-links line, .hero-node, .node-pulse, .node-pulse::after, .node-label,
     .demo-input .typing, .demo-input .ghost, .demo-input .file-chip,
     .demo-extract .chip, .demo-match .md-on, .demo-match .md-scan, .demo-insight .bar,
@@ -1177,7 +1272,16 @@ const introStyles = `
       animation: none !important;
     }
     .hero-line { opacity: 1 !important; transform: none !important; }
-    .hero-gradient, .stat-num { -webkit-text-fill-color: #b85535; color: #b85535; }
+    .hero-word { opacity: 1 !important; transform: none !important; filter: none !important; }
+    .hero-word-grad, .stat-num { -webkit-text-fill-color: #b85535; color: #b85535; }
+    .comet { display: none !important; }
+    /* 마키 정지 → 한 벌만 정적 wrap으로 표시 */
+    .marquee-mask { mask-image: none !important; -webkit-mask-image: none !important; }
+    .marquee-row { width: 100% !important; justify-content: center; transform: none !important; }
+    .marquee-seg { flex-wrap: wrap; justify-content: center; }
+    .marquee-seg[aria-hidden="true"] { display: none !important; }
+    .magnet { transform: none !important; }
+    .hero-parallax-bg, .hero-parallax-copy { transform: none !important; opacity: 1 !important; }
     /* 데이터 필드: 드리프트 정지, 기본 opacity로 정적 표시. */
     .field-dot { transform: none !important; opacity: var(--op, 0.3) !important; }
     .field-links line { opacity: 0.16 !important; stroke-dashoffset: 0 !important; }

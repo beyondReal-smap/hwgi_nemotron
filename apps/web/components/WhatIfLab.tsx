@@ -187,6 +187,8 @@ export function WhatIfLab({
   const [result, setResult] = useState<WhatIfResponse | null>(null);
   const [recomputing, setRecomputing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 기본 접힘 — 헤더 클릭으로 펼침(요청)
+  const [expanded, setExpanded] = useState(false);
 
   // 디바운스 타이머 + in-flight 요청 취소용 컨트롤러. 경쟁 조건 방지.
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -290,33 +292,55 @@ export function WhatIfLab({
       }`}
       aria-busy={recomputing}
     >
-      {/* 헤더 */}
-      <header className="bg-ink text-snow px-4 py-3 sm:px-5 sm:py-4 flex items-start justify-between gap-3">
+      {/* 헤더 — 클릭 시 본문 접기/펼치기 토글 */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls="whatif-body"
+        className="w-full bg-ink text-snow px-4 py-3 sm:px-5 sm:py-4 flex items-center justify-between gap-3 text-left transition-colors motion-reduce:transition-none hover:bg-onyx focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-azure"
+      >
         <div>
           <h2 className="text-title text-snow">What-if 실험실</h2>
           <p className="text-body-sm text-snow/60 mt-1">
-            타겟·관심사를 바꾸면 100만 분포가 즉시 재계산됩니다 (임베딩 0콜)
+            타겟·관심사를 바꾸면 100만 분포가 즉시 재계산됩니다
           </p>
         </div>
-        {recomputing ? (
-          <span
-            className="shrink-0 inline-flex items-center gap-1.5 rounded-[5px] bg-snow/10 px-2 py-1 text-caption text-snow/70 animate-pulse motion-reduce:animate-none"
-            role="status"
-          >
+        <div className="flex items-center gap-3 shrink-0">
+          {recomputing ? (
             <span
-              className="inline-block w-1.5 h-1.5 rounded-full bg-marine"
-              aria-hidden
-            />
-            재계산 중
-          </span>
-        ) : elapsedTotal != null ? (
-          <span className="shrink-0 text-caption text-snow/45 num-tabular self-center">
-            재계산 {elapsedTotal}ms
-          </span>
-        ) : null}
-      </header>
+              className="inline-flex items-center gap-1.5 rounded-[5px] bg-snow/10 px-2 py-1 text-caption text-snow/70 animate-pulse motion-reduce:animate-none"
+              role="status"
+            >
+              <span
+                className="inline-block w-1.5 h-1.5 rounded-full bg-marine"
+                aria-hidden
+              />
+              재계산 중
+            </span>
+          ) : elapsedTotal != null ? (
+            <span className="text-caption text-snow/45 num-tabular">
+              재계산 {elapsedTotal}ms
+            </span>
+          ) : null}
+          {/* chevron — 펼침 시 180° 회전 */}
+          <svg
+            viewBox="0 0 24 24"
+            className={`w-5 h-5 text-snow/70 transition-transform motion-reduce:transition-none ${expanded ? "rotate-180" : ""}`}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </div>
+      </button>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_1fr] divide-y lg:divide-y-0 lg:divide-x divide-parchment">
+      {expanded && (
+      <div id="whatif-body" className="grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_1fr] divide-y lg:divide-y-0 lg:divide-x divide-parchment">
         {/* ===== 컨트롤 패널 ===== */}
         <div className="px-4 py-4 sm:px-5 sm:py-5 space-y-5 bg-snow/40">
           <div className="flex items-center justify-between">
@@ -391,12 +415,12 @@ export function WhatIfLab({
           {/* 카테고리 가중치 */}
           <fieldset className="space-y-2.5">
             <legend className="text-body-sm text-ink font-semibold">
-              관심사 가중치
+              관심사별 중요도
             </legend>
             <p className="text-caption text-dusty leading-relaxed">
               타겟을 좁히는 <span className="text-graphite">필터가 아니라</span>{" "}
-              <span className="text-graphite font-medium">친화 재배치</span>입니다. 가중치를 높이면
-              그 관심사에 친한 층의 점수가 오르고 먼 층은 내려갑니다. 그래서 상품과 잘 맞는
+              <span className="text-graphite font-medium">선호도 재조정</span>입니다. 중요도를 높이면
+              그 관심사에 가까운 층의 점수가 오르고 먼 층은 내려갑니다. 그래서 상품과 잘 맞는
               관심사일수록 타겟이 늘고, 무관한 관심사는 오히려 줄어들 수 있습니다.
             </p>
             {CATEGORY_KEYS.map((key) => (
@@ -459,6 +483,7 @@ export function WhatIfLab({
           <TopSegments segments={segments} />
         </div>
       </div>
+      )}
     </section>
   );
 }
@@ -605,7 +630,7 @@ function TopSegments({
               {seg.label}
             </span>
             <span className="shrink-0 inline-flex items-center rounded-[5px] bg-marine/15 px-2 py-0.5 text-caption font-semibold text-marine num-tabular">
-              {seg.lift_ratio.toFixed(1)}x
+              {seg.lift_ratio.toFixed(1)}배
             </span>
           </li>
         ))}

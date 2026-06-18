@@ -1,0 +1,36 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]:
+        - generic [ref=e7]: 2026 한화손해보험 바이브코딩 경진대회 · 본선
+        - heading "NVIDIA가 공개한 100만 한국인 데이터로, 우리 상품에 누가 반응할지 출시 전에 예측한다" [level=1] [ref=e8]:
+          - text: NVIDIA가 공개한 100만 한국인 데이터로,
+          - text: 우리 상품에 누가 반응할지 출시 전에 예측한다
+        - generic [ref=e9]: PersonaFit — 합성 페르소나 × 임베딩으로 만든 '출시 전 AI 포커스 그룹'
+        - generic [ref=e10]:
+          - generic [ref=e11]: 🇰🇷 합성 한국인 100만 명
+          - generic [ref=e12]: 🧠 한국어 임베딩 KURE-v1
+          - generic [ref=e13]: ⚡ 전수 매칭 84ms
+          - generic [ref=e14]: 🗺️ 252개 시군구
+      - generic [ref=e15]:
+        - generic [ref=e16]: 정직성
+        - generic [ref=e17]: 결과는 합성 페르소나 기준의 '반응 경향·타겟 적합도'이며 실제 가입 확률이 아닙니다. 실제 조사를 대체하지 않고 그 앞 단계에서 가설을 좁힙니다.
+      - generic [ref=e18]:
+        - generic [ref=e19]: ① 창의성
+        - generic [ref=e21]: ③ 문제해결
+    - text: → → → →
+  - generic [ref=e24]: 1 / 15
+  - generic [ref=e25]: ← → 이동 · N 발표 스크립트 · F 전체화면 · O 목차
+  - generic [ref=e27]:
+    - heading "PersonaFit — 데이터 × 임베딩 × 예측" [level=2] [ref=e28]
+    - paragraph [ref=e29]:
+      - text: 2026 한화손해보험 바이브코딩 경진대회 본선 · 발표 10분 + 라이브 시연 5분
+      - text: "서사: NVIDIA 100만 데이터 이해 → 임베딩 이해 → 우리 상품 반응 예측 (총 15장)"
+    - generic [ref=e30]:
+      - generic [ref=e31]: ← →
+      - generic [ref=e32]: Space 다음
+      - generic [ref=e33]: N 발표 스크립트
+      - generic [ref=e34]: F 전체화면
+      - generic [ref=e35]: O 목차
+    - button "발표 시작 ▶" [ref=e36] [cursor=pointer]
+    - paragraph [ref=e37]: 5번 슬라이드(의미 공간)는 상품 버튼을 누르면 반응 페르소나가 점화되는 라이브 도식입니다 — 시연 전 미리 한 번 눌러보세요.

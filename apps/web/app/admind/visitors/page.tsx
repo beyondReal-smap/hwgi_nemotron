@@ -8,6 +8,15 @@ type VisitRecord = {
   visitor_id: string | null;
   session_id: string | null;
   path: string | null;
+  event_type?: string | null;
+  action?: string | null;
+  target_tag?: string | null;
+  target_role?: string | null;
+  target_id?: string | null;
+  target_name?: string | null;
+  target_type?: string | null;
+  target_label?: string | null;
+  target_href?: string | null;
   page_title: string | null;
   referrer: string | null;
   language: string | null;
@@ -74,6 +83,45 @@ function pathCounts(items: VisitRecord[]) {
     .slice(0, 5);
 }
 
+function actionCounts(items: VisitRecord[]) {
+  const counts = new Map<string, number>();
+  for (const item of items) {
+    const key = item.action || item.event_type || "page_view";
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+}
+
+function actionLabel(item: VisitRecord) {
+  const action = item.action || item.event_type || "page_view";
+  switch (action) {
+    case "page_view":
+      return "페이지 조회";
+    case "click":
+      return "클릭";
+    case "submit":
+      return "제출";
+    case "change":
+      return "입력 변경";
+    default:
+      return action;
+  }
+}
+
+function targetSummary(item: VisitRecord) {
+  const parts = [
+    item.target_label,
+    item.target_href,
+    item.target_id ? `#${item.target_id}` : null,
+    item.target_name ? `name:${item.target_name}` : null,
+    item.target_type,
+    item.target_role || item.target_tag,
+  ].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "-";
+}
+
 export default function VisitorLogsPage() {
   const [limit, setLimit] = useState(200);
   const [data, setData] = useState<VisitResponse | null>(null);
@@ -109,7 +157,8 @@ export default function VisitorLogsPage() {
     const visitors = new Set(items.map((v) => v.visitor_id).filter(Boolean));
     const sessions = new Set(items.map((v) => v.session_id).filter(Boolean));
     const paths = pathCounts(items);
-    return { visitors: visitors.size, sessions: sessions.size, paths };
+    const actions = actionCounts(items);
+    return { visitors: visitors.size, sessions: sessions.size, paths, actions };
   }, [data]);
 
   return (
@@ -171,11 +220,12 @@ export default function VisitorLogsPage() {
         <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="overflow-hidden rounded-[9.6px] border border-parchment bg-snow">
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full border-collapse text-left">
+              <table className="min-w-[1120px] w-full border-collapse text-left">
                 <thead className="border-b border-parchment bg-vellum/70">
                   <tr className="text-caption text-dusty">
                     <th className="px-3 py-3 font-medium">시각</th>
                     <th className="px-3 py-3 font-medium">경로</th>
+                    <th className="px-3 py-3 font-medium">액션</th>
                     <th className="px-3 py-3 font-medium">방문자</th>
                     <th className="px-3 py-3 font-medium">세션</th>
                     <th className="px-3 py-3 font-medium">IP</th>
@@ -196,6 +246,12 @@ export default function VisitorLogsPage() {
                             {item.page_title}
                           </p>
                         )}
+                      </td>
+                      <td className="px-3 py-3">
+                        <p className="font-medium text-ink">{actionLabel(item)}</p>
+                        <p className="mt-1 max-w-[260px] truncate text-caption text-dusty">
+                          {targetSummary(item)}
+                        </p>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 font-mono text-caption">
                         {shortId(item.visitor_id)}
@@ -227,7 +283,7 @@ export default function VisitorLogsPage() {
                   ))}
                   {!loading && (data?.items.length ?? 0) === 0 && (
                     <tr>
-                      <td colSpan={7} className="px-3 py-10 text-center text-body-sm text-dusty">
+                      <td colSpan={8} className="px-3 py-10 text-center text-body-sm text-dusty">
                         표시할 방문 로그가 없습니다.
                       </td>
                     </tr>
@@ -250,6 +306,22 @@ export default function VisitorLogsPage() {
               ))}
               {stats.paths.length === 0 && (
                 <p className="text-body-sm text-dusty">집계할 경로가 없습니다.</p>
+              )}
+            </div>
+            <h2 className="mt-7 text-heading text-ink">상위 액션</h2>
+            <div className="mt-4 flex flex-col gap-3">
+              {stats.actions.map(([action, count]) => (
+                <div key={action} className="flex items-center justify-between gap-3">
+                  <span className="min-w-0 truncate text-body-sm text-graphite">
+                    {actionLabel({ action } as VisitRecord)}
+                  </span>
+                  <span className="shrink-0 rounded-full bg-vellum px-2 py-0.5 font-mono text-caption text-ink">
+                    {count}
+                  </span>
+                </div>
+              ))}
+              {stats.actions.length === 0 && (
+                <p className="text-body-sm text-dusty">집계할 액션이 없습니다.</p>
               )}
             </div>
           </aside>

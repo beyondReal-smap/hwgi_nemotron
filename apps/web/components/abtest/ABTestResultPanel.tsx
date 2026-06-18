@@ -97,6 +97,9 @@ export function ABTestResultPanel({ result }: Props) {
         inputMode={input_mode}
       />
 
+      {/* 인구통계 분포 비교 — 각 안의 타겟층 기준 (현황·분석과 동일한 차트 카드) */}
+      <DemographicComparisonSection a={variant_a} b={variant_b} />
+
       {/* 카테고리 성향 차이 — 버려지던 category_diff 시각화(빈 객체/전부 0이면 자동 스킵) */}
       <CategoryDivergence
         categoryDiff={comparison.category_diff}
@@ -120,9 +123,6 @@ export function ABTestResultPanel({ result }: Props) {
         labelA={variant_a.label}
         labelB={variant_b.label}
       />
-
-      {/* 인구통계 분포 비교 — 각 안의 타겟층 기준 (현황·분석과 동일한 차트 카드) */}
-      <DemographicComparisonSection a={variant_a} b={variant_b} />
 
       {/* 당사 관점 장단점 */}
       <MarkdownSection
@@ -261,16 +261,16 @@ function RecommendationCard({
     : overlap.relation === "complementary"
       ? {
           icon: "🧩",
-          text: `반응층 겹침이 낮습니다(Jaccard ${overlapPct}%) — 서로 다른 고객층이라 분기 운영 시 시장이 확장됩니다.`,
+          text: `반응층 겹침이 낮습니다(${overlapPct}%) — 서로 다른 고객층이라 분기 운영 시 시장이 확장됩니다.`,
         }
       : overlap.relation === "cannibal"
         ? {
             icon: "⚠️",
-            text: `두 안이 같은 반응층을 노립니다(Jaccard ${overlapPct}%) — 동시 운영 시 잠식 우려가 있어 하나로 통합하는 편이 효율적입니다.`,
+            text: `두 안이 같은 반응층을 노립니다(${overlapPct}%) — 동시 운영 시 잠식 우려가 있어 하나로 통합하는 편이 효율적입니다.`,
           }
         : {
             icon: "◐",
-            text: `반응층이 부분적으로 겹칩니다(Jaccard ${overlapPct}%).`,
+            text: `반응층이 부분적으로 겹칩니다(${overlapPct}%).`,
           };
 
   return (
@@ -567,7 +567,7 @@ function cohortModeHint(
     return { text: `점수 ≥${c.threshold_absolute.toFixed(0)}`, tone: "absolute" };
   }
   if (c.mode === "percentile" && c.percentile !== undefined) {
-    return { text: `상위 ${c.percentile}% 폴백`, tone: "percentile" };
+    return { text: `상위 ${c.percentile}% 자동 조정`, tone: "percentile" };
   }
   return undefined;
 }
@@ -615,8 +615,8 @@ function Stat({
           }`}
           title={
             hint.tone === "percentile"
-              ? "절대 컷(임계 점수↑) 인원이 부족해 모집단 상위 percentile로 폴백된 cohort"
-              : "절대 점수 컷이 그대로 적용된 cohort"
+              ? "기준 점수를 넘는 인원이 부족해 전체에서 상위 비율로 자동 조정된 그룹"
+              : "기준 점수가 그대로 적용된 그룹"
           }
         >
           {hint.text}

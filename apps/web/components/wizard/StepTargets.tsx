@@ -220,19 +220,34 @@ export function StepTargets({
               아직 저장된 세그먼트가 없습니다. /personas에서 페르소나 선택 후 저장할 수 있습니다.
             </p>
           ) : (
-            <select
-              value={state.targets.loaded_segment_id ?? ""}
-              onChange={(e) => loadSegment(e.target.value)}
-              className="w-full px-3 py-2 bg-snow border border-onyx/15 rounded-[9.6px]
-                         text-body-sm text-ink focus:outline-none focus:ring-2 focus:ring-azure"
-            >
-              <option value="">— 세그먼트 선택 —</option>
-              {segments.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.size.toLocaleString()}명)
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={state.targets.loaded_segment_id ?? ""}
+                onChange={(e) => loadSegment(e.target.value)}
+                className="w-full appearance-none px-3 pr-9 py-2 bg-snow border border-onyx/15 rounded-[9.6px]
+                           text-body-sm text-ink focus:outline-none focus:ring-2 focus:ring-azure"
+              >
+                <option value="">— 세그먼트 선택 —</option>
+                {segments.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.size.toLocaleString()}명)
+                  </option>
+                ))}
+              </select>
+              {/* 커스텀 드롭다운 화살표 — 우측 끝에서 왼쪽으로 약간(right-3.5) 띄움 */}
+              <svg
+                aria-hidden
+                className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-graphite"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
           )}
         </SubCard>
 
@@ -348,8 +363,8 @@ export function StepTargets({
               />
               {state.targets.sample_size >= 500 && (
                 <p className="text-caption text-terra mt-1">
-                  ⚠ {state.targets.sample_size.toLocaleString()}명 × 질문 N개 = LLM 호출
-                  매우 많음 (시뮬레이션에 수십 분~수 시간 소요 가능)
+                  ⚠ {state.targets.sample_size.toLocaleString()}명 × 질문 N개 = AI 응답 생성이
+                  매우 많아 시뮬레이션에 수십 분~수 시간 소요될 수 있습니다
                 </p>
               )}
             </div>

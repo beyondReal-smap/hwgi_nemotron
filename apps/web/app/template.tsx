@@ -2,7 +2,7 @@
  * App Router template — 라우트 변경마다 새 인스턴스로 마운트되므로
  * 페이지 전환 시 mount 애니메이션이 매번 발화한다.
  *
- * 방향 결정: 헤더의 탭 순서(/overview → /personas → / → /abtest → /surveys) 기준.
+ * 방향 결정: 헤더의 탭 순서(/overview → /personas → /analyze → /abtest → /cannibal → /surveys) 기준.
  *  - 더 오른쪽 탭으로 이동: 우측에서 슬라이드 인 (anim-page-enter-right)
  *  - 더 왼쪽 탭으로 이동: 좌측에서 슬라이드 인 (anim-page-enter-left)
  *  - 같은 탭 내 sub-path 이동 또는 첫 진입: 기본 우측 슬라이드
@@ -20,8 +20,9 @@ import { usePathname } from "next/navigation";
 const TAB_INDEX: { match: (p: string) => boolean; index: number }[] = [
   { match: (p) => p.startsWith("/overview"), index: 0 },
   { match: (p) => p.startsWith("/personas"), index: 1 },
-  { match: (p) => p.startsWith("/surveys"), index: 4 }, // /surveys 먼저 매칭해야 /survey와 충돌 안 함
+  { match: (p) => p.startsWith("/surveys"), index: 5 }, // /surveys 먼저 매칭해야 /survey와 충돌 안 함
   { match: (p) => p.startsWith("/abtest"), index: 3 },
+  { match: (p) => p.startsWith("/cannibal"), index: 4 }, // 겹침 분석 (A/B와 설문 사이)
   { match: (p) => p.startsWith("/analyze") || p.startsWith("/survey"), index: 2 }, // 분석 탭 (단수 /survey 포함)
 ];
 

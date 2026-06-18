@@ -9,6 +9,9 @@ const TABS: { value: ResultTab; label: string; sub: string }[] = [
   { value: "exclusive", label: "전용층", sub: "고유 반응층" },
 ];
 
+/** 탭 좌→우 순서 (SSOT) — 콘텐츠 슬라이드 방향 계산에 사용. */
+export const RESULT_TAB_ORDER: ResultTab[] = TABS.map((t) => t.value);
+
 /** 겹침 분석 결과 보기 탭 — abtest ModeTabs 패턴(슬라이딩 pill). */
 export function ResultTabs({
   value,

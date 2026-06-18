@@ -50,11 +50,46 @@ def test_track_visit_stores_ip_and_hash(tmp_path, monkeypatch) -> None:
     record = json.loads(text)
     assert record["event_id"] == response.json()["event_id"]
     assert record["path"] == "/intro"
+    assert record["event_type"] == "page_view"
+    assert record["action"] == "page_view"
     assert record["visitor_id"] == "visitor_1"
     # X-Forwarded-For 첫 값(클라이언트)만 채택 — 프록시 체인 뒷단은 버린다.
     assert record["ip"] == "203.0.113.9"
     assert record["ip_hash"]
     assert record["user_agent"] == "pytest-browser"
+
+
+def test_track_visit_stores_action_details(tmp_path, monkeypatch) -> None:
+    log_path = tmp_path / "visitors.jsonl"
+    monkeypatch.setenv("VISITORS_LOG", str(log_path))
+
+    app = FastAPI()
+    app.include_router(router)
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/visitors/track",
+        json={
+            "visitor_id": "visitor_1",
+            "session_id": "session_1",
+            "path": "/analyze",
+            "event_type": "click",
+            "action": "click",
+            "target_tag": "button",
+            "target_role": "button",
+            "target_type": "submit",
+            "target_label": "분석 실행",
+        },
+    )
+
+    assert response.status_code == 200
+    record = json.loads(log_path.read_text(encoding="utf-8"))
+    assert record["event_type"] == "click"
+    assert record["action"] == "click"
+    assert record["target_tag"] == "button"
+    assert record["target_role"] == "button"
+    assert record["target_type"] == "submit"
+    assert record["target_label"] == "분석 실행"
 
 
 def test_list_visits_requires_admin_token(tmp_path, monkeypatch) -> None:
